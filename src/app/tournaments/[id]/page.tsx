@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { Team, Player, Match } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -22,7 +22,7 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CrestIcon } from '@/components/ui/crest-icon';
 
@@ -103,10 +103,33 @@ export default function TournamentDetailPage() {
     return [{ name: 'Clasificación General', standings: calculateStandings(participants) }];
   }, [tournament, participants]);
 
-  const dualStandings = useMemo(() => {
+  const groupedDualStandings = useMemo(() => {
     if (!tournament || !tournament.dualLeagueEnabled) return [];
-    return [{ name: 'Liga Dual (Reservas)', standings: calculateStandings(participants, true) }];
+    if (tournament.leagueType === 'groups' && tournament.groups) {
+      return tournament.groups.map(group => ({
+        name: `Dual: ${group.name}`,
+        standings: calculateStandings(participants.filter(p => group.participantIds.includes(p.id)), true)
+      }));
+    }
+    return [{ name: 'Clasificación Liga Dual', standings: calculateStandings(participants, true) }];
   }, [tournament, participants]);
+
+  const rivalStats = useMemo(() => {
+    if (!selectedMatch || !tournament) return null;
+    const rivalId = selectedMatch.homeId === tournament.managedParticipantId ? selectedMatch.awayId : selectedMatch.homeId;
+    
+    for (const group of groupedStandings) {
+      const idx = group.standings.findIndex(s => s.id === rivalId);
+      if (idx !== -1) {
+        return { 
+          pos: idx + 1, 
+          data: group.standings[idx],
+          totalInGroup: group.standings.length 
+        };
+      }
+    }
+    return null;
+  }, [selectedMatch, tournament, groupedStandings]);
 
   if (!tournament) return <div className="p-20 text-center font-black">TOURNAMENT NOT FOUND</div>;
 
@@ -129,7 +152,6 @@ export default function TournamentDetailPage() {
       aScore = targetSum - hScore;
     }
 
-    // Assign generic best players for simulation
     const homePlayers = players.filter(p => p.teamId === m.homeId).sort((a, b) => b.monetaryValue - a.monetaryValue);
     const awayPlayers = players.filter(p => p.teamId === m.awayId).sort((a, b) => b.monetaryValue - a.monetaryValue);
     
@@ -154,7 +176,6 @@ export default function TournamentDetailPage() {
     const { hScore, aScore, hPlayerId, aPlayerId } = simulateMatchLogic(m, isDual);
     resolveMatch(tournament.id, m.id, hScore, aScore, isDual, hPlayerId, aPlayerId);
     
-    // Auto-resolve dual if it was a primary match simulation
     if (!isDual && tournament.dualLeagueEnabled) {
       const dm = tournament.dualLeagueMatches.find(d => d.matchday === m.matchday && d.homeId === m.awayId && d.awayId === m.homeId);
       if (dm && !dm.isSimulated) {
@@ -390,7 +411,6 @@ export default function TournamentDetailPage() {
                                 "grid grid-cols-[1fr_auto_1fr_auto] items-center gap-6 p-6 rounded-3xl border transition-all",
                                 m.isSimulated ? "bg-muted/5 opacity-60" : "bg-card shadow-lg hover:shadow-2xl hover:border-primary/30"
                               )}>
-                                {/* LOCAL */}
                                 <div className="flex flex-col items-center gap-2">
                                   <CrestIcon 
                                     shape={homeTeam.emblemShape} 
@@ -403,7 +423,6 @@ export default function TournamentDetailPage() {
                                   <span className="font-black text-lg">{homeTeam.abbreviation}</span>
                                 </div>
 
-                                {/* SCORE */}
                                 <div className="flex items-center gap-3 px-6">
                                   <div className={cn(
                                     "w-12 h-12 flex items-center justify-center rounded-xl font-black text-xl border-2",
@@ -420,7 +439,6 @@ export default function TournamentDetailPage() {
                                   </div>
                                 </div>
 
-                                {/* VISITANTE */}
                                 <div className="flex flex-col items-center gap-2">
                                   <CrestIcon 
                                     shape={awayTeam.emblemShape} 
@@ -433,7 +451,6 @@ export default function TournamentDetailPage() {
                                   <span className="font-black text-lg">{awayTeam.abbreviation}</span>
                                 </div>
 
-                                {/* ACTIONS */}
                                 <div className="pl-4 border-l border-muted/20">
                                   {!m.isSimulated && (
                                     <Button 
@@ -463,7 +480,7 @@ export default function TournamentDetailPage() {
           <TabsContent value="dual" className="space-y-8">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2 space-y-8">
-                {dualStandings.map((group, gIdx) => (
+                {groupedDualStandings.map((group, gIdx) => (
                   <Card key={gIdx} className="border-none bg-card shadow-2xl rounded-[3rem] overflow-hidden">
                     <CardHeader className="bg-accent/10 border-b p-8">
                       <div className="flex items-center gap-3">
@@ -641,12 +658,12 @@ export default function TournamentDetailPage() {
         </TabsContent>
       </Tabs>
 
-      {/* ARCADE MATCH PREVIEW DIALOG */}
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <DialogContent className="max-w-4xl p-0 overflow-hidden rounded-[2.5rem] border-none shadow-2xl bg-card">
           {selectedMatch && (
             <div className="flex flex-col h-[85vh]">
               <div className="p-8 bg-primary text-primary-foreground flex flex-col items-center gap-6">
+                <DialogTitle className="sr-only">Previa del Encuentro Arcade</DialogTitle>
                 <div className="flex items-center gap-12">
                   <div className="flex flex-col items-center gap-2">
                     <div className="w-24 h-24 bg-primary-foreground/10 rounded-3xl flex items-center justify-center border-2 border-dashed border-primary-foreground/30">
@@ -668,7 +685,7 @@ export default function TournamentDetailPage() {
               </div>
 
               <div className="flex-1 overflow-y-auto p-8 space-y-8">
-                <div className="grid grid-cols-2 gap-12">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                   <div className="space-y-4">
                     <h4 className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2">
                       <Star className="w-3 h-3" /> Perfil del Rival
@@ -677,19 +694,39 @@ export default function TournamentDetailPage() {
                       const rivalId = selectedMatch.homeId === tournament.managedParticipantId ? selectedMatch.awayId : selectedMatch.homeId;
                       const rival = teams.find(t => t.id === rivalId);
                       return rival ? (
-                        <div className="bg-muted/10 p-6 rounded-3xl border space-y-4">
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs font-black uppercase">Rating Global</span>
-                            <span className="text-xl font-black text-primary">{rival.rating}</span>
+                        <div className="bg-muted/10 p-6 rounded-3xl border space-y-6">
+                          <div className="flex justify-between items-center border-b pb-4">
+                            <div>
+                              <p className="text-[10px] font-black uppercase text-muted-foreground">Posición Tabla</p>
+                              <p className="text-2xl font-black text-primary">#{rivalStats?.pos || '?'} <span className="text-sm text-muted-foreground">/ {rivalStats?.totalInGroup}</span></p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-[10px] font-black uppercase text-muted-foreground">Puntos</p>
+                              <p className="text-2xl font-black">{rivalStats?.data?.pts || 0}</p>
+                            </div>
                           </div>
+                          
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-card p-3 rounded-xl border text-center">
+                              <p className="text-[9px] font-black uppercase opacity-50">Victorias</p>
+                              <p className="text-lg font-black text-green-500">{rivalStats?.data?.won || 0}</p>
+                            </div>
+                            <div className="bg-card p-3 rounded-xl border text-center">
+                              <p className="text-[9px] font-black uppercase opacity-50">Diferencia</p>
+                              <p className={cn("text-lg font-black", (rivalStats?.data?.gd || 0) >= 0 ? "text-accent" : "text-destructive")}>
+                                {(rivalStats?.data?.gd || 0) > 0 ? '+' : ''}{rivalStats?.data?.gd || 0}
+                              </p>
+                            </div>
+                          </div>
+
                           <div className="space-y-2">
-                            <div className="flex justify-between text-[10px] font-bold text-muted-foreground">
-                              <span>CAPACIDAD SEDE</span>
-                              <span>{rival.venueCapacity.toLocaleString()}</span>
+                            <div className="flex justify-between items-center text-[10px] font-bold">
+                              <span className="text-muted-foreground">RATING GLOBAL</span>
+                              <Badge className="bg-primary/20 text-primary border-none">{rival.rating}</Badge>
                             </div>
                             <div className="flex justify-between text-[10px] font-bold text-muted-foreground">
-                              <span>SUPERFICIE</span>
-                              <span className="uppercase">{rival.venueSurface}</span>
+                              <span>SUPERFICIE SEDE</span>
+                              <span className="uppercase text-foreground">{rival.venueSurface}</span>
                             </div>
                           </div>
                         </div>
@@ -702,25 +739,30 @@ export default function TournamentDetailPage() {
                       <UserCircle2 className="w-3 h-3" /> Selección de Protagonista
                     </h4>
                     <p className="text-xs text-muted-foreground leading-relaxed">
-                      Elige al jugador que liderará el equipo en este encuentro. Su valoración influirá directamente en las probabilidades de éxito.
+                      Elige al jugador que liderará el equipo. Su valor técnico aportará un bono crucial al resultado final.
                     </p>
-                    <ScrollArea className="h-48 rounded-2xl border bg-muted/5 p-4">
+                    <ScrollArea className="h-64 rounded-2xl border bg-muted/5 p-4">
                       <div className="grid gap-2">
                         {players.filter(p => p.teamId === tournament.managedParticipantId).map(p => (
                           <Button
                             key={p.id}
                             variant={selectedPlayerId === p.id ? "default" : "outline"}
                             className={cn(
-                              "justify-between h-12 rounded-xl border-none font-bold",
-                              selectedPlayerId === p.id ? "bg-accent text-white" : "bg-card"
+                              "justify-between h-14 rounded-xl border-none font-bold group",
+                              selectedPlayerId === p.id ? "bg-accent text-white" : "bg-card hover:bg-accent/10"
                             )}
                             onClick={() => setSelectedPlayerId(p.id)}
                           >
-                            <span className="flex items-center gap-2">
-                              <Badge variant="outline" className="text-[9px] font-black">{p.position}</Badge>
-                              {p.name}
+                            <span className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-lg bg-muted/20 flex items-center justify-center font-black text-[9px] group-hover:bg-accent/20">
+                                {p.position}
+                              </div>
+                              <span className="truncate max-w-[120px]">{p.name}</span>
                             </span>
-                            <span className="text-[10px] font-black">{p.monetaryValue.toLocaleString()} {settings.currency}</span>
+                            <div className="flex flex-col items-end">
+                              <span className="text-[10px] font-black">{p.monetaryValue.toLocaleString()} {settings.currency}</span>
+                              <span className="text-[8px] opacity-50">Dorsal #{p.jerseyNumber}</span>
+                            </div>
                           </Button>
                         ))}
                       </div>
