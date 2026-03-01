@@ -31,7 +31,7 @@ const defaultSettings: GlobalSettings = {
     'MF': '#10b981',
     'FW': '#ef4444'
   },
-  attributeNames: ['Power', 'Speed', 'Technique', 'Defense', 'Mental'],
+  attributeNames: ['Poder', 'Velocidad', 'Técnica', 'Defensa', 'Mental'],
   theme: 'dark',
 };
 
@@ -47,7 +47,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   const { user } = useUser();
   const db = useFirestore();
 
-  // Load initial data from LocalStorage
   useEffect(() => {
     const saved = localStorage.getItem('tourneycraft-store');
     if (saved) {
@@ -59,20 +58,16 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
           secondaryColor: t.secondaryColor || '#ffffff',
           uniformStyle: t.uniformStyle || 'solid',
           emblemShape: t.emblemShape || 'shield',
-          venueName: t.venueName || 'Main Arena',
+          venueName: t.venueName || 'Arena Principal',
           venueCapacity: t.venueCapacity || 5000,
-          venueSurface: t.venueSurface || 'hardcourt'
+          venueSurface: t.venueSurface || 'hardcourt',
+          venueSize: t.venueSize || 'medium'
         }));
         
         setTeams(migratedTeams);
         setPlayers(parsed.players || []);
         setTournaments(parsed.tournaments || []);
-        
-        const baseSettings = parsed.settings || defaultSettings;
-        if (!['dark', 'midnight', 'obsidian', 'light', 'nord', 'retro'].includes(baseSettings.theme)) {
-          baseSettings.theme = 'dark';
-        }
-        setSettings(baseSettings);
+        setSettings(parsed.settings || defaultSettings);
       } catch (e) {
         console.error("Failed to parse local storage", e);
       }
@@ -80,7 +75,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     setIsLoaded(true);
   }, []);
 
-  // Sync from Cloud only on auth change or initial load
   useEffect(() => {
     if (user && db && isLoaded) {
       const userDocRef = doc(db, 'users', user.uid, 'backups', 'latest');
@@ -97,14 +91,12 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     }
   }, [user?.uid, db, isLoaded]);
 
-  // Separate Effect for Theme - This prevents UI lag when other data changes
   useEffect(() => {
     if (isLoaded) {
       document.documentElement.className = settings.theme || 'dark';
     }
   }, [settings.theme, isLoaded]);
 
-  // Optimized background saving
   useEffect(() => {
     if (isLoaded) {
       const timer = setTimeout(() => {
@@ -119,7 +111,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
             ownerId: user.uid
           }, { merge: true });
         }
-      }, 500); // Debounce saves to reduce main thread load
+      }, 500);
 
       return () => clearTimeout(timer);
     }

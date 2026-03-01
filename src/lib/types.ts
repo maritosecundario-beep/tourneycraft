@@ -17,6 +17,7 @@ export type Player = {
 export type UniformStyle = 'solid' | 'stripes' | 'hoops' | 'halves' | 'gradient' | 'minimal';
 export type EmblemShape = 'shield' | 'circle' | 'square' | 'modern' | 'diamond';
 export type VenueSurface = 'grass' | 'artificial' | 'clay' | 'hardcourt' | 'parquet' | 'ice' | 'sand';
+export type VenueSize = 'small' | 'medium' | 'large' | 'monumental';
 
 export type Team = {
   id: string;
@@ -31,6 +32,7 @@ export type Team = {
   venueName: string;
   venueCapacity: number;
   venueSurface: VenueSurface;
+  venueSize: VenueSize;
   players: Player[];
 };
 
