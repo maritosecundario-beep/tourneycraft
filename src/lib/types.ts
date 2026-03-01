@@ -13,7 +13,7 @@ export type Player = {
   attributes: PlayerAttribute[];
   teamId?: string;
   suspensionMatchdays: number;
-  // Kit Configuration
+  // Kit Configuration (Exclusivo agentes libres)
   uniformStyle: UniformStyle;
   kitPrimary: string;
   kitSecondary: string;

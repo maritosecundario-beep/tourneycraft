@@ -21,7 +21,7 @@ import { CrestIcon } from '@/components/ui/crest-icon';
 
 export default function TournamentDetailPage() {
   const { id } = useParams();
-  const { tournaments, teams, players, updateTournament, settings, applySanction, transferPlayer, resolveMatch, generateSchedule, triggerMarketMoves, advanceSeason, createKnockoutFromStandings } = useTournamentStore();
+  const { tournaments, teams, players, updateTournament, settings, applySanction, resolveMatch, triggerMarketMoves, advanceSeason, createKnockoutFromStandings } = useTournamentStore();
   const { toast } = useToast();
   
   const [sanctionTargetId, setSanctionTargetId] = useState('');
@@ -58,9 +58,9 @@ export default function TournamentDetailPage() {
           const myScore = isHome ? m.homeScore : m.awayScore;
           const opScore = isHome ? m.awayScore : m.homeScore;
           gf += myScore; ga += opScore;
-          if (myScore > opScore) { won++; pts += tournament.winPoints || 1; }
-          else if (myScore < opScore) { lost++; pts += tournament.lossPoints || 0; }
-          else pts += tournament.drawPoints || 0;
+          if (myScore > opScore) { won++; pts += tournament.winPoints; }
+          else if (myScore < opScore) { lost++; pts += tournament.lossPoints; }
+          else pts += tournament.drawPoints;
         }
       });
       return { ...item, played, won, lost, gf, ga, gd: gf - ga, pts };
@@ -81,6 +81,7 @@ export default function TournamentDetailPage() {
     let hScore = 0, aScore = 0;
     const rule = tournament?.scoringRuleType;
     const val = tournament?.scoringValue || 9;
+    
     if (rule === 'bestOfN') {
       hScore = Math.floor(Math.random() * (val + 1));
       aScore = val - hScore;
@@ -88,6 +89,7 @@ export default function TournamentDetailPage() {
       hScore = Math.floor(Math.random() * 5);
       aScore = Math.floor(Math.random() * 5);
     }
+    
     const hPlayers = players.filter(p => p.teamId === m.homeId).sort((a, b) => b.monetaryValue - a.monetaryValue);
     const aPlayers = players.filter(p => p.teamId === m.awayId).sort((a, b) => b.monetaryValue - a.monetaryValue);
     
@@ -142,8 +144,8 @@ export default function TournamentDetailPage() {
       const { hScore, aScore, hPlayerId, aPlayerId } = simulateMatchLogic(m);
       resolveMatch(tournament.id, m.id, hScore, aScore, false, hPlayerId, aPlayerId);
       if (tournament.dualLeagueEnabled) {
-        const mirror = tournament.dualLeagueMatches.find(x => x.matchday === m.matchday && x.homeId === m.awayId);
-        if (mirror) {
+        const mirror = tournament.dualLeagueMatches.find(x => x.matchday === m.matchday && (x.homeId === m.homeId || x.awayId === m.homeId));
+        if (mirror && !mirror.isSimulated) {
           const { hScore: mh, aScore: ma, hPlayerId: hp, aPlayerId: ap } = simulateMatchLogic(mirror, true);
           resolveMatch(tournament.id, mirror.id, mh, ma, true, hp, ap);
         }
@@ -229,8 +231,8 @@ export default function TournamentDetailPage() {
                   </TableHeader>
                   <TableBody>
                     {standings.map((item, idx) => {
-                      const isPlayoff = idx < tournament.playoffSpots;
-                      const isRelegation = idx >= (standings.length - tournament.relegationSpots);
+                      const isPlayoff = idx < (tournament.playoffSpots || 0);
+                      const isRelegation = idx >= (standings.length - (tournament.relegationSpots || 0));
                       return (
                         <TableRow 
                           key={item.id} 
@@ -269,18 +271,24 @@ export default function TournamentDetailPage() {
             <div className="divide-y divide-muted/10 space-y-8">
               {Array.from({ length: tournament.matches.length > 0 ? Math.max(...tournament.matches.map(m => m.matchday)) : 0 }).map((_, i) => (
                 <div key={i} className="pt-8 first:pt-0">
-                  <header className="flex justify-between items-center mb-6"><h3 className="font-black uppercase text-accent tracking-widest">JORNADA {i+1}</h3></header>
+                  <header className="flex justify-between items-center mb-6"><h3 className="font-black uppercase text-accent tracking-widest text-sm">JORNADA {i+1}</h3></header>
                   <div className="space-y-4 max-w-2xl mx-auto">
                     {tournament.matches.filter(m => m.matchday === i+1).map(m => {
                       const h = teams.find(t => t.id === m.homeId);
                       const a = teams.find(t => t.id === m.awayId);
                       if(!h || !a) return null;
                       return (
-                        <div key={m.id} className={cn("grid grid-cols-[1fr_auto_1fr_auto] items-center gap-6 p-6 rounded-[2rem] border shadow-lg", m.isSimulated && "opacity-60")}>
-                          <div className="flex flex-col items-center gap-2 overflow-hidden"><CrestIcon shape={h.emblemShape} pattern={h.emblemPattern} c1={h.crestPrimary} c2={h.crestSecondary} c3={h.crestTertiary || h.crestSecondary} size="w-12 h-12" /><span className="font-black text-lg">{h.abbreviation}</span></div>
-                          <div className="flex items-center gap-3 px-6"><div className="w-12 h-12 flex items-center justify-center rounded-xl font-black text-2xl border-2">{m.homeScore ?? '-'}</div><span className="font-black opacity-30 text-2xl">:</span><div className="w-12 h-12 flex items-center justify-center rounded-xl font-black text-2xl border-2">{m.awayScore ?? '-'}</div></div>
-                          <div className="flex flex-col items-center gap-2 overflow-hidden"><CrestIcon shape={a.emblemShape} pattern={a.emblemPattern} c1={a.crestPrimary} c2={a.crestSecondary} c3={a.crestTertiary || a.crestSecondary} size="w-12 h-12" /><span className="font-black text-lg">{a.abbreviation}</span></div>
-                          <div className="pl-4 border-l">{!m.isSimulated && <Button size="icon" variant="ghost" className="text-primary" onClick={() => handleSimulateSingleMatch(m.id)}><Zap className="w-5 h-5 fill-current" /></Button>}</div>
+                        <div key={m.id} className={cn("grid grid-cols-[1fr_auto_1fr_auto] items-center gap-4 p-4 rounded-2xl border shadow-md", m.isSimulated && "opacity-60")}>
+                          <div className="flex items-center gap-3 overflow-hidden">
+                            <CrestIcon shape={h.emblemShape} pattern={h.emblemPattern} c1={h.crestPrimary} c2={h.crestSecondary} c3={h.crestTertiary || h.crestSecondary} size="w-8 h-8" />
+                            <span className="font-black text-lg">{h.abbreviation}</span>
+                          </div>
+                          <div className="flex items-center gap-2 px-4"><div className="w-10 h-10 flex items-center justify-center rounded-lg font-black text-xl border-2">{m.homeScore ?? '-'}</div><span className="font-black opacity-30 text-xl">:</span><div className="w-10 h-10 flex items-center justify-center rounded-lg font-black text-xl border-2">{m.awayScore ?? '-'}</div></div>
+                          <div className="flex items-center gap-3 justify-end overflow-hidden">
+                            <span className="font-black text-lg">{a.abbreviation}</span>
+                            <CrestIcon shape={a.emblemShape} pattern={a.emblemPattern} c1={a.crestPrimary} c2={a.crestSecondary} c3={a.crestTertiary || a.crestSecondary} size="w-8 h-8" />
+                          </div>
+                          <div className="pl-4 border-l">{!m.isSimulated && <Button size="icon" variant="ghost" className="text-primary h-8 w-8" onClick={() => handleSimulateSingleMatch(m.id)}><Zap className="w-4 h-4 fill-current" /></Button>}</div>
                         </div>
                       );
                     })}
@@ -294,15 +302,15 @@ export default function TournamentDetailPage() {
         <TabsContent value="dual" className="space-y-8">
           <Card className="border-none bg-card shadow-2xl rounded-[3rem] p-8">
             <header className="mb-8"><h2 className="text-2xl font-black uppercase flex items-center gap-3"><Layers className="text-accent" /> Liga de Reservas</h2></header>
-            <div className="grid gap-4">
+            <div className="grid gap-4 max-w-2xl mx-auto">
               {tournament.dualLeagueMatches.filter(m => m.matchday === tournament.currentMatchday).map(m => {
                 const h = teams.find(t => t.id === m.homeId);
                 const a = teams.find(t => t.id === m.awayId);
                 return (
                   <div key={m.id} className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl border">
-                    <span className="font-black">{h?.abbreviation}</span>
-                    <div className="flex items-center gap-2 font-mono font-black text-xl"><span>{m.homeScore ?? '-'}</span><span>:</span><span>{m.awayScore ?? '-'}</span></div>
-                    <span className="font-black">{a?.abbreviation}</span>
+                    <div className="flex items-center gap-3"><CrestIcon shape={h?.emblemShape!} pattern={h?.emblemPattern!} c1={h?.crestPrimary!} c2={h?.crestSecondary!} size="w-6 h-6" /><span className="font-black">{h?.abbreviation}</span></div>
+                    <div className="flex items-center gap-4 font-mono font-black text-xl"><span>{m.homeScore ?? '-'}</span><span>:</span><span>{m.awayScore ?? '-'}</span></div>
+                    <div className="flex items-center gap-3 justify-end"><span className="font-black">{a?.abbreviation}</span><CrestIcon shape={a?.emblemShape!} pattern={a?.emblemPattern!} c1={a?.crestPrimary!} c2={a?.crestSecondary!} size="w-6 h-6" /></div>
                   </div>
                 );
               })}

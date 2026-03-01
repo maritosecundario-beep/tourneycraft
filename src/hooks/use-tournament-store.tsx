@@ -97,7 +97,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       const dualSchedule: Match[] = [];
       let matchIdCounter = 1;
 
-      const createMatchesForList = (participants: string[]) => {
+      const createMatchesForList = (participants: string[], groupName?: string) => {
         const n = participants.length;
         if (n < 2) return;
         const rounds = n % 2 === 0 ? n - 1 : n;
@@ -122,10 +122,25 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         }
       };
 
-      if (t.leagueType === 'groups' && t.groupIsolation && t.groups) {
-        t.groups.forEach(group => createMatchesForList(group.participantIds));
-      } else {
-        createMatchesForList(t.participants);
+      if (t.format === 'league') {
+        if (t.leagueType === 'groups' && t.groupIsolation && t.groups) {
+          t.groups.forEach(group => createMatchesForList(group.participantIds, group.name));
+        } else {
+          createMatchesForList(t.participants);
+        }
+      } else if (t.format === 'knockout') {
+        // Implementación básica de bracket
+        const participants = [...t.participants];
+        let round = 1;
+        while (participants.length > 1) {
+          for (let i = 0; i < participants.length; i += 2) {
+            if (participants[i+1]) {
+              schedule.push({ id: `${t.id}-ko-${matchIdCounter++}`, homeId: participants[i], awayId: participants[i+1], matchday: round, isSimulated: false });
+            }
+          }
+          participants.splice(0, participants.length / 2);
+          round++;
+        }
       }
 
       return { ...t, matches: schedule, dualLeagueMatches: dualSchedule, currentMatchday: 1 };
@@ -226,8 +241,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   const advanceSeason = useCallback((tournamentId: string) => {
     setTournaments(prev => prev.map(t => {
       if (t.id !== tournamentId) return t;
-      const nextT = { ...t, currentSeason: t.currentSeason + 1, currentMatchday: 1 };
-      return nextT;
+      return { ...t, currentSeason: t.currentSeason + 1, currentMatchday: 1, matches: [], dualLeagueMatches: [] };
     }));
     generateSchedule(tournamentId);
   }, [generateSchedule]);

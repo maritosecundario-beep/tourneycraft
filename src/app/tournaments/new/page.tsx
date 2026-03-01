@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -21,7 +20,7 @@ import { CrestIcon } from '@/components/ui/crest-icon';
 
 export default function NewTournamentPage() {
   const router = useRouter();
-  const { addTournament, teams, players } = useTournamentStore();
+  const { addTournament, teams, players, generateSchedule } = useTournamentStore();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [aiDescription, setAiDescription] = useState('');
@@ -92,6 +91,7 @@ export default function NewTournamentPage() {
         currentMatchday: 1
       };
       addTournament(newTourney as any);
+      generateSchedule(newTourney.id);
       toast({ title: "Torneo IA Preparado" });
       router.push(`/tournaments/${newTourney.id}`);
     } catch (e) {
@@ -118,9 +118,11 @@ export default function NewTournamentPage() {
       participants: selectedParticipants, groups: finalGroups,
       dualLeagueEnabled, dualLeagueMatches: [], winReward, lossPenalty, drawReward,
       winPoints, lossPoints, drawPoints,
-      variability, matches: [], playoffSpots, relegationSpots, currentSeason: 1, currentMatchday: 1
+      variability, matches: [], playoffSpots, relegationSpots, currentSeason: 1, currentMatchday: 1,
+      settingsLocked: false
     };
     addTournament(newTourney as any);
+    generateSchedule(newTourney.id);
     toast({ title: "Competición Creada" });
     router.push(`/tournaments/${newTourney.id}`);
   };
@@ -158,15 +160,43 @@ export default function NewTournamentPage() {
                     </Select>
                   </div>
                 </div>
+                {mode === 'arcade' && (
+                  <div className="space-y-2">
+                    <Label>Tu Equipo (Arcade)</Label>
+                    <Select value={managedParticipantId} onValueChange={setManagedParticipantId}>
+                      <SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Selecciona..." /></SelectTrigger>
+                      <SelectContent>
+                        {teams.filter(t => selectedParticipants.includes(t.id)).map(t => (
+                          <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="flex items-center gap-2"><Brackets className="w-3 h-3 text-green-500" /> Playoff Spots</Label>
-                    <Input type="number" value={playoffSpots} onChange={e => setPlayoffSpots(Number(e.target.value))} className="h-12 rounded-xl" />
+                    <Label>Formato</Label>
+                    <Select value={format} onValueChange={(v: any) => setFormat(v)}>
+                      <SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
+                      <SelectContent><SelectItem value="league">Liga</SelectItem><SelectItem value="knockout">Eliminatoria</SelectItem></SelectContent>
+                    </Select>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-2"><ShieldAlert className="w-3 h-3 text-red-500" /> Relegation Spots</Label>
-                    <Input type="number" value={relegationSpots} onChange={e => setRelegationSpots(Number(e.target.value))} className="h-12 rounded-xl" />
+                  {format === 'league' && (
+                    <div className="space-y-2">
+                      <Label>Tipo de Liga</Label>
+                      <Select value={leagueType} onValueChange={(v: any) => setLeagueType(v)}>
+                        <SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
+                        <SelectContent><SelectItem value="single-table">Tabla Única</SelectItem><SelectItem value="groups">Grupos</SelectItem></SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl border">
+                  <div className="space-y-0.5">
+                    <Label className="font-black uppercase text-xs">Liga Dual (Espejo)</Label>
+                    <p className="text-[10px] text-muted-foreground">Genera partidos paralelos de reservas.</p>
                   </div>
+                  <Switch checked={dualLeagueEnabled} onCheckedChange={setDualLeagueEnabled} />
                 </div>
               </CardContent>
             </Card>
@@ -185,6 +215,16 @@ export default function NewTournamentPage() {
                     <div className="space-y-1"><Label className="text-[10px]">Win (+)</Label><Input type="number" value={winReward} onChange={e => setWinReward(Number(e.target.value))} /></div>
                     <div className="space-y-1"><Label className="text-[10px]">Loss (-)</Label><Input type="number" value={lossPenalty} onChange={e => setLossPenalty(Number(e.target.value))} /></div>
                     <div className="space-y-1"><Label className="text-[10px]">Draw</Label><Input type="number" value={drawReward} onChange={e => setDrawReward(Number(e.target.value))} /></div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2"><Brackets className="w-3 h-3 text-green-500" /> Playoff Spots</Label>
+                    <Input type="number" value={playoffSpots} onChange={e => setPlayoffSpots(Number(e.target.value))} className="h-12 rounded-xl" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2"><ShieldAlert className="w-3 h-3 text-red-500" /> Relegation Spots</Label>
+                    <Input type="number" value={relegationSpots} onChange={e => setRelegationSpots(Number(e.target.value))} className="h-12 rounded-xl" />
                   </div>
                 </div>
               </CardContent>
