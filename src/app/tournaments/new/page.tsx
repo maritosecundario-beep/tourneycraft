@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -16,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { TournamentMode, TournamentFormat, ScoringRuleType, TournamentEntryType, LeagueType, TournamentGroup } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { CrestIcon } from '@/components/ui/crest-icon';
 
 export default function NewTournamentPage() {
   const router = useRouter();
