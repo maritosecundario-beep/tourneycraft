@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Plus, Search, Shield, UserPlus, Trash2, Palette, Landmark, MapPin, Pencil, Maximize, CheckCircle2, Star, CircleSlash } from 'lucide-react';
+import { Plus, Search, Shield, UserPlus, Trash2, Palette, Landmark, MapPin, Pencil, Maximize, CheckCircle2, Star, CircleSlash, Sparkles, Shirt } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/hooks/use-toast';
@@ -16,7 +16,7 @@ import { UniformStyle, EmblemShape, VenueSurface, VenueSize, Team } from '@/lib/
 import { cn } from '@/lib/utils';
 import { PREDEFINED_COLORS } from '@/lib/colors';
 
-// Hyper-Realistic Jersey SVG Component
+// Advanced Jersey SVG Component with Dynamic Patterns
 const JerseySVG = ({ 
   primary, 
   secondary, 
@@ -58,15 +58,31 @@ const JerseySVG = ({
         <pattern id="pinstripes" patternUnits="userSpaceOnUse" width="10" height="240">
           <rect width="2" height="240" fill={secondary} />
         </pattern>
+        <pattern id="waves" patternUnits="userSpaceOnUse" width="40" height="20">
+          <path d="M0 10 Q10 0 20 10 T40 10" fill="none" stroke={secondary} strokeWidth="4" />
+        </pattern>
+        <pattern id="zigzag" patternUnits="userSpaceOnUse" width="40" height="20">
+          <path d="M0 10 L10 0 L20 10 L30 0 L40 10" fill="none" stroke={secondary} strokeWidth="4" />
+        </pattern>
+        <pattern id="honeycomb" patternUnits="userSpaceOnUse" width="30" height="52">
+          <path d="M15 0 L30 8.66 L30 26 L15 34.64 L0 26 L0 8.66 Z" fill="none" stroke={secondary} strokeWidth="1" />
+        </pattern>
+        <pattern id="pixel" patternUnits="userSpaceOnUse" width="20" height="20">
+          <rect x="0" y="0" width="10" height="10" fill={secondary} opacity="0.5" />
+          <rect x="10" y="10" width="5" height="5" fill={secondary} />
+        </pattern>
+        <pattern id="stars" patternUnits="userSpaceOnUse" width="50" height="50">
+          <path d="M25 10 L28 18 L36 18 L30 24 L32 32 L25 28 L18 32 L20 24 L14 18 L22 18 Z" fill={secondary} />
+        </pattern>
+
         <linearGradient id="grad" x1="0%" y1="0%" x2="0%" y2="100%">
           <stop offset="0%" style={{ stopColor: primary, stopOpacity: 1 }} />
           <stop offset="100%" style={{ stopColor: secondary, stopOpacity: 1 }} />
         </linearGradient>
 
-        {/* Realistic Texture / Fabric Shading */}
         <radialGradient id="meshGradient" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="white" stopOpacity="0.1" />
-          <stop offset="100%" stopColor="black" stopOpacity="0.2" />
+          <stop offset="0%" stopColor="white" stopOpacity="0.15" />
+          <stop offset="100%" stopColor="black" stopOpacity="0.25" />
         </radialGradient>
       </defs>
       
@@ -82,6 +98,11 @@ const JerseySVG = ({
         {style === 'hoops' && <rect width="200" height="240" fill="url(#hoops)" />}
         {style === 'checks' && <rect width="200" height="240" fill="url(#checks)" />}
         {style === 'pinstripes' && <rect width="200" height="240" fill="url(#pinstripes)" />}
+        {style === 'waves' && <rect width="200" height="240" fill="url(#waves)" />}
+        {style === 'zigzag' && <rect width="200" height="240" fill="url(#zigzag)" />}
+        {style === 'honeycomb' && <rect width="200" height="240" fill="url(#honeycomb)" />}
+        {style === 'pixel' && <rect width="200" height="240" fill="url(#pixel)" />}
+        {style === 'stars' && <rect width="200" height="240" fill="url(#stars)" />}
         {style === 'halves' && <rect x="100" width="100" height="240" fill={secondary} />}
         {style === 'quarters' && (
           <>
@@ -89,39 +110,58 @@ const JerseySVG = ({
             <rect x="40" y="100" width="60" height="120" fill={secondary} />
           </>
         )}
+        {style === 'shoulders' && (
+          <>
+            <path d="M40 40 L60 20 L100 20 L100 60 L40 60 Z" fill={secondary} />
+            <path d="M160 40 L140 20 L100 20 L100 60 L160 60 Z" fill={secondary} />
+          </>
+        )}
+        {style === 'side-panels' && (
+          <>
+            <rect x="40" y="60" width="20" height="160" fill={secondary} />
+            <rect x="140" y="60" width="20" height="160" fill={secondary} />
+          </>
+        )}
         {style === 'gradient' && <rect width="200" height="240" fill="url(#grad)" />}
         {style === 'sash' && <path d="M40 40 L160 220 L160 180 L80 40 Z" fill={secondary} />}
         {style === 'minimal' && <rect x="150" y="20" width="10" height="200" fill={secondary} opacity="0.8" />}
+        {style === 'camouflage' && (
+          <g opacity="0.6">
+            <ellipse cx="60" cy="80" rx="30" ry="15" fill={secondary} transform="rotate(20 60 80)" />
+            <ellipse cx="140" cy="120" rx="40" ry="20" fill={secondary} transform="rotate(-15 140 120)" />
+            <ellipse cx="80" cy="180" rx="35" ry="18" fill={secondary} transform="rotate(45 80 180)" />
+          </g>
+        )}
       </g>
 
       {/* Tertiary Color Trim (Collar & Cuffs) */}
-      <path d="M60 20 L80 35 L120 35 L140 20 Z" fill={trim} /> {/* Collar */}
-      <path d="M20 60 L40 50 L40 70 L20 80 Z" fill={trim} /> {/* Left Cuff */}
-      <path d="M180 60 L160 50 L160 70 L180 80 Z" fill={trim} /> {/* Right Cuff */}
+      <path d="M60 20 L80 35 L120 35 L140 20 Z" fill={trim} /> 
+      <path d="M20 60 L40 50 L40 70 L20 80 Z" fill={trim} /> 
+      <path d="M180 60 L160 50 L160 70 L180 80 Z" fill={trim} /> 
       
-      {/* Realistic Shading Layers */}
+      {/* Realistic Fabric Shading */}
       <path 
         d="M40 40 L60 20 L140 20 L160 40 L180 60 L180 100 L160 100 L160 220 L40 220 L40 100 L20 100 L20 60 Z" 
         fill="url(#meshGradient)" 
-        opacity="0.3"
+        opacity="0.4"
       />
 
       {/* Brand & Sponsor */}
-      <text x="100" y="145" textAnchor="middle" fill={logo} fontSize="14" fontWeight="900" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.3)', fontFamily: 'Inter, sans-serif' }}>
-        {sponsor?.toUpperCase() || 'SPONSOR'}
+      <text x="100" y="145" textAnchor="middle" fill={logo} fontSize="14" fontWeight="900" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.4)', fontFamily: 'Inter, sans-serif' }}>
+        {sponsor?.toUpperCase() || 'ELITE BRAND'}
       </text>
-      <text x="145" y="55" textAnchor="middle" fill={logo} fontSize="6" fontWeight="bold" opacity="0.8">
+      <text x="145" y="55" textAnchor="middle" fill={logo} fontSize="6" fontWeight="bold" opacity="0.9">
         {brand?.toUpperCase() || 'APEX'}
       </text>
 
-      {/* Folds and Shadows */}
-      <path d="M40 100 L160 100" fill="none" stroke="rgba(0,0,0,0.1)" strokeWidth="0.5" />
-      <path d="M40 220 L160 220" fill="none" stroke="rgba(0,0,0,0.2)" strokeWidth="2" />
+      {/* Texture Lines */}
+      <path d="M60 40 Q100 50 140 40" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
+      <path d="M40 100 L160 100" fill="none" stroke="rgba(0,0,0,0.05)" strokeWidth="0.5" />
     </svg>
   );
 };
 
-// Advanced Crest Visualization with Multi-Layer Colors
+// Advanced Crest Visualization with Multi-Layer Colors and New Shapes
 const CrestIcon = ({ shape, c1, c2, c3, c4, size = "w-10 h-10" }: { shape: EmblemShape, c1: string, c2: string, c3: string, c4?: string, size?: string }) => {
   const renderShape = () => {
     switch (shape) {
@@ -148,6 +188,57 @@ const CrestIcon = ({ shape, c1, c2, c3, c4, size = "w-10 h-10" }: { shape: Emble
             <path d="M12 2L2 7l10 5 10-5-10-5z" fill={c1} />
             <path d="M2 17l10 5 10-5" stroke={c2} fill="none" strokeWidth="2" />
             <path d="M2 12l10 5 10-5" stroke={c3} fill="none" strokeWidth="2" />
+          </g>
+        );
+      case 'hexagon':
+        return (
+          <g>
+            <path d="M12 2l8.66 5v10L12 22l-8.66-5V7z" fill={c1} stroke={c2} strokeWidth="1" />
+            <path d="M12 5l6 3.5v7L12 19l-6-3.5v-7z" fill="none" stroke={c3} strokeWidth="1" />
+          </g>
+        );
+      case 'oval':
+        return (
+          <g>
+            <ellipse cx="12" cy="12" rx="10" ry="8" fill={c1} stroke={c2} strokeWidth="1.5" />
+            <ellipse cx="12" cy="12" rx="7" ry="5" fill="none" stroke={c3} strokeWidth="1" />
+          </g>
+        );
+      case 'triangle':
+        return (
+          <g>
+            <path d="M12 2l10 18H2z" fill={c1} stroke={c2} strokeWidth="1" />
+            <circle cx="12" cy="14" r="3" fill={c3} />
+          </g>
+        );
+      case 'banner':
+        return (
+          <g>
+            <path d="M4 2v16l8 4 8-4V2z" fill={c1} stroke={c2} strokeWidth="1.5" />
+            <path d="M6 4v12l6 3 6-3V4z" fill="none" stroke={c3} strokeWidth="1" />
+          </g>
+        );
+      case 'wings':
+        return (
+          <g>
+            <path d="M12 12c-4 0-8-2-10-6 2 4 6 6 10 6s8-2 10-6c-2 4-6 6-10 6z" fill={c1} />
+            <path d="M2 6c4 0 8 2 10 6s6-6 10-6" fill="none" stroke={c2} strokeWidth="1" />
+            <circle cx="12" cy="12" r="4" fill={c3} />
+          </g>
+        );
+      case 'eagle':
+        return (
+          <g>
+            <path d="M12 2c-1 2-4 3-6 3 0 5 2 9 6 11 4-2 6-6 6-11-2 0-5-1-6-3z" fill={c1} stroke={c2} strokeWidth="1" />
+            <path d="M10 7l2 2 2-2" stroke={c3} fill="none" strokeWidth="1.5" />
+          </g>
+        );
+      case 'lion':
+        return (
+          <g>
+            <path d="M12 2c5 0 9 4 9 9s-4 9-9 9-9-4-9-9 4-9 9-9z" fill={c1} />
+            <path d="M8 8c1-1 3-1 4 0s3 1 4 0" stroke={c2} fill="none" strokeWidth="1.5" />
+            <circle cx="12" cy="13" r="3" fill={c3} />
           </g>
         );
       case 'crown':
@@ -296,10 +387,10 @@ export default function TeamsPage() {
 
     if (editingTeam) {
       updateTeam(teamData);
-      toast({ title: "Club Actualizado", description: "Cambios guardados." });
+      toast({ title: "Club Actualizado", description: "Cambios guardados con éxito." });
     } else {
       addTeam(teamData);
-      toast({ title: "Club Fundado", description: "Éxito al crear la entidad." });
+      toast({ title: "Club Fundado", description: "La nueva entidad deportiva ha sido registrada." });
     }
 
     setIsDialogOpen(false);
@@ -315,56 +406,67 @@ export default function TeamsPage() {
     <div className="max-w-7xl mx-auto space-y-8 pb-32 md:pb-20">
       <header className="flex justify-between items-center px-4 md:px-0">
         <div>
-          <h1 className="text-3xl md:text-4xl font-black tracking-tighter text-foreground uppercase">Identity Studio</h1>
-          <p className="text-muted-foreground text-sm md:text-base">Branding de élite para organizaciones competitivas.</p>
+          <h1 className="text-3xl md:text-5xl font-black tracking-tighter text-foreground uppercase flex items-center gap-3">
+             Identity Builder <Sparkles className="text-accent w-8 h-8" />
+          </h1>
+          <p className="text-muted-foreground text-sm md:text-lg">Diseño de marcas y sedes para organizaciones de élite.</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open);
           if (!open) setEditingTeam(null);
         }}>
           <DialogTrigger asChild>
-            <Button className="shadow-2xl shadow-primary/40 bg-primary hover:bg-primary/90 text-primary-foreground h-12 px-8 font-black rounded-2xl transition-all">
-              <Plus className="w-5 h-5 mr-2" /> FUNDAR CLUB
+            <Button className="shadow-2xl shadow-primary/40 bg-primary hover:bg-primary/90 text-primary-foreground h-14 px-10 font-black rounded-2xl transition-all hover:scale-105 active:scale-95">
+              <Plus className="w-6 h-6 mr-2" /> FUNDAR CLUB
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[950px] bg-card border-none shadow-2xl p-0 overflow-hidden max-h-[95vh] overflow-y-auto rounded-3xl">
-            <div className="p-8 bg-muted/20 border-b flex flex-row items-center justify-between gap-4">
-              <div>
-                <DialogTitle className="text-3xl font-black tracking-tight flex items-center gap-2">
-                  <Star className="text-yellow-500 fill-current w-8 h-8" /> {editingTeam ? 'REDISENAR CLUB' : 'FUNDAR ENTIDAD'}
-                </DialogTitle>
-                <CardDescription>Configura cada detalle de la identidad visual y técnica.</CardDescription>
+          <DialogContent className="sm:max-w-[1000px] bg-card border-none shadow-2xl p-0 overflow-hidden max-h-[95vh] overflow-y-auto rounded-3xl">
+            <div className="p-10 bg-muted/20 border-b flex flex-row items-center justify-between gap-6">
+              <div className="flex items-center gap-4">
+                <div className="p-4 bg-primary rounded-2xl shadow-lg">
+                  <Shirt className="text-primary-foreground w-10 h-10" />
+                </div>
+                <div>
+                  <DialogTitle className="text-4xl font-black tracking-tight flex items-center gap-3">
+                    {editingTeam ? 'REDISENAR CLUB' : 'STUDIO DE BRANDING'}
+                  </DialogTitle>
+                  <CardDescription className="text-lg">Configuración de identidad visual, marca técnica y sede.</CardDescription>
+                </div>
               </div>
             </div>
             <Tabs defaultValue="branding" className="w-full">
-              <TabsList className="w-full grid grid-cols-3 rounded-none bg-muted/10 h-14 border-b">
-                <TabsTrigger value="general" className="rounded-none font-bold">BASE</TabsTrigger>
-                <TabsTrigger value="branding" className="rounded-none font-bold">BRANDING</TabsTrigger>
-                <TabsTrigger value="venue" className="rounded-none font-bold">SEDE</TabsTrigger>
+              <TabsList className="w-full grid grid-cols-3 rounded-none bg-muted/10 h-16 border-b">
+                <TabsTrigger value="general" className="rounded-none font-black text-sm uppercase tracking-widest">Base Estratégica</TabsTrigger>
+                <TabsTrigger value="branding" className="rounded-none font-black text-sm uppercase tracking-widest">Identidad Visual</TabsTrigger>
+                <TabsTrigger value="venue" className="rounded-none font-black text-sm uppercase tracking-widest">Sede Central</TabsTrigger>
               </TabsList>
               
-              <div className="p-6 md:p-10">
-                <TabsContent value="general" className="space-y-8 mt-0">
-                  <div className="grid gap-6 md:grid-cols-2">
-                    <div className="grid gap-2">
-                      <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground">Nombre</Label>
-                      <Input className="h-14 text-xl font-bold bg-muted/10" value={name} onChange={(e) => setName(e.target.value)} />
+              <div className="p-8 md:p-12">
+                <TabsContent value="general" className="space-y-10 mt-0">
+                  <div className="grid gap-8 md:grid-cols-2">
+                    <div className="grid gap-3">
+                      <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Nombre de la Entidad</Label>
+                      <Input className="h-16 text-2xl font-black bg-muted/10 rounded-2xl border-2 focus:border-primary transition-all" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej: Real Titans SC" />
                     </div>
-                    <div className="grid gap-2">
-                      <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground">Siglas</Label>
-                      <Input className="h-14 text-xl font-bold text-center uppercase bg-muted/10" maxLength={3} value={abbreviation} onChange={(e) => setAbbreviation(e.target.value)} />
+                    <div className="grid gap-3">
+                      <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Siglas (3 Caracteres)</Label>
+                      <Input className="h-16 text-3xl font-black text-center uppercase bg-muted/10 rounded-2xl border-2 focus:border-primary" maxLength={3} value={abbreviation} onChange={(e) => setAbbreviation(e.target.value)} placeholder="TIT" />
                     </div>
                   </div>
-                  <div className="space-y-4">
-                    <Label className="flex justify-between text-xs font-black uppercase text-muted-foreground">Rating <span>{rating}</span></Label>
-                    <Slider value={[rating]} onValueChange={(vals) => setRating(vals[0])} max={100} min={1} />
+                  <div className="space-y-6 bg-muted/5 p-8 rounded-3xl border">
+                    <div className="flex justify-between items-center">
+                      <Label className="text-xs font-black uppercase text-muted-foreground tracking-widest">Potencial de Rating</Label>
+                      <span className="px-4 py-1.5 bg-primary text-primary-foreground text-xl font-black rounded-xl shadow-lg">{rating}</span>
+                    </div>
+                    <Slider value={[rating]} onValueChange={(vals) => setRating(vals[0])} max={100} min={1} className="py-4" />
                   </div>
                 </TabsContent>
 
-                <TabsContent value="branding" className="space-y-10 mt-0">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-start">
-                    <div className="space-y-6 bg-muted/5 p-8 rounded-[2.5rem] flex flex-col items-center border-2 border-dashed border-muted relative">
-                      <div className="w-64 h-72 transition-transform hover:scale-110 duration-500">
+                <TabsContent value="branding" className="space-y-12 mt-0">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-16 items-start">
+                    {/* Real-time Preview Area */}
+                    <div className="space-y-8 bg-gradient-to-br from-muted/10 to-muted/20 p-10 rounded-[3rem] flex flex-col items-center border-4 border-dashed border-muted/30 relative shadow-inner">
+                      <div className="w-full max-w-[300px] h-[350px] transition-all hover:scale-105 duration-700">
                         <JerseySVG 
                           primary={color1} 
                           secondary={color2} 
@@ -375,68 +477,88 @@ export default function TeamsPage() {
                           sponsor={sponsor} 
                         />
                       </div>
-                      <div className="flex items-center gap-6 mt-4 p-4 bg-card rounded-2xl shadow-xl border w-full justify-center">
-                        <CrestIcon shape={emblemShape} c1={color1} c2={color2} c3={color3 || color1} c4={color4} size="w-16 h-16" />
-                        <div className="h-12 w-px bg-border" />
-                        <div className="flex gap-2">
-                          <div className="w-6 h-6 rounded-full border" style={{ backgroundColor: color1 }} title="Color 1" />
-                          <div className="w-6 h-6 rounded-full border" style={{ backgroundColor: color2 }} title="Color 2" />
-                          {color3 && <div className="w-6 h-6 rounded-full border" style={{ backgroundColor: color3 }} title="Color 3" />}
-                          {color4 && <div className="w-6 h-6 rounded-full border" style={{ backgroundColor: color4 }} title="Color 4" />}
+                      <div className="flex items-center gap-8 mt-6 p-6 bg-card rounded-[2rem] shadow-2xl border w-full justify-center transform hover:translate-y-[-5px] transition-transform">
+                        <CrestIcon shape={emblemShape} c1={color1} c2={color2} c3={color3 || color1} c4={color4} size="w-20 h-20" />
+                        <div className="h-16 w-px bg-border" />
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="w-8 h-8 rounded-full border-2 shadow-sm" style={{ backgroundColor: color1 }} />
+                          <div className="w-8 h-8 rounded-full border-2 shadow-sm" style={{ backgroundColor: color2 }} />
+                          {color3 && <div className="w-8 h-8 rounded-full border-2 shadow-sm" style={{ backgroundColor: color3 }} />}
+                          {color4 && <div className="w-8 h-8 rounded-full border-2 shadow-sm" style={{ backgroundColor: color4 }} />}
                         </div>
                       </div>
                     </div>
 
-                    <div className="space-y-6 max-h-[500px] overflow-y-auto pr-4 custom-scrollbar">
-                      <div className="grid grid-cols-2 gap-4">
-                        <ColorPicker label="Color Primario" value={color1} onChange={setColor1} />
-                        <ColorPicker label="Color Secundario" value={color2} onChange={setColor2} />
-                        <ColorPicker label="Color Terciario (Opc)" value={color3} onChange={setColor3} onClear={() => setColor3(undefined)} />
-                        <ColorPicker label="Color de Acento (Opc)" value={color4} onChange={setColor4} onClear={() => setColor4(undefined)} />
+                    {/* Controls Area */}
+                    <div className="space-y-8 max-h-[600px] overflow-y-auto pr-6 custom-scrollbar pb-10">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <ColorPicker label="Base (P)" value={color1} onChange={setColor1} />
+                        <ColorPicker label="Diseño (S)" value={color2} onChange={setColor2} />
+                        <ColorPicker label="Detalles (T)" value={color3} onChange={setColor3} onClear={() => setColor3(undefined)} />
+                        <ColorPicker label="Logos (A)" value={color4} onChange={setColor4} onClear={() => setColor4(undefined)} />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-2 gap-6">
                         <div className="space-y-2">
-                          <Label className="text-[10px] font-black uppercase text-muted-foreground">Marca</Label>
-                          <Input value={brand} className="bg-muted/10 h-10" onChange={(e) => setBrand(e.target.value)} />
+                          <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-tighter">Marca Técnica</Label>
+                          <Input value={brand} className="bg-muted/10 h-12 font-bold rounded-xl" onChange={(e) => setBrand(e.target.value)} />
                         </div>
                         <div className="space-y-2">
-                          <Label className="text-[10px] font-black uppercase text-muted-foreground">Sponsor</Label>
-                          <Input value={sponsor} className="bg-muted/10 h-10" onChange={(e) => setSponsor(e.target.value)} />
+                          <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-tighter">Patrocinador</Label>
+                          <Input value={sponsor} className="bg-muted/10 h-12 font-bold rounded-xl" onChange={(e) => setSponsor(e.target.value)} />
                         </div>
                       </div>
 
-                      <div className="grid gap-4">
-                        <div className="grid gap-2">
-                          <Label className="text-[10px] font-black uppercase text-muted-foreground">Estilo Uniforme</Label>
+                      <div className="space-y-6">
+                        <div className="grid gap-3">
+                          <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Patrón de Equipación</Label>
                           <Select value={uniformStyle} onValueChange={(v: any) => setUniformStyle(v)}>
-                            <SelectTrigger className="h-12 font-bold"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="solid" className="font-bold">Sólido</SelectItem>
-                              <SelectItem value="stripes" className="font-bold">Rayas</SelectItem>
-                              <SelectItem value="hoops" className="font-bold">Aros</SelectItem>
-                              <SelectItem value="checks" className="font-bold">Cuadros</SelectItem>
+                            <SelectTrigger className="h-14 font-black text-base bg-muted/10 rounded-xl border-2">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-[300px]">
+                              <SelectItem value="solid" className="font-bold">Sólido Clásico</SelectItem>
+                              <SelectItem value="stripes" className="font-bold">Rayas Verticales</SelectItem>
+                              <SelectItem value="hoops" className="font-bold">Aros Horizontales</SelectItem>
+                              <SelectItem value="checks" className="font-bold">Cuadros (Damero)</SelectItem>
                               <SelectItem value="pinstripes" className="font-bold">Rayas Finas</SelectItem>
                               <SelectItem value="halves" className="font-bold">Mitades</SelectItem>
                               <SelectItem value="quarters" className="font-bold">Cuartos</SelectItem>
-                              <SelectItem value="sash" className="font-bold">Franja Diagonal</SelectItem>
+                              <SelectItem value="waves" className="font-bold">Ondas Dinámicas</SelectItem>
+                              <SelectItem value="zigzag" className="font-bold">Zig-Zag Moderno</SelectItem>
+                              <SelectItem value="honeycomb" className="font-bold">Panal de Abeja</SelectItem>
+                              <SelectItem value="pixel" className="font-bold">Píxel Glitch</SelectItem>
+                              <SelectItem value="camouflage" className="font-bold">Camuflaje Táctico</SelectItem>
+                              <SelectItem value="stars" className="font-bold">Constelación</SelectItem>
+                              <SelectItem value="shoulders" className="font-bold">Hombros de Contraste</SelectItem>
+                              <SelectItem value="side-panels" className="font-bold">Paneles Laterales</SelectItem>
+                              <SelectItem value="sash" className="font-bold">Banda Diagonal</SelectItem>
                               <SelectItem value="gradient" className="font-bold">Degradado</SelectItem>
-                              <SelectItem value="minimal" className="font-bold">Minimalista</SelectItem>
+                              <SelectItem value="minimal" className="font-bold">Sutil / Minimal</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
-                        <div className="grid gap-2">
-                          <Label className="text-[10px] font-black uppercase text-muted-foreground">Escudo</Label>
+                        <div className="grid gap-3">
+                          <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Forma del Emblema</Label>
                           <Select value={emblemShape} onValueChange={(v: any) => setEmblemShape(v)}>
-                            <SelectTrigger className="h-12 font-bold"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="shield" className="font-bold">Escudo</SelectItem>
-                              <SelectItem value="circle" className="font-bold">Circular</SelectItem>
-                              <SelectItem value="square" className="font-bold">Cuadrado</SelectItem>
-                              <SelectItem value="modern" className="font-bold">Moderno</SelectItem>
+                            <SelectTrigger className="h-14 font-black text-base bg-muted/10 rounded-xl border-2">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-[300px]">
+                              <SelectItem value="shield" className="font-bold">Escudo Tradicional</SelectItem>
+                              <SelectItem value="circle" className="font-bold">Circular Moderno</SelectItem>
+                              <SelectItem value="square" className="font-bold">Cuadrado Robusto</SelectItem>
+                              <SelectItem value="modern" className="font-bold">Líneas Vanguardistas</SelectItem>
+                              <SelectItem value="hexagon" className="font-bold">Hexágono Técnico</SelectItem>
+                              <SelectItem value="oval" className="font-bold">Óvalo Clásico</SelectItem>
+                              <SelectItem value="triangle" className="font-bold">Triángulo Dinámico</SelectItem>
+                              <SelectItem value="banner" className="font-bold">Estandarte Real</SelectItem>
+                              <SelectItem value="wings" className="font-bold">Alas del Olimpo</SelectItem>
+                              <SelectItem value="eagle" className="font-bold">Águila Imperial</SelectItem>
+                              <SelectItem value="lion" className="font-bold">León Noble</SelectItem>
                               <SelectItem value="diamond" className="font-bold">Diamante</SelectItem>
-                              <SelectItem value="crown" className="font-bold">Corona</SelectItem>
-                              <SelectItem value="star" className="font-bold">Estrella</SelectItem>
+                              <SelectItem value="crown" className="font-bold">Corona de Campeón</SelectItem>
+                              <SelectItem value="star" className="font-bold">Estrella de Élite</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -445,40 +567,42 @@ export default function TeamsPage() {
                   </div>
                 </TabsContent>
 
-                <TabsContent value="venue" className="space-y-8 mt-0">
-                  <div className="grid gap-6 md:grid-cols-2">
-                    <div className="grid gap-2">
-                      <Label className="text-xs font-black uppercase text-muted-foreground">Sede</Label>
-                      <Input className="h-14 text-lg font-bold bg-muted/10" value={venueName} onChange={(e) => setVenueName(e.target.value)} />
+                <TabsContent value="venue" className="space-y-10 mt-0">
+                  <div className="grid gap-8 md:grid-cols-2">
+                    <div className="grid gap-3">
+                      <Label className="text-xs font-black uppercase text-muted-foreground tracking-widest">Nombre de la Sede</Label>
+                      <Input className="h-16 text-xl font-black bg-muted/10 rounded-2xl border-2" value={venueName} onChange={(e) => setVenueName(e.target.value)} placeholder="Ej: Coliseo de los Sueños" />
                     </div>
-                    <div className="grid gap-2">
-                      <Label className="text-xs font-black uppercase text-muted-foreground">Capacidad</Label>
-                      <Input className="h-14 text-lg font-bold bg-muted/10" type="number" value={venueCapacity} onChange={(e) => setVenueCapacity(Number(e.target.value))} />
+                    <div className="grid gap-3">
+                      <Label className="text-xs font-black uppercase text-muted-foreground tracking-widest">Capacidad de Aforo</Label>
+                      <Input className="h-16 text-xl font-black bg-muted/10 rounded-2xl border-2" type="number" value={venueCapacity} onChange={(e) => setVenueCapacity(Number(e.target.value))} />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="grid gap-2">
-                      <Label className="text-xs font-black uppercase text-muted-foreground">Superficie</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                    <div className="grid gap-3">
+                      <Label className="text-xs font-black uppercase text-muted-foreground tracking-widest">Superficie de Juego</Label>
                       <Select value={venueSurface} onValueChange={(v: any) => setVenueSurface(v)}>
-                        <SelectTrigger className="h-14 font-bold"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-16 font-black text-lg bg-muted/10 rounded-2xl border-2"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="grass" className="font-bold">Césped</SelectItem>
-                          <SelectItem value="parquet" className="font-bold">Parqué</SelectItem>
-                          <SelectItem value="hardcourt" className="font-bold">Pista Dura</SelectItem>
-                          <SelectItem value="clay" className="font-bold">Arcilla</SelectItem>
-                          <SelectItem value="ice" className="font-bold">Hielo</SelectItem>
+                          <SelectItem value="grass" className="font-bold">Césped Natural</SelectItem>
+                          <SelectItem value="artificial" className="font-bold">Hierba Artificial</SelectItem>
+                          <SelectItem value="parquet" className="font-bold">Parqué Madera</SelectItem>
+                          <SelectItem value="hardcourt" className="font-bold">Cancha Dura</SelectItem>
+                          <SelectItem value="clay" className="font-bold">Arcilla / Tierra</SelectItem>
+                          <SelectItem value="ice" className="font-bold">Pista de Hielo</SelectItem>
+                          <SelectItem value="sand" className="font-bold">Arena de Playa</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="grid gap-2">
-                      <Label className="text-xs font-black uppercase text-muted-foreground">Escala</Label>
+                    <div className="grid gap-3">
+                      <Label className="text-xs font-black uppercase text-muted-foreground tracking-widest">Magnitud del Recinto</Label>
                       <Select value={venueSize} onValueChange={(v: any) => setVenueSize(v)}>
-                        <SelectTrigger className="h-14 font-bold"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-16 font-black text-lg bg-muted/10 rounded-2xl border-2"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="small" className="font-bold">Pequeño</SelectItem>
-                          <SelectItem value="medium" className="font-bold">Estándar</SelectItem>
-                          <SelectItem value="large" className="font-bold">Grande</SelectItem>
-                          <SelectItem value="monumental" className="font-bold">Monumental</SelectItem>
+                          <SelectItem value="small" className="font-bold">Local / Comunitario</SelectItem>
+                          <SelectItem value="medium" className="font-bold">Estándar Regional</SelectItem>
+                          <SelectItem value="large" className="font-bold">Gran Estadio Nacional</SelectItem>
+                          <SelectItem value="monumental" className="font-bold">Recinto Monumental</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -486,10 +610,10 @@ export default function TeamsPage() {
                 </TabsContent>
               </div>
             </Tabs>
-            <div className="p-8 bg-muted/20 border-t flex flex-col md:flex-row justify-end gap-4">
-              <Button variant="ghost" className="font-bold" onClick={() => setIsDialogOpen(false)}>CANCELAR</Button>
-              <Button onClick={handleSaveTeam} className="px-12 h-14 bg-primary text-primary-foreground font-black shadow-2xl rounded-2xl">
-                {editingTeam ? 'ACTUALIZAR' : 'CONFIRMAR'}
+            <div className="p-10 bg-muted/20 border-t flex flex-col md:flex-row justify-end gap-6">
+              <Button variant="ghost" className="font-black text-muted-foreground h-14 px-8 rounded-2xl" onClick={() => setIsDialogOpen(false)}>DESCARTAR</Button>
+              <Button onClick={handleSaveTeam} className="px-16 h-16 bg-primary text-primary-foreground font-black text-lg shadow-2xl rounded-2xl hover:scale-105 transition-transform active:scale-95">
+                {editingTeam ? 'GUARDAR CAMBIOS' : 'FUNDAR CLUB'}
               </Button>
             </div>
           </DialogContent>
@@ -497,72 +621,71 @@ export default function TeamsPage() {
       </header>
 
       <div className="relative px-4 md:px-0">
-        <Search className="absolute left-7 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
+        <Search className="absolute left-8 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
         <Input 
-          className="pl-10 bg-card border-none h-14 text-lg shadow-xl rounded-2xl" 
+          className="pl-14 bg-card border-none h-16 text-xl shadow-2xl rounded-[1.5rem] focus:ring-2 focus:ring-primary/20 transition-all" 
           placeholder="Buscar club por nombre o siglas..." 
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 px-4 md:px-0">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 px-4 md:px-0">
         {filteredTeams.map((team) => (
-          <Card key={team.id} className="border-none bg-card transition-all group overflow-hidden shadow-xl border-t-8 rounded-[2rem]" style={{ borderTopColor: team.primaryColor }}>
-            <div className="p-8 flex gap-6">
-              <div className="w-28 h-28 shrink-0 flex items-center justify-center bg-muted/30 rounded-[2rem] relative shadow-inner">
+          <Card key={team.id} className="border-none bg-card transition-all group overflow-hidden shadow-2xl border-t-8 rounded-[2.5rem] hover:translate-y-[-8px] hover:shadow-primary/10" style={{ borderTopColor: team.primaryColor }}>
+            <div className="p-10 flex gap-8">
+              <div className="w-32 h-32 shrink-0 flex items-center justify-center bg-muted/20 rounded-[2.5rem] relative shadow-inner border border-muted/30">
                 <CrestIcon 
                   shape={team.emblemShape} 
                   c1={team.primaryColor} 
                   c2={team.secondaryColor} 
                   c3={team.tertiaryColor || team.primaryColor} 
                   c4={team.accentColor}
-                  size="w-16 h-16" 
+                  size="w-20 h-20" 
                 />
-                <div className="absolute -bottom-2 -right-2 bg-primary text-primary-foreground text-[10px] font-black px-3 py-1 rounded-full border-2 border-card">
+                <div className="absolute -bottom-3 -right-3 bg-primary text-primary-foreground text-xs font-black px-4 py-1.5 rounded-full border-4 border-card shadow-lg">
                   {team.abbreviation}
                 </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-2xl font-black truncate tracking-tighter uppercase">{team.name}</h3>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-black mt-1">
-                  {team.brand || 'Apex'} Kits • {team.sponsor || 'Elite'}
+              <div className="flex-1 min-w-0 flex flex-col justify-center">
+                <h3 className="text-3xl font-black truncate tracking-tighter uppercase leading-none mb-2">{team.name}</h3>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-black flex items-center gap-1.5">
+                  <span className="text-primary">{team.brand || 'Elite'}</span> Kits • {team.sponsor || 'Official Sponsor'}
                 </p>
-                <div className="flex items-center gap-2 mt-4 bg-primary/5 w-fit px-3 py-1.5 rounded-full border border-primary/10">
+                <div className="flex items-center gap-2 mt-5 bg-primary/10 w-fit px-4 py-2 rounded-2xl border border-primary/20">
                   <Star className="w-4 h-4 text-yellow-500 fill-current" />
-                  <span className="text-sm font-black text-primary">{team.rating} OVR</span>
+                  <span className="text-base font-black text-primary">{team.rating} OVR</span>
                 </div>
               </div>
             </div>
             
-            <div className="px-8 pb-8 pt-2 space-y-6">
-              <div className="flex gap-3">
-                <div className="flex-1 bg-muted/40 p-4 rounded-2xl border border-muted/50">
-                  <span className="text-[10px] uppercase font-black text-muted-foreground block mb-1.5 tracking-tighter">Venue</span>
-                  <span className="text-sm font-black flex items-center gap-2 truncate">
+            <div className="px-10 pb-10 pt-2 space-y-8">
+              <div className="flex gap-4">
+                <div className="flex-1 bg-muted/30 p-5 rounded-3xl border border-muted/40 shadow-sm">
+                  <span className="text-[10px] uppercase font-black text-muted-foreground block mb-2 tracking-widest">Sede Central</span>
+                  <span className="text-sm font-black flex items-center gap-2 truncate text-foreground">
                     <Landmark className="w-4 h-4 text-accent" /> {team.venueName}
                   </span>
                 </div>
-                <div className="w-24 bg-muted/40 p-4 rounded-2xl border border-muted/50 flex flex-col items-center justify-center">
-                  <span className="text-[10px] uppercase font-black text-muted-foreground block mb-2">Colors</span>
-                  <div className="flex gap-1">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: team.primaryColor }} />
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: team.secondaryColor }} />
-                    {team.tertiaryColor && <div className="w-3 h-3 rounded-full" style={{ backgroundColor: team.tertiaryColor }} />}
-                    {team.accentColor && <div className="w-3 h-3 rounded-full" style={{ backgroundColor: team.accentColor }} />}
+                <div className="w-28 bg-muted/30 p-5 rounded-3xl border border-muted/40 flex flex-col items-center justify-center shadow-sm">
+                  <span className="text-[10px] uppercase font-black text-muted-foreground block mb-2">Paleta</span>
+                  <div className="flex gap-1.5">
+                    <div className="w-3.5 h-3.5 rounded-full border border-black/10" style={{ backgroundColor: team.primaryColor }} />
+                    <div className="w-3.5 h-3.5 rounded-full border border-black/10" style={{ backgroundColor: team.secondaryColor }} />
+                    {team.tertiaryColor && <div className="w-3.5 h-3.5 rounded-full border border-black/10" style={{ backgroundColor: team.tertiaryColor }} />}
                   </div>
                 </div>
               </div>
               
-              <div className="flex gap-3">
-                <Button className="flex-1 bg-secondary text-secondary-foreground h-12 rounded-2xl font-black text-xs uppercase transition-all" onClick={() => {
+              <div className="flex gap-4">
+                <Button className="flex-1 bg-secondary text-secondary-foreground h-14 rounded-2xl font-black text-sm uppercase tracking-widest transition-all hover:bg-secondary/80" onClick={() => {
                   setEditingTeam(team);
                   setIsDialogOpen(true);
                 }}>
                   <Pencil className="w-4 h-4 mr-2" /> REDISEÑAR
                 </Button>
-                <Button variant="destructive" size="icon" className="w-12 h-12 rounded-2xl" onClick={() => deleteTeam(team.id)}>
-                  <Trash2 className="w-5 h-5" />
+                <Button variant="destructive" size="icon" className="w-14 h-14 rounded-2xl shadow-lg hover:rotate-6 transition-transform" onClick={() => deleteTeam(team.id)}>
+                  <Trash2 className="w-6 h-6" />
                 </Button>
               </div>
             </div>

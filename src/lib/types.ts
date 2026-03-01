@@ -13,8 +13,15 @@ export type Player = {
   teamId?: string;
 };
 
-export type UniformStyle = 'solid' | 'stripes' | 'hoops' | 'halves' | 'gradient' | 'minimal' | 'clash' | 'sash' | 'pinstripes' | 'checks' | 'quarters';
-export type EmblemShape = 'shield' | 'circle' | 'square' | 'modern' | 'diamond' | 'vintage' | 'crown' | 'star';
+export type UniformStyle = 
+  | 'solid' | 'stripes' | 'hoops' | 'halves' | 'gradient' | 'minimal' 
+  | 'sash' | 'pinstripes' | 'checks' | 'quarters' | 'waves' | 'zigzag' 
+  | 'pixel' | 'honeycomb' | 'shoulders' | 'side-panels' | 'camouflage' | 'stars';
+
+export type EmblemShape = 
+  | 'shield' | 'circle' | 'square' | 'modern' | 'diamond' | 'vintage' 
+  | 'crown' | 'star' | 'hexagon' | 'oval' | 'triangle' | 'banner' | 'wings' | 'eagle' | 'lion';
+
 export type VenueSurface = 'grass' | 'artificial' | 'clay' | 'hardcourt' | 'parquet' | 'ice' | 'sand';
 export type VenueSize = 'small' | 'medium' | 'large' | 'monumental';
 
