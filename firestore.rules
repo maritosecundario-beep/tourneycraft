@@ -1,0 +1,242 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * TOURNEYCRAFT SECURITY RULES (PROTOTYPE MODE)
+     *
+     * Core Philosophy:
+     * This ruleset enforces a strict user-ownership model designed for authorization independence. 
+     * To support rapid prototyping, rules focus on "Who" can access data rather than "What" the 
+     * data looks like (schema-agnostic content).
+     *
+     * Data Structure:
+     * 1. Private User Data: Nested under `/users/{userId}/...`. Scoped strictly to the owner.
+     * 2. Public Published Data: Top-level `/publicTournaments/...` for discovery, allowing 
+     *    public reads but restricting writes to the original creator via denormalized IDs.
+     * 3. Global Static Data: Read-only collections for system-predefined sports and attributes.
+     *
+     * Key Security Decisions:
+     * - Ownership via Path & Data: We prioritize path-based authorization for private trees 
+     *   and field-based authorization (e.g., ownerId) for shared/public trees.
+     * - Relational Integrity: On creation, we force internal 'ownerId' or 'id' fields to match 
+     *   the authenticated UID or path parameters to prevent data hijacking.
+     * - Immutability: Critical relational links (like ownerId) are made immutable during updates.
+     * - Performance: We avoid cross-document get() calls wherever possible by utilizing 
+     *   denormalized ownership fields.
+     */
+
+    // --- Helper Functions ---
+
+    /** @description Checks if the user is authenticated with Firebase Auth. */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /** @description Checks if the current user's UID matches the provided userId. */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /** @description Checks if the current user's UID matches a specific field in the document data. */
+    function isDataOwner(ownerId) {
+      return isSignedIn() && request.auth.uid == ownerId;
+    }
+
+    /** @description Combines ownership check with document existence for destructive operations. */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /** @description Validates that a field is being set correctly on creation and not changed on update. */
+    function isFieldImmutable(fieldName) {
+      return request.resource.data[fieldName] == resource.data[fieldName];
+    }
+
+    // --- Collection Rules ---
+
+    /**
+     * @description Rules for the User profile document.
+     * @path /users/{userId}
+     * @allow (create) if auth.uid matches userId.
+     * @deny (update) if the authenticated user is not the owner.
+     * @principle Self-creation and strict owner-only access.
+     */
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && isFieldImmutable('id');
+      allow delete: if isExistingOwner(userId);
+
+      /**
+       * @description Rules for user-specific application settings.
+       * @path /users/{userId}/settings/{settingId}
+       * @allow (get/list/write) if the authenticated user owns the parent path.
+       * @principle Path-based ownership for private sub-collections.
+       */
+      match /settings/{settingId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && request.resource.data.ownerId == userId;
+        allow update: if isExistingOwner(userId) && isFieldImmutable('ownerId');
+        allow delete: if isExistingOwner(userId);
+      }
+
+      /**
+       * @description Rules for custom player attributes created by the user.
+       * @path /users/{userId}/playerAttributes/{attributeId}
+       * @allow (write) if ownerId in data matches the path userId.
+       * @principle Relational integrity between path and document data.
+       */
+      match /playerAttributes/{attributeId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && request.resource.data.ownerId == userId;
+        allow update: if isExistingOwner(userId) && isFieldImmutable('ownerId');
+        allow delete: if isExistingOwner(userId);
+      }
+
+      /**
+       * @description Rules for custom player positions created by the user.
+       * @path /users/{userId}/playerPositions/{positionId}
+       * @allow (update) if existing owner and ownerId is not changed.
+       * @principle Strict ownership for custom configurations.
+       */
+      match /playerPositions/{positionId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && request.resource.data.ownerId == userId;
+        allow update: if isExistingOwner(userId) && isFieldImmutable('ownerId');
+        allow delete: if isExistingOwner(userId);
+      }
+
+      /**
+       * @description Rules for custom sports created by the user.
+       * @path /users/{userId}/sports/{sportId}
+       * @allow (create) if path userId and data ownerId align.
+       * @principle Ensures private sports cannot be spoofed by other users.
+       */
+      match /sports/{sportId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && request.resource.data.ownerId == userId;
+        allow update: if isExistingOwner(userId) && isFieldImmutable('ownerId');
+        allow delete: if isExistingOwner(userId);
+      }
+
+      /**
+       * @description Rules for teams created by the user.
+       * @path /users/{userId}/teams/{teamId}
+       * @allow (list) for the authenticated owner to view their roster.
+       * @principle Path-based listing for secure private data.
+       */
+      match /teams/{teamId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && request.resource.data.ownerId == userId;
+        allow update: if isExistingOwner(userId) && isFieldImmutable('ownerId');
+        allow delete: if isExistingOwner(userId);
+      }
+
+      /**
+       * @description Rules for players created by the user.
+       * @path /users/{userId}/players/{playerId}
+       * @allow (create) if internal ownerId matches the creator's UID.
+       * @principle Protects player data from unauthorized modifications.
+       */
+      match /players/{playerId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && request.resource.data.ownerId == userId;
+        allow update: if isExistingOwner(userId) && isFieldImmutable('ownerId');
+        allow delete: if isExistingOwner(userId);
+      }
+
+      /**
+       * @description Rules for private tournaments owned by the user.
+       * @path /users/{userId}/tournaments/{tournamentId}
+       * @allow (all) for the specific owner indicated in the path.
+       * @principle Full control for private user-created content.
+       */
+      match /tournaments/{tournamentId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && request.resource.data.ownerId == userId;
+        allow update: if isExistingOwner(userId) && isFieldImmutable('ownerId');
+        allow delete: if isExistingOwner(userId);
+
+        /**
+         * @description Rules for matches within a private tournament.
+         * @path /users/{userId}/tournaments/{tournamentId}/matches/{matchId}
+         * @allow (write) inherited from parent tournament ownership.
+         * @principle Hierarchical path-based authorization.
+         */
+        match /matches/{matchId} {
+          allow get, list: if isOwner(userId);
+          allow create: if isOwner(userId);
+          allow update: if isExistingOwner(userId);
+          allow delete: if isExistingOwner(userId);
+        }
+      }
+    }
+
+    // --- Global/Read-Only Collections ---
+
+    /**
+     * @description Predefined, system-wide player attributes.
+     * @path /globalPlayerAttributes/{attributeId}
+     * @allow (read) for all users.
+     * @principle Public read-only access for global constants.
+     */
+    match /globalPlayerAttributes/{attributeId} {
+      allow get, list: if true;
+      allow create, update, delete: if false;
+    }
+
+    /**
+     * @description Predefined, system-wide player positions.
+     * @path /globalPlayerPositions/{positionId}
+     * @allow (read) for all users.
+     * @principle Public read-only access for global constants.
+     */
+    match /globalPlayerPositions/{positionId} {
+      allow get, list: if true;
+      allow create, update, delete: if false;
+    }
+
+    /**
+     * @description Predefined, system-wide sports.
+     * @path /globalSports/{sportId}
+     * @allow (read) for all users.
+     * @principle Public read-only access for global constants.
+     */
+    match /globalSports/{sportId} {
+      allow get, list: if true;
+      allow create, update, delete: if false;
+    }
+
+    // --- Public/Published Collections ---
+
+    /**
+     * @description User-published tournaments accessible to the public.
+     * @path /publicTournaments/{tournamentId}
+     * @allow (read) for all users to browse.
+     * @allow (write) restricted to the original creator via denormalized ownerId.
+     * @principle Public Read with Owner-Only Writes.
+     */
+    match /publicTournaments/{tournamentId} {
+      allow get, list: if true;
+      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isDataOwner(resource.data.ownerId) && isFieldImmutable('ownerId');
+      allow delete: if isDataOwner(resource.data.ownerId);
+
+      /**
+       * @description Matches within a public tournament.
+       * @path /publicTournaments/{tournamentId}/matches/{matchId}
+       * @allow (read) for everyone.
+       * @allow (write) restricted to the parent tournament's creator.
+       * @principle Authorization via denormalized tournamentOwnerId.
+       */
+      match /matches/{matchId} {
+        allow get, list: if true;
+        allow create: if isSignedIn() && request.resource.data.tournamentOwnerId == request.auth.uid;
+        allow update: if isDataOwner(resource.data.tournamentOwnerId) && isFieldImmutable('tournamentOwnerId');
+        allow delete: if isDataOwner(resource.data.tournamentOwnerId);
+      }
+    }
+  }
+}

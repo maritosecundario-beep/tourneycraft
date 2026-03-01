@@ -1,0 +1,788 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user account in the TourneyCraft application, enabling data ownership, cloud saving, and publishing features.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "username": {
+          "type": "string",
+          "description": "A unique username chosen by the user for identification."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address associated with the user's account.",
+          "format": "email"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the user account was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the user account was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "username",
+        "email",
+        "createdAt"
+      ]
+    },
+    "PlayerAttribute": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PlayerAttribute",
+      "type": "object",
+      "description": "Defines a customizable attribute for players (e.g., 'Shoot', 'Defense').",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the PlayerAttribute entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the player attribute (e.g., 'Shoot', 'Defense')."
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief explanation of what this attribute represents."
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "Reference to User who created this custom attribute. (Relationship: User 1:N PlayerAttribute)"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description"
+      ]
+    },
+    "PlayerPosition": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PlayerPosition",
+      "type": "object",
+      "description": "Defines a customizable player position (e.g., 'Forward', 'Midfielder').",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the PlayerPosition entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The full name of the player's position (e.g., 'Forward')."
+        },
+        "abbreviation": {
+          "type": "string",
+          "description": "A short, three-letter abbreviation for the position (e.g., 'FWD')."
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief explanation of the role this position plays in a team."
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "Reference to User who created this custom position. (Relationship: User 1:N PlayerPosition)"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "abbreviation",
+        "description"
+      ]
+    },
+    "Sport": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Sport",
+      "type": "object",
+      "description": "Defines a sport, including its default player attributes and positions, which can be predefined or user-created.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Sport entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the sport (e.g., 'Football', 'Basketball')."
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief description of the sport."
+        },
+        "defaultPlayerAttributeIds": {
+          "type": "array",
+          "description": "References to PlayerAttribute entities that are standard for this sport. (Relationship: Sport 1:N PlayerAttribute)",
+          "items": {
+            "type": "string"
+          }
+        },
+        "defaultPlayerPositionIds": {
+          "type": "array",
+          "description": "References to PlayerPosition entities that are standard for this sport. (Relationship: Sport 1:N PlayerPosition)",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "Reference to User who created this custom sport. (Relationship: User 1:N Sport)"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description"
+      ]
+    },
+    "Team": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Team",
+      "type": "object",
+      "description": "Represents a sports team with its unique characteristics, including visual customization and rating.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Team entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The full name of the team."
+        },
+        "abbreviation": {
+          "type": "string",
+          "description": "A three-letter abbreviation for the team name."
+        },
+        "rating": {
+          "type": "number",
+          "description": "A numerical rating from 1 to 100, indicating the team's overall strength."
+        },
+        "crestImageUrl": {
+          "type": "string",
+          "description": "URL to the image asset for the team's crest or logo.",
+          "format": "uri"
+        },
+        "kitImageUrl": {
+          "type": "string",
+          "description": "URL to the image asset for the team's uniform/kit.",
+          "format": "uri"
+        },
+        "stadiumName": {
+          "type": "string",
+          "description": "The name of the team's home stadium."
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "Reference to User who created or owns this team. (Relationship: User 1:N Team)"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "abbreviation",
+        "rating",
+        "ownerId"
+      ]
+    },
+    "Player": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Player",
+      "type": "object",
+      "description": "Represents an individual player, with attributes, monetary value, and association with a team or as a free agent.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Player entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The full name of the player."
+        },
+        "monetaryValue": {
+          "type": "number",
+          "description": "The monetary value of the player, expressed in the app's currency."
+        },
+        "jerseyNumber": {
+          "type": "number",
+          "description": "The player's jersey number."
+        },
+        "playerPositionId": {
+          "type": "string",
+          "description": "Reference to the PlayerPosition entity indicating the player's primary position. (Relationship: PlayerPosition 1:N Player)"
+        },
+        "teamId": {
+          "type": "string",
+          "description": "Optional reference to the Team the player belongs to. If null, the player is a free agent. (Relationship: Team 1:N Player)"
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "Reference to User who created or owns this player. (Relationship: User 1:N Player)"
+        },
+        "attributeValues": {
+          "type": "array",
+          "description": "An array of objects representing the player's values for various attributes (e.g., Shoot, Defense).",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "monetaryValue",
+        "playerPositionId",
+        "ownerId"
+      ]
+    },
+    "PlayerAttributeValue": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PlayerAttributeValue",
+      "type": "object",
+      "description": "Represents a specific player's value for a defined PlayerAttribute.",
+      "properties": {
+        "attributeId": {
+          "type": "string",
+          "description": "Reference to the PlayerAttribute definition. (Relationship: PlayerAttribute 1:N PlayerAttributeValue)"
+        },
+        "value": {
+          "type": "number",
+          "description": "The player's value for this specific attribute, typically from 1 to 100."
+        }
+      },
+      "required": [
+        "attributeId",
+        "value"
+      ]
+    },
+    "Tournament": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Tournament",
+      "type": "object",
+      "description": "Defines a highly customizable tournament, including its format, scoring rules, and economic settings.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Tournament entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the tournament."
+        },
+        "description": {
+          "type": "string",
+          "description": "A detailed description of the tournament, its objectives, or special rules."
+        },
+        "sportId": {
+          "type": "string",
+          "description": "Reference to the Sport entity for this tournament. (Relationship: Sport 1:N Tournament)"
+        },
+        "mode": {
+          "type": "string",
+          "description": "The gameplay mode for the tournament ('Normal' or 'Arcade')."
+        },
+        "scoringRuleType": {
+          "type": "string",
+          "description": "The type of scoring rule for matches ('NtoNRange', 'BestOfN', 'FirstToN')."
+        },
+        "scoringRuleValueN": {
+          "type": "number",
+          "description": "The numerical value 'N' used for 'BestOfN' or 'FirstToN' scoring rules. Required if scoringRuleType is 'BestOfN' or 'FirstToN'."
+        },
+        "scoringRuleRangeMin": {
+          "type": "number",
+          "description": "The minimum value 'n' for the 'NtoNRange' scoring rule. Required if scoringRuleType is 'NtoNRange'."
+        },
+        "scoringRuleRangeMax": {
+          "type": "number",
+          "description": "The maximum value 'n' for the 'NtoNRange' scoring rule. Required if scoringRuleType is 'NtoNRange'."
+        },
+        "format": {
+          "type": "string",
+          "description": "The tournament format ('League' or 'Knockout')."
+        },
+        "leagueType": {
+          "type": "string",
+          "description": "Specifies the league structure ('SingleTable', 'Groups', 'Conferences'). Required if format is 'League'."
+        },
+        "isDualLeague": {
+          "type": "boolean",
+          "description": "Indicates if the tournament is a dual league (Arcade mode only). Required if format is 'League' and mode is 'Arcade'."
+        },
+        "initialTeamFunds": {
+          "type": "number",
+          "description": "The starting monetary funds allocated to each participating team in the tournament."
+        },
+        "winReward": {
+          "type": "number",
+          "description": "The base monetary reward for a team winning a match."
+        },
+        "lossPenalty": {
+          "type": "number",
+          "description": "The base monetary penalty for a team losing a match."
+        },
+        "drawReward": {
+          "type": "number",
+          "description": "The base monetary reward for a team in case of a draw."
+        },
+        "rewardVariabilityRangeMin": {
+          "type": "number",
+          "description": "The minimum percentage or amount for unpredictable economic reward/penalty adjustments."
+        },
+        "rewardVariabilityRangeMax": {
+          "type": "number",
+          "description": "The maximum percentage or amount for unpredictable economic reward/penalty adjustments."
+        },
+        "teamIds": {
+          "type": "array",
+          "description": "References to Team entities participating in this tournament. (Relationship: Tournament N:N Team)",
+          "items": {
+            "type": "string"
+          }
+        },
+        "calendarGenerated": {
+          "type": "boolean",
+          "description": "Indicates if the tournament's match calendar has been automatically generated."
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "Reference to User who created or owns this tournament. (Relationship: User 1:N Tournament)"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the tournament was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the tournament was last updated.",
+          "format": "date-time"
+        },
+        "isPublic": {
+          "type": "boolean",
+          "description": "Indicates if the tournament is published and publicly visible (true) or private (false)."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "sportId",
+        "mode",
+        "scoringRuleType",
+        "format",
+        "initialTeamFunds",
+        "winReward",
+        "lossPenalty",
+        "drawReward",
+        "rewardVariabilityRangeMin",
+        "rewardVariabilityRangeMax",
+        "teamIds",
+        "ownerId",
+        "createdAt",
+        "isPublic",
+        "description"
+      ]
+    },
+    "Match": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Match",
+      "type": "object",
+      "description": "Represents a single match played or scheduled within a tournament.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Match entity."
+        },
+        "tournamentId": {
+          "type": "string",
+          "description": "Reference to the Tournament this match belongs to. (Relationship: Tournament 1:N Match)"
+        },
+        "matchdayNumber": {
+          "type": "number",
+          "description": "The sequential number of the matchday within the tournament calendar."
+        },
+        "homeTeamId": {
+          "type": "string",
+          "description": "Reference to the Team playing at home. (Relationship: Team 1:N Match)"
+        },
+        "awayTeamId": {
+          "type": "string",
+          "description": "Reference to the Team playing away. (Relationship: Team 1:N Match)"
+        },
+        "homeScore": {
+          "type": "number",
+          "description": "The final score achieved by the home team."
+        },
+        "awayScore": {
+          "type": "number",
+          "description": "The final score achieved by the away team."
+        },
+        "isSimulated": {
+          "type": "boolean",
+          "description": "True if the match result was simulated by the engine, false if user-played or pending."
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the match ('Scheduled', 'Completed', 'Postponed', 'Cancelled')."
+        },
+        "scheduledDateTime": {
+          "type": "string",
+          "description": "The date and time when the match is scheduled to take place.",
+          "format": "date-time"
+        },
+        "winningTeamId": {
+          "type": "string",
+          "description": "Optional reference to the Team that won the match. Null if it was a draw. (Relationship: Team 1:N Match)"
+        },
+        "isDraw": {
+          "type": "boolean",
+          "description": "True if the match ended in a draw, false otherwise."
+        },
+        "homePlayerIds": {
+          "type": "array",
+          "description": "References to Player entities who participated for the home team in this match. (Relationship: Player N:N Match)",
+          "items": {
+            "type": "string"
+          }
+        },
+        "awayPlayerIds": {
+          "type": "array",
+          "description": "References to Player entities who participated for the away team in this match. (Relationship: Player N:N Match)",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "tournamentId",
+        "matchdayNumber",
+        "homeTeamId",
+        "awayTeamId",
+        "status"
+      ]
+    },
+    "Setting": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Setting",
+      "type": "object",
+      "description": "Stores user-specific application settings, such as currency name and themes.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Setting entity."
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "Reference to the User who owns these settings. (Relationship: User 1:1 Setting)"
+        },
+        "currencyName": {
+          "type": "string",
+          "description": "The name of the currency used in the app (e.g., 'Credits', 'CR')."
+        },
+        "themeName": {
+          "type": "string",
+          "description": "The name of the selected visual theme for the app (e.g., 'Dark Theme')."
+        },
+        "defaultPlayerMonetaryValue": {
+          "type": "number",
+          "description": "The default monetary value assigned to new players upon creation."
+        },
+        "lastBackupDate": {
+          "type": "string",
+          "description": "Timestamp indicating the last time user data was backed up or synchronized.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "ownerId",
+        "currencyName",
+        "themeName",
+        "defaultPlayerMonetaryValue"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profiles. The document ID matches the Firebase Authentication UID, and access is restricted to the authenticated user.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user, corresponding to `request.auth.uid`."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/settings/{settingId}",
+        "definition": {
+          "entityName": "Setting",
+          "schema": {
+            "$ref": "#/backend/entities/Setting"
+          },
+          "description": "Stores individual user settings like currency, theme, and default values. `settingId` will typically be a fixed identifier like 'default'. Includes denormalized 'ownerId' for authorization independence.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user who owns these settings."
+            },
+            {
+              "name": "settingId",
+              "description": "The unique identifier for the setting document, typically 'default' for a 1:1 relationship."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/globalPlayerAttributes/{attributeId}",
+        "definition": {
+          "entityName": "PlayerAttribute",
+          "schema": {
+            "$ref": "#/backend/entities/PlayerAttribute"
+          },
+          "description": "Stores predefined, globally accessible player attributes (e.g., 'Shoot', 'Defense'). These are read-only for all users and do not contain an 'ownerId' field.",
+          "params": [
+            {
+              "name": "attributeId",
+              "description": "The unique identifier of the global player attribute."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/playerAttributes/{playerAttributeId}",
+        "definition": {
+          "entityName": "PlayerAttribute",
+          "schema": {
+            "$ref": "#/backend/entities/PlayerAttribute"
+          },
+          "description": "Stores custom player attributes created and owned by a specific user. Includes denormalized 'ownerId' for authorization independence.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user who owns this custom player attribute."
+            },
+            {
+              "name": "playerAttributeId",
+              "description": "The unique identifier of the custom player attribute."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/globalPlayerPositions/{positionId}",
+        "definition": {
+          "entityName": "PlayerPosition",
+          "schema": {
+            "$ref": "#/backend/entities/PlayerPosition"
+          },
+          "description": "Stores predefined, globally accessible player positions (e.g., 'Forward', 'Midfielder'). These are read-only for all users and do not contain an 'ownerId' field.",
+          "params": [
+            {
+              "name": "positionId",
+              "description": "The unique identifier of the global player position."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/playerPositions/{playerPositionId}",
+        "definition": {
+          "entityName": "PlayerPosition",
+          "schema": {
+            "$ref": "#/backend/entities/PlayerPosition"
+          },
+          "description": "Stores custom player positions created and owned by a specific user. Includes denormalized 'ownerId' for authorization independence.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user who owns this custom player position."
+            },
+            {
+              "name": "playerPositionId",
+              "description": "The unique identifier of the custom player position."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/globalSports/{sportId}",
+        "definition": {
+          "entityName": "Sport",
+          "schema": {
+            "$ref": "#/backend/entities/Sport"
+          },
+          "description": "Stores predefined, globally accessible sports with their default attributes and positions. These are read-only for all users and do not contain an 'ownerId' field.",
+          "params": [
+            {
+              "name": "sportId",
+              "description": "The unique identifier of the global sport."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/sports/{sportId}",
+        "definition": {
+          "entityName": "Sport",
+          "schema": {
+            "$ref": "#/backend/entities/Sport"
+          },
+          "description": "Stores custom sports created and owned by a specific user. Includes denormalized 'ownerId' for authorization independence.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user who owns this custom sport."
+            },
+            {
+              "name": "sportId",
+              "description": "The unique identifier of the custom sport."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/teams/{teamId}",
+        "definition": {
+          "entityName": "Team",
+          "schema": {
+            "$ref": "#/backend/entities/Team"
+          },
+          "description": "Stores teams created and owned by a specific user. Includes denormalized 'ownerId' for authorization independence.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user who owns this team."
+            },
+            {
+              "name": "teamId",
+              "description": "The unique identifier of the team."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/players/{playerId}",
+        "definition": {
+          "entityName": "Player",
+          "schema": {
+            "$ref": "#/backend/entities/Player"
+          },
+          "description": "Stores players created and owned by a specific user. The 'attributeValues' field will be an embedded array of 'PlayerAttributeValue' objects (each with 'attributeId' and 'value'). Includes denormalized 'ownerId' for authorization independence.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user who owns this player."
+            },
+            {
+              "name": "playerId",
+              "description": "The unique identifier of the player."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/tournaments/{tournamentId}",
+        "definition": {
+          "entityName": "Tournament",
+          "schema": {
+            "$ref": "#/backend/entities/Tournament"
+          },
+          "description": "Stores tournaments created and owned by a specific user, which are private by default. Documents in this collection typically have 'isPublic' set to `false`. Includes denormalized 'ownerId' for authorization independence.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user who owns this tournament."
+            },
+            {
+              "name": "tournamentId",
+              "description": "The unique identifier of the private tournament."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/tournaments/{tournamentId}/matches/{matchId}",
+        "definition": {
+          "entityName": "Match",
+          "schema": {
+            "$ref": "#/backend/entities/Match"
+          },
+          "description": "Stores individual matches belonging to a user-owned, private tournament. Access is tied to the parent tournament's ownership via the path. For full authorization independence, the Match document should also contain 'ownerId' (the owner of the parent tournament).",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user who owns the parent tournament."
+            },
+            {
+              "name": "tournamentId",
+              "description": "The unique identifier of the private tournament this match belongs to."
+            },
+            {
+              "name": "matchId",
+              "description": "The unique identifier of the match."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/publicTournaments/{tournamentId}",
+        "definition": {
+          "entityName": "Tournament",
+          "schema": {
+            "$ref": "#/backend/entities/Tournament"
+          },
+          "description": "Stores tournaments published by users, making them publicly visible and readable for all. Documents in this collection must have 'isPublic: true' and include denormalized 'ownerId' for authorization independence, allowing the original creator to retain write access.",
+          "params": [
+            {
+              "name": "tournamentId",
+              "description": "The unique identifier of the public tournament."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/publicTournaments/{tournamentId}/matches/{matchId}",
+        "definition": {
+          "entityName": "Match",
+          "schema": {
+            "$ref": "#/backend/entities/Match"
+          },
+          "description": "Stores individual matches belonging to a user-published, public tournament. These matches are publicly readable. For full authorization independence, the Match document should denormalize 'tournamentOwnerId' (the owner of the parent tournament) and 'isTournamentPublic' (which will be true for documents in this collection).",
+          "params": [
+            {
+              "name": "tournamentId",
+              "description": "The unique identifier of the public tournament this match belongs to."
+            },
+            {
+              "name": "matchId",
+              "description": "The unique identifier of the match."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed following a clear segregation strategy to ensure authorization independence, debuggability, and support for secure `list` operations (QAPs). \n\n**Authorization Independence & Denormalization:**\nAll user-owned top-level entities (User, Setting, PlayerAttribute, PlayerPosition, Sport, Team, Player, Tournament) include an `ownerId` field. This `ownerId` directly corresponds to `request.auth.uid` from Firebase Authentication, eliminating the need for expensive and complex `get()` calls in security rules to ascertain ownership. For nested entities like `Match`, when they are part of a user-owned private tournament (`/users/{userId}/tournaments/{tournamentId}/matches/{matchId}`), ownership is implicitly derived from the `userId` in the path. However, for `Match` documents nested under public tournaments (`/publicTournaments/{tournamentId}/matches/{matchId}`), the `Match` document will explicitly denormalize `tournamentOwnerId` (the `ownerId` of the parent tournament) and `isTournamentPublic` (which will be `true` for documents in this collection) to achieve full authorization independence. This ensures that any `Match` document can be secured and read/written without needing to fetch its parent `Tournament` document, which is critical for atomic operations and maintainable security rules.\n\n**Structural Segregation for QAPs & Clarity of Intent:**\nTo support QAPs and simplify security rules, data is segregated into three distinct categories, each with a homogeneous security posture:\n1.  **User-Owned Private Data:** Stored under `/users/{userId}/...` paths (e.g., `/users/{userId}/teams`, `/users/{userId}/tournaments`). Access to these collections is strictly restricted to the `request.auth.uid` matching the `{userId}` wildcard in the path, and/or the `ownerId` field within the document. This makes `list` operations inherently secure as they are scoped to the authenticated user.\n2.  **User-Published Public Data:** Tournaments that a user chooses to make public are stored in `/publicTournaments/{tournamentId}`. These documents contain an `ownerId` field for write access by the creator and an `isPublic: true` field. This dedicated collection allows for simple security rules (`allow read: true`) and efficient `list` queries for all users without requiring client-side filtering or complex rule logic that impacts performance.\n3.  **Global/Predefined Data:** For entities like `PlayerAttribute`, `PlayerPosition`, and `Sport` that have predefined, system-managed versions in addition to user-customizable ones, dedicated top-level collections like `/globalPlayerAttributes` are used. These collections are read-only for all users and do not contain an `ownerId` field, making their security rules extremely straightforward (`allow read: true`). This structural separation prevents mixing public and private data in the same collection, adhering to the 'Homogeneous Security Posture' mandate.\n\n**Access Modeling & Consistency:**\n*   **Path-Based Ownership:** Used extensively for all private user data, ensuring `request.auth.uid` is consistently checked against the `{userId}` wildcard in the path.\n*   **Denormalized Ownership:** The `ownerId` field is present in all user-owned root documents and denormalized into nested `Match` documents for public tournaments, ensuring authorization decisions are made directly from the document itself.\n*   **Explicit State Modeling:** Fields like `isPublic` on `Tournament` and `status` on `Match` clearly define the data's state, making authorization logic explicit and easier to debug.\n*   **Predictable Schema:** The `Player.attributeValues` field is interpreted as an embedded array of `PlayerAttributeValue` objects (each containing `attributeId` and `value`), ensuring self-contained player documents without needing a subcollection for attributes. This provides a consistent and predictable structure. Wildcard names (`{userId}`, `{tournamentId}`) are semantic and consistent.\n\nThis robust design ensures that security rules are simple, easy to debug, and efficient, while also providing the flexibility for users to manage private data, create custom entities, and publish tournaments for public viewing."
+  }
+}
