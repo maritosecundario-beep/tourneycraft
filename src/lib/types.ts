@@ -13,8 +13,8 @@ export type Player = {
   teamId?: string;
 };
 
-export type UniformStyle = 'solid' | 'stripes' | 'hoops' | 'halves' | 'gradient' | 'minimal' | 'clash';
-export type EmblemShape = 'shield' | 'circle' | 'square' | 'modern' | 'diamond' | 'vintage';
+export type UniformStyle = 'solid' | 'stripes' | 'hoops' | 'halves' | 'gradient' | 'minimal' | 'clash' | 'sash' | 'pinstripes' | 'checks' | 'quarters';
+export type EmblemShape = 'shield' | 'circle' | 'square' | 'modern' | 'diamond' | 'vintage' | 'crown' | 'star';
 export type VenueSurface = 'grass' | 'artificial' | 'clay' | 'hardcourt' | 'parquet' | 'ice' | 'sand';
 export type VenueSize = 'small' | 'medium' | 'large' | 'monumental';
 
@@ -24,8 +24,10 @@ export type Team = {
   abbreviation: string;
   rating: number; // 1-100
   emblemShape: EmblemShape;
-  primaryColor: string;
-  secondaryColor: string;
+  primaryColor: string; // Color 1
+  secondaryColor: string; // Color 2
+  tertiaryColor?: string; // Color 3 (Trim/Cuello)
+  accentColor?: string; // Color 4 (Logos/Detalles)
   uniformStyle: UniformStyle;
   venueName: string;
   venueCapacity: number;
