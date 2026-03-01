@@ -1,6 +1,7 @@
+
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { Team, Player, Tournament, GlobalSettings } from '@/lib/types';
 import { useUser, useFirestore } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
@@ -47,35 +48,40 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   const { user } = useUser();
   const db = useFirestore();
 
+  // Load initial data from LocalStorage
   useEffect(() => {
     const saved = localStorage.getItem('tourneycraft-store');
     if (saved) {
-      const parsed = JSON.parse(saved);
-      const migratedTeams = (parsed.teams || []).map((t: any) => ({
-        ...t,
-        primaryColor: t.primaryColor || '#3b82f6',
-        secondaryColor: t.secondaryColor || '#ffffff',
-        uniformStyle: t.uniformStyle || 'solid',
-        emblemShape: t.emblemShape || 'shield',
-        venueName: t.venueName || 'Main Arena',
-        venueCapacity: t.venueCapacity || 5000,
-        venueSurface: t.venueSurface || 'hardcourt'
-      }));
-      
-      setTeams(migratedTeams);
-      setPlayers(parsed.players || []);
-      setTournaments(parsed.tournaments || []);
-      
-      const baseSettings = parsed.settings || defaultSettings;
-      // Migration for old themes
-      if (!['dark', 'midnight', 'obsidian', 'light', 'nord', 'retro'].includes(baseSettings.theme)) {
-        baseSettings.theme = 'dark';
+      try {
+        const parsed = JSON.parse(saved);
+        const migratedTeams = (parsed.teams || []).map((t: any) => ({
+          ...t,
+          primaryColor: t.primaryColor || '#3b82f6',
+          secondaryColor: t.secondaryColor || '#ffffff',
+          uniformStyle: t.uniformStyle || 'solid',
+          emblemShape: t.emblemShape || 'shield',
+          venueName: t.venueName || 'Main Arena',
+          venueCapacity: t.venueCapacity || 5000,
+          venueSurface: t.venueSurface || 'hardcourt'
+        }));
+        
+        setTeams(migratedTeams);
+        setPlayers(parsed.players || []);
+        setTournaments(parsed.tournaments || []);
+        
+        const baseSettings = parsed.settings || defaultSettings;
+        if (!['dark', 'midnight', 'obsidian', 'light', 'nord', 'retro'].includes(baseSettings.theme)) {
+          baseSettings.theme = 'dark';
+        }
+        setSettings(baseSettings);
+      } catch (e) {
+        console.error("Failed to parse local storage", e);
       }
-      setSettings(baseSettings);
     }
     setIsLoaded(true);
   }, []);
 
+  // Sync from Cloud only on auth change or initial load
   useEffect(() => {
     if (user && db && isLoaded) {
       const userDocRef = doc(db, 'users', user.uid, 'backups', 'latest');
@@ -90,58 +96,67 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         }
       });
     }
-  }, [user, db, isLoaded]);
+  }, [user?.uid, db, isLoaded]);
 
+  // Separate Effect for Theme - This prevents UI lag when other data changes
   useEffect(() => {
     if (isLoaded) {
-      const dataToSave = { teams, players, tournaments, settings };
-      localStorage.setItem('tourneycraft-store', JSON.stringify(dataToSave));
-      
-      if (user && db) {
-        const userDocRef = doc(db, 'users', user.uid, 'backups', 'latest');
-        setDocumentNonBlocking(userDocRef, {
-          ...dataToSave,
-          updatedAt: new Date().toISOString(),
-          ownerId: user.uid
-        }, { merge: true });
-      }
-
-      // Apply theme class to document
       document.documentElement.className = settings.theme || 'dark';
     }
-  }, [teams, players, tournaments, settings, isLoaded, user, db]);
+  }, [settings.theme, isLoaded]);
 
-  const addTeam = (team: Team) => setTeams((prev) => [...prev, team]);
-  const updateTeam = (team: Team) => setTeams((prev) => prev.map((t) => (t.id === team.id ? team : t)));
-  const deleteTeam = (id: string) => setTeams((prev) => prev.filter((t) => t.id !== id));
+  // Optimized background saving
+  useEffect(() => {
+    if (isLoaded) {
+      const timer = setTimeout(() => {
+        const dataToSave = { teams, players, tournaments, settings };
+        localStorage.setItem('tourneycraft-store', JSON.stringify(dataToSave));
+        
+        if (user && db) {
+          const userDocRef = doc(db, 'users', user.uid, 'backups', 'latest');
+          setDocumentNonBlocking(userDocRef, {
+            ...dataToSave,
+            updatedAt: new Date().toISOString(),
+            ownerId: user.uid
+          }, { merge: true });
+        }
+      }, 500); // Debounce saves to reduce main thread load
 
-  const addPlayer = (player: Player) => setPlayers((prev) => [...prev, player]);
-  const updatePlayer = (player: Player) => setPlayers((prev) => prev.map((p) => (p.id === player.id ? player : p)));
-  const deletePlayer = (id: string) => setPlayers((prev) => prev.filter((p) => p.id !== id));
+      return () => clearTimeout(timer);
+    }
+  }, [teams, players, tournaments, settings, isLoaded, user?.uid, db]);
 
-  const addTournament = (tournament: Tournament) => setTournaments((prev) => [...prev, tournament]);
-  const updateTournament = (tournament: Tournament) => setTournaments((prev) => prev.map((t) => (t.id === tournament.id ? tournament : t)));
+  const addTeam = useCallback((team: Team) => setTeams((prev) => [...prev, team]), []);
+  const updateTeam = useCallback((team: Team) => setTeams((prev) => prev.map((t) => (t.id === team.id ? team : t))), []);
+  const deleteTeam = useCallback((id: string) => setTeams((prev) => prev.filter((t) => t.id !== id)), []);
 
-  const updateSettings = (newSettings: Partial<GlobalSettings>) => setSettings((prev) => ({ ...prev, ...newSettings }));
+  const addPlayer = useCallback((player: Player) => setPlayers((prev) => [...prev, player]), []);
+  const updatePlayer = useCallback((player: Player) => setPlayers((prev) => prev.map((p) => (p.id === player.id ? player : p))), []);
+  const deletePlayer = useCallback((id: string) => setPlayers((prev) => prev.filter((p) => p.id !== id)), []);
+
+  const addTournament = useCallback((tournament: Tournament) => setTournaments((prev) => [...prev, tournament]), []);
+  const updateTournament = useCallback((tournament: Tournament) => setTournaments((prev) => prev.map((t) => (t.id === tournament.id ? tournament : t))), []);
+
+  const updateSettings = useCallback((newSettings: Partial<GlobalSettings>) => setSettings((prev) => ({ ...prev, ...newSettings })), []);
+
+  const value = useMemo(() => ({
+    teams,
+    players,
+    tournaments,
+    settings,
+    addTeam,
+    updateTeam,
+    deleteTeam,
+    addPlayer,
+    updatePlayer,
+    deletePlayer,
+    addTournament,
+    updateTournament,
+    updateSettings,
+  }), [teams, players, tournaments, settings, addTeam, updateTeam, deleteTeam, addPlayer, updatePlayer, deletePlayer, addTournament, updateTournament, updateSettings]);
 
   return (
-    <TournamentContext.Provider
-      value={{
-        teams,
-        players,
-        tournaments,
-        settings,
-        addTeam,
-        updateTeam,
-        deleteTeam,
-        addPlayer,
-        updatePlayer,
-        deletePlayer,
-        addTournament,
-        updateTournament,
-        updateSettings,
-      }}
-    >
+    <TournamentContext.Provider value={value}>
       {children}
     </TournamentContext.Provider>
   );
