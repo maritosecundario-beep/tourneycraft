@@ -39,19 +39,25 @@ const generateSeedData = () => {
     const isTop = team.rating >= 90;
     const teamNameNoId = team.name;
     
-    hortaData.settings.positions.forEach((pos, i) => {
+    // Cada equipo tiene 3 jugadores: 1 Sharpshooter, 1 Blitz, 1 Defenseman
+    const positions = ['Sharpshooter', 'Blitz', 'Defenseman'];
+    
+    positions.forEach((pos, i) => {
       const pId = `${team.id}-p-${i}`;
       
       let bio = "";
-      if (pos === 'Sharpshooter') bio = `Francotirador de élite de ${teamNameNoId}. Posee un lanzamiento de seda capaz de romper cualquier defensa desde el perímetro.`;
-      if (pos === 'Blitz') bio = `Motor incansable de ${teamNameNoId}. Destaca por su explosividad en el primer paso y su visión de juego panorámica.`;
-      if (pos === 'Defenseman') bio = `Muralla inexpugnable de ${teamNameNoId}. Especialista en lectura defensiva, tapones y sacrificio por el bloque.`;
+      if (pos === 'Sharpshooter') bio = `Francotirador de élite de ${teamNameNoId}. Posee un lanzamiento de seda capaz de romper cualquier defensa desde el perímetro con una precisión quirúrgica.`;
+      if (pos === 'Blitz') bio = `Motor incansable de ${teamNameNoId}. Destaca por su explosividad en el primer paso y su visión de juego panorámica para asistir bajo presión.`;
+      if (pos === 'Defenseman') bio = `Muralla inexpugnable de ${teamNameNoId}. Especialista en lectura defensiva, tapones y sacrificio por el bloque, es el alma del equipo.`;
+
+      // Valor acorde al equipo (rating * factor)
+      const playerVal = Math.floor((team.rating * (isTop ? 0.8 : 0.4)));
 
       const player: Player = {
         id: pId,
         name: `${pos} ${teamNameNoId}`,
         description: bio,
-        monetaryValue: isTop ? 45000 : 12000,
+        monetaryValue: playerVal,
         jerseyNumber: i + 1,
         position: pos,
         teamId: team.id,
@@ -85,7 +91,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   const [players, setPlayers] = useState<Player[]>([]);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [settings, setSettings] = useState<GlobalSettings>(defaultSettings);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [isLoaded, setIsLoading] = useState(false);
   
   const { user } = useUser();
   const db = useFirestore();
@@ -109,7 +115,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       setTournaments(seed.tournaments); 
       setSettings(defaultSettings);
     }
-    setIsLoaded(true);
+    setIsLoading(true);
   }, []);
 
   useEffect(() => {
@@ -190,11 +196,8 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       };
 
       if (t.leagueType === 'groups' && t.groupIsolation && t.groups) {
-        let maxMatchdaysInGroups = 0;
         t.groups.forEach(group => {
           createMatchesForList(group.participantIds);
-          const groupRounds = group.participantIds.length % 2 === 0 ? group.participantIds.length - 1 : group.participantIds.length;
-          maxMatchdaysInGroups = Math.max(maxMatchdaysInGroups, groupRounds);
         });
       } else {
         createMatchesForList(t.participants);
