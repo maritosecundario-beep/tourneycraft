@@ -17,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PREDEFINED_COLORS } from '@/lib/colors';
 import { cn } from '@/lib/utils';
 
-// Elite Jersey SVG Visualizer 3.0 (Hyper-Realistic)
+// Hyper-Realistic Jersey SVG Visualizer 4.0
 const PlayerJerseySVG = ({ 
   primary, secondary, tertiary, accent, style, brand, sponsor, 
   crestPlacement, sponsorPlacement, brandPlacement, crestSize = 'medium'
@@ -33,9 +33,9 @@ const PlayerJerseySVG = ({
   };
 
   const getSponsorPos = () => {
-    if (sponsorPlacement === 'top') return { x: 100, y: 100 };
+    if (sponsorPlacement === 'top') return { x: 100, y: 105 };
     if (sponsorPlacement === 'middle') return { x: 100, y: 140 };
-    return { x: 100, y: 180 };
+    return { x: 100, y: 175 };
   };
 
   const getBrandPos = () => {
@@ -56,10 +56,9 @@ const PlayerJerseySVG = ({
         <clipPath id="jerseyClip">
           <path d="M40 40 L60 20 L140 20 L160 40 L180 60 L180 100 L160 100 L160 220 L150 225 L50 225 L40 220 L40 100 L20 100 L20 60 Z" />
         </clipPath>
-        <linearGradient id="clothShadow" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="black" stopOpacity="0.2" />
-          <stop offset="15%" stopColor="white" stopOpacity="0" />
-          <stop offset="85%" stopColor="white" stopOpacity="0" />
+        <linearGradient id="clothHighlight" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="white" stopOpacity="0.2" />
+          <stop offset="50%" stopColor="white" stopOpacity="0" />
           <stop offset="100%" stopColor="black" stopOpacity="0.2" />
         </linearGradient>
         <pattern id="pat_stripes" width="40" height="240" patternUnits="userSpaceOnUse"><rect width="20" height="240" fill={secondary} /></pattern>
@@ -84,24 +83,26 @@ const PlayerJerseySVG = ({
         {style === 'sash' && <path d="M40 20 L200 180 L200 240 L0 80 Z" fill={secondary} />}
       </g>
 
-      {/* Trims (Neck & Cuffs) */}
+      {/* Trims */}
       <path d="M60 20 L100 35 L140 20 L120 20 L100 30 L80 20 Z" fill={tertiary} />
       <rect x="20" y="85" width="20" height="15" fill={tertiary} transform="rotate(-45 20 85)" />
       <rect x="160" y="100" width="20" height="15" fill={tertiary} transform="rotate(45 160 100)" />
 
-      {/* Lighting & Volumetry */}
-      <path d="M40 40 L60 20 L140 20 L160 40 L180 60 L180 100 L160 100 L160 220 L150 225 L50 225 L40 220 L40 100 L20 100 L20 60 Z" fill="url(#clothShadow)" opacity="0.5" />
+      {/* Realistic Volumetry Shadows */}
+      <path d="M40 40 L60 20 L140 20 L160 40 L180 60 L180 100 L160 100 L160 220 L150 225 L50 225 L40 220 L40 100 L20 100 L20 60 Z" fill="url(#clothHighlight)" opacity="0.4" />
+      <path d="M160 100 L180 100 L180 60 L160 40 Z" fill="black" opacity="0.1" /> {/* Shoulder shadow */}
+      <path d="M40 100 L20 100 L20 60 L40 40 Z" fill="black" opacity="0.1" /> {/* Shoulder shadow */}
 
       {/* Branding Elements */}
-      <g opacity="0.9">
+      <g opacity="0.95">
         <text 
           x={getBrandPos().x} 
           y={getBrandPos().y} 
           textAnchor="middle" 
           fill={accent} 
-          fontSize="7" 
+          fontSize="8" 
           fontWeight="900" 
-          style={{ textTransform: 'uppercase', letterSpacing: '1px' }}
+          style={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}
         >
           {brand || ''}
         </text>
@@ -109,10 +110,10 @@ const PlayerJerseySVG = ({
         <circle 
           cx={getCrestPos().x} 
           cy={getCrestPos().y} 
-          r={8 * getCrestScale()} 
+          r={9 * getCrestScale()} 
           fill={accent} 
           stroke={tertiary} 
-          strokeWidth="1" 
+          strokeWidth="1.5" 
         />
         
         <text 
@@ -120,9 +121,9 @@ const PlayerJerseySVG = ({
           y={getSponsorPos().y} 
           textAnchor="middle" 
           fill={accent} 
-          fontSize="14" 
+          fontSize="16" 
           fontWeight="900" 
-          style={{ textTransform: 'uppercase', letterSpacing: '2px' }}
+          style={{ textTransform: 'uppercase', letterSpacing: '1px' }}
         >
           {sponsor || ''}
         </text>
@@ -164,7 +165,7 @@ export default function PlayersPage() {
   const [position, setPosition] = useState(settings.positions[0] || 'FW');
   const [attributes, setAttributes] = useState<Record<string, number>>({});
   
-  // Kit State (Personal Brand)
+  // Kit State
   const [kitStyle, setKitStyle] = useState<UniformStyle>('solid');
   const [kitC1, setKitC1] = useState(PREDEFINED_COLORS[24]);
   const [kitC2, setKitC2] = useState(PREDEFINED_COLORS[35]);
@@ -259,7 +260,7 @@ export default function PlayersPage() {
           <DialogTrigger asChild><Button className="font-black rounded-xl h-12 shadow-lg shadow-primary/20"><UserPlus className="w-4 h-4 mr-2" /> RECLUTAR</Button></DialogTrigger>
           <DialogContent className="max-w-[900px] p-0 overflow-hidden rounded-[2rem] border-none shadow-2xl">
             <div className="p-6 bg-muted/20 border-b flex justify-between items-center">
-              <DialogTitle className="font-black uppercase tracking-tighter">Ficha de Agente Élite</DialogTitle>
+              <DialogTitle className="font-black uppercase">Ficha de Agente Élite</DialogTitle>
             </div>
             <Tabs defaultValue="base" className="w-full flex flex-col h-[80vh]">
               <TabsList className="grid grid-cols-3 rounded-none h-14 border-b bg-card p-1">
@@ -289,8 +290,8 @@ export default function PlayersPage() {
                     {settings.attributeNames.map(attr => (
                       <div key={attr} className="space-y-3 p-4 bg-muted/10 rounded-2xl border">
                         <div className="flex justify-between items-center">
-                          <span className="text-xs font-black uppercase tracking-widest text-primary">{attr}</span>
-                          <span className="text-lg font-black text-foreground">{attributes[attr] || 50}</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-primary">{attr}</span>
+                          <span className="text-lg font-black">{attributes[attr] || 50}</span>
                         </div>
                         <Slider 
                           value={[attributes[attr] || 50]} 

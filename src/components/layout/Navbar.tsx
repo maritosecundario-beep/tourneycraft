@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Trophy, Users, UserPlus, Settings, LayoutDashboard, Database, LogIn, LogOut, MoreHorizontal, AlertCircle } from 'lucide-react';
+import { Trophy, Users, UserPlus, Settings, LayoutDashboard, Database, LogIn, LogOut, MoreHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUser, useAuth } from '@/firebase';
 import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
@@ -33,7 +33,7 @@ export function Navbar() {
       console.error("Auth Error:", error);
       let message = "No se pudo completar la autenticación.";
       if (error.code === 'auth/operation-not-allowed') {
-        message = "El inicio de sesión con Google no está habilitado en la consola de Firebase. Contacta al administrador.";
+        message = "El inicio de sesión con Google NO está habilitado. Debes activarlo en la Consola de Firebase (Authentication > Sign-in method).";
       }
       toast({ 
         title: "Error de inicio de sesión", 
