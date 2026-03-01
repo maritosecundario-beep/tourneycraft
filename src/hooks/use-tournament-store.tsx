@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
@@ -89,65 +90,83 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     }
   }, [teams, players, tournaments, settings, isLoaded, user?.uid, db]);
 
-  const generateSchedule = useCallback((tournamentId: string) => {
-    setTournaments(prev => prev.map(t => {
-      if (t.id !== tournamentId) return t;
+  const createSchedule = useCallback((t: Tournament): Tournament => {
+    const schedule: Match[] = [];
+    const dualSchedule: Match[] = [];
+    let matchIdCounter = 1;
 
-      const schedule: Match[] = [];
-      const dualSchedule: Match[] = [];
-      let matchIdCounter = 1;
+    const createMatchesForList = (participants: string[], groupPrefix: string = "") => {
+      const n = participants.length;
+      if (n < 2) return;
+      
+      const tempParticipants = [...participants];
+      if (n % 2 !== 0) tempParticipants.push('BYE');
+      
+      const numParticipants = tempParticipants.length;
+      const rounds = numParticipants - 1;
+      const matchesPerRound = numParticipants / 2;
 
-      const createMatchesForList = (participants: string[], groupPrefix: string = "") => {
-        const n = participants.length;
-        if (n < 2) return;
-        const rounds = n % 2 === 0 ? n - 1 : n;
-        const matchesPerRound = Math.floor(n / 2);
-        const tempParticipants = [...participants];
-        if (n % 2 !== 0) tempParticipants.push('BYE');
-
-        for (let round = 0; round < rounds; round++) {
-          const matchday = round + 1;
-          for (let i = 0; i < matchesPerRound; i++) {
-            const home = tempParticipants[i];
-            const away = tempParticipants[tempParticipants.length - 1 - i];
-            if (home !== 'BYE' && away !== 'BYE') {
-              const mId = `${t.id}${groupPrefix}-m-${matchIdCounter++}`;
-              schedule.push({ id: mId, homeId: home, awayId: away, matchday, isSimulated: false });
-              if (t.dualLeagueEnabled) {
-                dualSchedule.push({ id: `dual-${mId}`, homeId: away, awayId: home, matchday, isSimulated: false });
-              }
+      for (let round = 0; round < rounds; round++) {
+        const matchday = round + 1;
+        for (let i = 0; i < matchesPerRound; i++) {
+          const home = tempParticipants[i];
+          const away = tempParticipants[numParticipants - 1 - i];
+          
+          if (home !== 'BYE' && away !== 'BYE') {
+            const mId = `${t.id}${groupPrefix}-m-${matchIdCounter++}`;
+            schedule.push({ 
+              id: mId, 
+              homeId: home, 
+              awayId: away, 
+              matchday, 
+              isSimulated: false 
+            });
+            
+            if (t.dualLeagueEnabled) {
+              dualSchedule.push({ 
+                id: `dual-${mId}`, 
+                homeId: away, 
+                awayId: home, 
+                matchday, 
+                isSimulated: false 
+              });
             }
           }
-          // Rotate for round robin
-          tempParticipants.splice(1, 0, tempParticipants.pop()!);
         }
-      };
-
-      if (t.format === 'league') {
-        if (t.leagueType === 'groups' && t.groups && t.groups.length > 0) {
-          t.groups.forEach((group, idx) => {
-            createMatchesForList(group.participantIds, `-g${idx}`);
-          });
-        } else {
-          createMatchesForList(t.participants);
-        }
-      } else if (t.format === 'knockout') {
-        const participants = [...t.participants];
-        let round = 1;
-        while (participants.length > 1) {
-          for (let i = 0; i < participants.length; i += 2) {
-            if (participants[i+1]) {
-              schedule.push({ id: `${t.id}-ko-${matchIdCounter++}`, homeId: participants[i], awayId: participants[i+1], matchday: round, isSimulated: false });
-            }
-          }
-          participants.splice(0, participants.length / 2);
-          round++;
-        }
+        // Rotate for round robin: keep first element fixed, rotate others
+        tempParticipants.splice(1, 0, tempParticipants.pop()!);
       }
+    };
 
-      return { ...t, matches: schedule, dualLeagueMatches: dualSchedule, currentMatchday: 1 };
-    }));
+    if (t.format === 'league') {
+      if (t.leagueType === 'groups' && t.groups && t.groups.length > 0) {
+        t.groups.forEach((group, idx) => {
+          createMatchesForList(group.participantIds, `-g${idx}`);
+        });
+      } else {
+        createMatchesForList(t.participants);
+      }
+    } else if (t.format === 'knockout') {
+      // For initial knockout, generate first round
+      const participants = [...t.participants];
+      const matchesPerRound = Math.floor(participants.length / 2);
+      for (let i = 0; i < matchesPerRound; i++) {
+        schedule.push({ 
+          id: `${t.id}-ko-${matchIdCounter++}`, 
+          homeId: participants[i * 2], 
+          awayId: participants[i * 2 + 1], 
+          matchday: 1, 
+          isSimulated: false 
+        });
+      }
+    }
+
+    return { ...t, matches: schedule, dualLeagueMatches: dualSchedule, currentMatchday: 1 };
   }, []);
+
+  const generateSchedule = useCallback((tournamentId: string) => {
+    setTournaments(prev => prev.map(t => t.id === tournamentId ? createSchedule(t) : t));
+  }, [createSchedule]);
 
   const resolveMatch = useCallback((tournamentId: string, matchId: string, homeScore: number, awayScore: number, isDual: boolean, homePlayerId?: string, awayPlayerId?: string) => {
     setTournaments(prev => prev.map(t => {
@@ -169,7 +188,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
               else if (isLoss) change = -t.lossPenalty;
               else if (isDraw) change = t.drawReward;
               
-              return { ...team, budget: team.budget + change };
+              return { ...team, budget: Math.max(0, team.budget + change) };
             }
             return team;
           }));
@@ -210,10 +229,10 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
 
     setPlayers(prevPlayers => {
       const updatedPlayers = [...prevPlayers];
-      const aiTeams = teams.filter(t => {
-        const tourney = tournaments.find(x => x.id === tournamentId);
-        return t.id !== tourney?.managedParticipantId;
-      });
+      const t = tournaments.find(x => x.id === tournamentId);
+      if (!t) return updatedPlayers;
+
+      const aiTeams = teams.filter(tm => tm.id !== t.managedParticipantId && t.participants.includes(tm.id));
 
       aiTeams.forEach(team => {
         const teamPlayers = updatedPlayers.filter(p => p.teamId === team.id);
@@ -243,10 +262,10 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   const advanceSeason = useCallback((tournamentId: string) => {
     setTournaments(prev => prev.map(t => {
       if (t.id !== tournamentId) return t;
-      return { ...t, currentSeason: t.currentSeason + 1, currentMatchday: 1, matches: [], dualLeagueMatches: [] };
+      const updated = { ...t, currentSeason: t.currentSeason + 1, currentMatchday: 1, matches: [], dualLeagueMatches: [] };
+      return createSchedule(updated);
     }));
-    generateSchedule(tournamentId);
-  }, [generateSchedule]);
+  }, [createSchedule]);
 
   const createKnockoutFromStandings = useCallback((tournamentId: string, type: 'playoff' | 'relegation') => {
     const t = tournaments.find(x => x.id === tournamentId);
@@ -285,9 +304,9 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       currentSeason: 1
     };
 
-    setTournaments(prev => [...prev, newTourney]);
-    generateSchedule(newTourney.id);
-  }, [tournaments, teams, players, generateSchedule]);
+    const scheduledTourney = createSchedule(newTourney);
+    setTournaments(prev => [...prev, scheduledTourney]);
+  }, [tournaments, teams, players, createSchedule]);
 
   const transferPlayer = useCallback((playerId: string, toTeamId: string | undefined) => {
     setPlayers(prev => prev.map(p => {
@@ -295,7 +314,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         const oldTeamId = p.teamId;
         const playerVal = p.monetaryValue;
         setTeams(tPrev => tPrev.map(t => {
-          if (t.id === toTeamId) return { ...t, budget: t.budget - playerVal };
+          if (t.id === toTeamId) return { ...t, budget: Math.max(0, t.budget - playerVal) };
           if (t.id === oldTeamId) return { ...t, budget: t.budget + playerVal };
           return t;
         }));
@@ -333,13 +352,18 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   const addPlayer = (player: Player) => setPlayers(p => [...p, player]);
   const updatePlayer = (player: Player) => setPlayers(p => p.map(p2 => p2.id === player.id ? player : p2));
   const deletePlayer = (id: string) => setPlayers(p => p.filter(p2 => p2.id !== id));
-  const addTournament = (t: Tournament) => setTournaments(p => [...p, t]);
+  
+  const addTournament = (t: Tournament) => {
+    const scheduled = createSchedule(t);
+    setTournaments(p => [...p, scheduled]);
+  };
+  
   const updateTournament = (t: Tournament) => setTournaments(p => p.map(t2 => t2.id === t.id ? t : t2));
   const updateSettings = (s: Partial<GlobalSettings>) => setSettings(p => ({ ...p, ...s }));
 
   const value = useMemo(() => ({
     teams, players, tournaments, settings, addTeam, updateTeam, deleteTeam, addPlayer, updatePlayer, deletePlayer, addTournament, updateTournament, updateSettings, importData, transferPlayer, applySanction, generateSchedule, resolveMatch, triggerMarketMoves, advanceSeason, createKnockoutFromStandings
-  }), [teams, players, tournaments, settings, generateSchedule, resolveMatch, triggerMarketMoves, transferPlayer, applySanction, importData, advanceSeason, createKnockoutFromStandings]);
+  }), [teams, players, tournaments, settings, generateSchedule, resolveMatch, triggerMarketMoves, transferPlayer, applySanction, importData, advanceSeason, createKnockoutFromStandings, createSchedule]);
 
   return <TournamentContext.Provider value={value}>{children}</TournamentContext.Provider>;
 }
