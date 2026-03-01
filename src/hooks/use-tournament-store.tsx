@@ -1,7 +1,11 @@
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Team, Player, Tournament, GlobalSettings } from '@/lib/types';
+import { useUser, useFirestore } from '@/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 interface TournamentContextType {
   teams: Team[];
@@ -34,7 +38,11 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [settings, setSettings] = useState<GlobalSettings>(defaultSettings);
   const [isLoaded, setIsLoaded] = useState(false);
+  
+  const { user } = useUser();
+  const db = useFirestore();
 
+  // Initial Load from LocalStorage
   useEffect(() => {
     const saved = localStorage.getItem('tourneycraft-store');
     if (saved) {
@@ -47,11 +55,40 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     setIsLoaded(true);
   }, []);
 
+  // Sync from Cloud when user logs in
+  useEffect(() => {
+    if (user && db && isLoaded) {
+      const userDocRef = doc(db, 'users', user.uid, 'backups', 'latest');
+      getDoc(userDocRef).then((snapshot) => {
+        if (snapshot.exists()) {
+          const cloudData = snapshot.data();
+          setTeams(cloudData.teams || []);
+          setPlayers(cloudData.players || []);
+          setTournaments(cloudData.tournaments || []);
+          setSettings(cloudData.settings || defaultSettings);
+          // Sync local storage too
+          localStorage.setItem('tourneycraft-store', JSON.stringify(cloudData));
+        }
+      });
+    }
+  }, [user, db, isLoaded]);
+
+  // Save to LocalStorage and Cloud on changes
   useEffect(() => {
     if (isLoaded) {
-      localStorage.setItem('tourneycraft-store', JSON.stringify({ teams, players, tournaments, settings }));
+      const dataToSave = { teams, players, tournaments, settings };
+      localStorage.setItem('tourneycraft-store', JSON.stringify(dataToSave));
+      
+      if (user && db) {
+        const userDocRef = doc(db, 'users', user.uid, 'backups', 'latest');
+        setDocumentNonBlocking(userDocRef, {
+          ...dataToSave,
+          updatedAt: new Date().toISOString(),
+          ownerId: user.uid
+        }, { merge: true });
+      }
     }
-  }, [teams, players, tournaments, settings, isLoaded]);
+  }, [teams, players, tournaments, settings, isLoaded, user, db]);
 
   const addTeam = (team: Team) => setTeams((prev) => [...prev, team]);
   const updateTeam = (team: Team) => setTeams((prev) => prev.map((t) => (t.id === team.id ? team : t)));
