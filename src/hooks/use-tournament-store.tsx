@@ -24,13 +24,14 @@ interface TournamentContextType {
 
 const defaultSettings: GlobalSettings = {
   currency: 'CR',
-  positions: ['POS 1', 'POS 2', 'POS 3'],
+  positions: ['GK', 'DF', 'MF', 'FW'],
   positionColors: {
-    'POS 1': '#3b82f6',
-    'POS 2': '#10b981',
-    'POS 3': '#f59e0b'
+    'GK': '#f59e0b',
+    'DF': '#3b82f6',
+    'MF': '#10b981',
+    'FW': '#ef4444'
   },
-  attributeNames: ['Skill A', 'Skill B', 'Skill C'],
+  attributeNames: ['Power', 'Speed', 'Technique', 'Defense', 'Mental'],
   theme: 'dark',
 };
 
@@ -65,13 +66,10 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       setPlayers(parsed.players || []);
       setTournaments(parsed.tournaments || []);
       
-      // Merge with default position colors if missing
       const baseSettings = parsed.settings || defaultSettings;
-      if (!baseSettings.positionColors) {
-        baseSettings.positionColors = {};
-        baseSettings.positions.forEach((pos: string) => {
-          baseSettings.positionColors[pos] = '#3b82f6';
-        });
+      // Migration for old themes
+      if (!['dark', 'midnight', 'obsidian', 'light', 'nord', 'retro'].includes(baseSettings.theme)) {
+        baseSettings.theme = 'dark';
       }
       setSettings(baseSettings);
     }

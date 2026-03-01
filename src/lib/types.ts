@@ -78,5 +78,5 @@ export type GlobalSettings = {
   positions: string[];
   positionColors: Record<string, string>;
   attributeNames: string[];
-  theme: 'dark' | 'midnight' | 'obsidian';
+  theme: 'dark' | 'midnight' | 'obsidian' | 'light' | 'nord' | 'retro';
 };
