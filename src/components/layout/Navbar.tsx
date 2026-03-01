@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Trophy, Users, UserPlus, Settings, LayoutDashboard, Database, LogIn, LogOut, MoreHorizontal } from 'lucide-react';
+import { Trophy, Users, UserPlus, Settings, LayoutDashboard, Database, LogIn, LogOut, MoreHorizontal, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUser, useAuth } from '@/firebase';
 import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
@@ -33,7 +33,7 @@ export function Navbar() {
       console.error("Auth Error:", error);
       let message = "No se pudo completar la autenticación.";
       if (error.code === 'auth/operation-not-allowed') {
-        message = "El inicio de sesión con Google NO está habilitado. Debes activarlo en la Consola de Firebase (Authentication > Sign-in method).";
+        message = "El inicio de sesión con Google NO está habilitado en Firebase Console.";
       }
       toast({ 
         title: "Error de inicio de sesión", 
@@ -55,13 +55,14 @@ export function Navbar() {
 
   const navItems = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+    { name: 'AI Studio', href: '/ai-studio', icon: Sparkles, highlight: true },
     { name: 'Clubs', href: '/teams', icon: Users },
     { name: 'Agentes', href: '/players', icon: UserPlus },
     { name: 'Torneos', href: '/tournaments', icon: Trophy },
   ];
 
   const moreItems = [
-    { name: 'Backups', href: '/backups', icon: Database },
+    { name: 'Data Sync', href: '/backups', icon: Database },
     { name: 'Ajustes', href: '/settings', icon: Settings },
   ];
 
@@ -79,7 +80,7 @@ export function Navbar() {
         </div>
 
         <div className="flex-1 px-4 space-y-1.5">
-          {[...navItems, ...moreItems].map((item) => {
+          {navItems.map((item) => {
             const isActive = pathname === item.href;
             const Icon = item.icon;
 
@@ -88,17 +89,41 @@ export function Navbar() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-4 px-4 py-3 rounded-xl transition-all group",
+                  "flex items-center gap-4 px-4 py-3 rounded-xl transition-all group relative",
                   isActive 
                     ? "bg-primary text-primary-foreground shadow-lg shadow-primary/10" 
-                    : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                    : "hover:bg-muted text-muted-foreground hover:text-foreground",
+                  item.highlight && !isActive && "text-accent"
                 )}
               >
                 <Icon className={cn("w-5 h-5", isActive ? "" : "group-hover:text-accent")} />
                 <span className="font-bold text-sm">{item.name}</span>
+                {item.highlight && !isActive && <span className="absolute right-3 w-1.5 h-1.5 bg-accent rounded-full animate-pulse" />}
               </Link>
             );
           })}
+          
+          <div className="pt-4 mt-4 border-t border-border/50">
+            {moreItems.map((item) => {
+              const isActive = pathname === item.href;
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-4 px-4 py-3 rounded-xl transition-all group",
+                    isActive 
+                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/10" 
+                      : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <Icon className={cn("w-5 h-5", isActive ? "" : "group-hover:text-accent")} />
+                  <span className="font-bold text-sm">{item.name}</span>
+                </Link>
+              );
+            })}
+          </div>
         </div>
 
         <div className="px-4 mt-auto">
@@ -113,7 +138,7 @@ export function Navbar() {
                     </Avatar>
                     <div className="overflow-hidden">
                       <p className="text-[11px] font-black truncate uppercase tracking-tight">{user.displayName}</p>
-                      <p className="text-[9px] text-accent uppercase font-black tracking-widest">Sincronizado</p>
+                      <p className="text-[9px] text-accent uppercase font-black tracking-widest">Conectado</p>
                     </div>
                   </div>
                   <Button variant="ghost" size="sm" className="w-full justify-start h-8 px-2 hover:bg-destructive/10 hover:text-destructive" onClick={handleLogout}>
@@ -134,7 +159,7 @@ export function Navbar() {
 
       {/* MOBILE BOTTOM NAVIGATION */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-card border-t border-border flex items-center justify-around px-2 z-50">
-        {navItems.map((item) => {
+        {navItems.filter(i => i.name !== 'Torneos').map((item) => {
           const isActive = pathname === item.href;
           const Icon = item.icon;
           return (
@@ -161,9 +186,13 @@ export function Navbar() {
           </SheetTrigger>
           <SheetContent side="bottom" className="rounded-t-[2.5rem] border-none bg-card p-6 outline-none">
             <SheetHeader className="mb-6">
-              <SheetTitle className="text-left text-xl font-black uppercase tracking-tighter">Opciones del Universo</SheetTitle>
+              <SheetTitle className="text-left text-xl font-black uppercase tracking-tighter">Opciones</SheetTitle>
             </SheetHeader>
             <div className="grid grid-cols-2 gap-3">
+              <Link href="/tournaments" className="flex flex-col items-center gap-3 p-6 bg-muted/30 rounded-3xl border border-border/50">
+                <Trophy className="w-6 h-6 text-primary" />
+                <span className="font-black text-xs uppercase tracking-tight">Torneos</span>
+              </Link>
               {moreItems.map((item) => (
                 <Link 
                   key={item.href} 

@@ -22,6 +22,7 @@ interface TournamentContextType {
   addTournament: (tournament: Tournament) => void;
   updateTournament: (tournament: Tournament) => void;
   updateSettings: (settings: Partial<GlobalSettings>) => void;
+  importData: (data: { teams?: Team[], players?: Player[], tournaments?: Tournament[], settings?: GlobalSettings }, merge: boolean) => void;
 }
 
 const defaultSettings: GlobalSettings = {
@@ -54,40 +55,12 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        
-        // Data Migration: Ensure Players have Kit data and Teams have Crest/Venue data
-        const migratedTeams = (parsed.teams || []).map((t: any) => ({
-          ...t,
-          emblemPattern: t.emblemPattern || 'none',
-          crestBorderWidth: t.crestBorderWidth || 'thin',
-          crestPrimary: t.crestPrimary || t.kitPrimary || '#3b82f6',
-          crestSecondary: t.crestSecondary || t.kitSecondary || '#ffffff',
-          emblemShape: t.emblemShape || 'shield',
-          venueName: t.venueName || 'Arena Principal',
-          venueCapacity: t.venueCapacity || 5000,
-          venueSurface: t.venueSurface || 'grass',
-          venueSize: t.venueSize || 'medium'
-        }));
-
-        const migratedPlayers = (parsed.players || []).map((p: any) => ({
-          ...p,
-          uniformStyle: p.uniformStyle || 'solid',
-          kitPrimary: p.kitPrimary || PREDEFINED_COLORS[24],
-          kitSecondary: p.kitSecondary || PREDEFINED_COLORS[35],
-          kitTertiary: p.kitTertiary || PREDEFINED_COLORS[34],
-          kitAccent: p.kitAccent || PREDEFINED_COLORS[35],
-          crestPlacement: p.crestPlacement || 'left',
-          sponsorPlacement: p.sponsorPlacement || 'middle',
-          brandPlacement: p.brandPlacement || 'right',
-          crestSize: p.crestSize || 'medium'
-        }));
-        
-        setTeams(migratedTeams);
-        setPlayers(migratedPlayers);
+        setTeams(parsed.teams || []);
+        setPlayers(parsed.players || []);
         setTournaments(parsed.tournaments || []);
         setSettings(parsed.settings || defaultSettings);
       } catch (e) {
-        console.error("Store Migration Error:", e);
+        console.error("Store Load Error:", e);
       }
     }
     setIsLoaded(true);
@@ -135,6 +108,32 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     }
   }, [teams, players, tournaments, settings, isLoaded, user?.uid, db]);
 
+  const importData = useCallback((data: any, merge: boolean) => {
+    if (merge) {
+      setTeams(prev => {
+        const existingIds = new Set(prev.map(t => t.id));
+        const newOnes = (data.teams || []).filter((t: any) => !existingIds.has(t.id));
+        return [...prev, ...newOnes];
+      });
+      setPlayers(prev => {
+        const existingIds = new Set(prev.map(p => p.id));
+        const newOnes = (data.players || []).filter((p: any) => !existingIds.has(p.id));
+        return [...prev, ...newOnes];
+      });
+      setTournaments(prev => {
+        const existingIds = new Set(prev.map(t => t.id));
+        const newOnes = (data.tournaments || []).filter((t: any) => !existingIds.has(t.id));
+        return [...prev, ...newOnes];
+      });
+      if (data.settings) setSettings(prev => ({ ...prev, ...data.settings }));
+    } else {
+      setTeams(data.teams || []);
+      setPlayers(data.players || []);
+      setTournaments(data.tournaments || []);
+      if (data.settings) setSettings(data.settings);
+    }
+  }, []);
+
   const addTeam = useCallback((team: Team) => setTeams((prev) => [...prev, team]), []);
   const updateTeam = useCallback((team: Team) => setTeams((prev) => prev.map((t) => (t.id === team.id ? team : t))), []);
   const deleteTeam = useCallback((id: string) => setTeams((prev) => prev.filter((t) => t.id !== id)), []);
@@ -162,7 +161,8 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     addTournament,
     updateTournament,
     updateSettings,
-  }), [teams, players, tournaments, settings, addTeam, updateTeam, deleteTeam, addPlayer, updatePlayer, deletePlayer, addTournament, updateTournament, updateSettings]);
+    importData,
+  }), [teams, players, tournaments, settings, addTeam, updateTeam, deleteTeam, addPlayer, updatePlayer, deletePlayer, addTournament, updateTournament, updateSettings, importData]);
 
   return (
     <TournamentContext.Provider value={value}>

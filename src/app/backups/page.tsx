@@ -4,16 +4,21 @@
 import { useTournamentStore } from '@/hooks/use-tournament-store';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Download, Upload, Trash2, Cloud, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Download, Upload, Trash2, Cloud, AlertTriangle, CheckCircle2, PlusCircle, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useUser } from '@/firebase';
+import { cn } from '@/lib/utils';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 export default function BackupsPage() {
-  const { teams, players, tournaments, settings, updateSettings } = useTournamentStore();
+  const { teams, players, tournaments, settings, importData } = useTournamentStore();
   const { toast } = useToast();
   const { user } = useUser();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const [pendingData, setPendingData] = useState<any>(null);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   const handleExport = () => {
     const data = {
@@ -22,7 +27,7 @@ export default function BackupsPage() {
       tournaments,
       settings,
       exportDate: new Date().toISOString(),
-      version: "1.0"
+      version: "1.2"
     };
     
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -38,10 +43,6 @@ export default function BackupsPage() {
     toast({ title: "Backup Exportado", description: "Tu archivo JSON está listo." });
   };
 
-  const handleImportClick = () => {
-    fileInputRef.current?.click();
-  };
-
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -52,31 +53,38 @@ export default function BackupsPage() {
         const content = e.target?.result as string;
         const data = JSON.parse(content);
         
-        // Basic validation
-        if (!data.teams || !data.players || !data.tournaments) {
-          throw new Error("Formato de archivo inválido");
+        if (!data.teams && !data.players && !data.tournaments) {
+          throw new Error("Formato inválido");
         }
 
-        // We use a confirm-like flow here
-        if (confirm("¿Estás seguro? Esto reemplazará todos tus datos actuales.")) {
-          // This is a direct store update
-          localStorage.setItem('tourneycraft-store', JSON.stringify(data));
-          window.location.reload(); // Refresh to apply changes
-        }
+        setPendingData(data);
+        setIsImportModalOpen(true);
       } catch (err) {
-        toast({ title: "Error al importar", description: "El archivo no es un backup válido de TourneyCraft.", variant: "destructive" });
+        toast({ title: "Error al importar", description: "El archivo no es un backup válido.", variant: "destructive" });
       }
     };
     reader.readAsText(file);
+    event.target.value = ''; // Reset input
+  };
+
+  const executeImport = (merge: boolean) => {
+    if (!pendingData) return;
+    importData(pendingData, merge);
+    toast({ 
+      title: merge ? "Datos Fusionados" : "Datos Restaurados", 
+      description: merge ? "Los nuevos elementos se han añadido a tu sesión." : "Todo el contenido ha sido reemplazado." 
+    });
+    setIsImportModalOpen(false);
+    setPendingData(null);
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="max-w-4xl mx-auto space-y-8 pb-32">
       <header>
-        <h1 className="text-3xl font-bold flex items-center gap-3">
-          <Cloud className="text-primary" /> Cloud & Backups
+        <h1 className="text-3xl font-black flex items-center gap-3">
+          <Cloud className="text-primary" /> Cloud & Data Sync
         </h1>
-        <p className="text-muted-foreground">Gestiona la persistencia de tus datos y portabilidad.</p>
+        <p className="text-muted-foreground">Gestiona la persistencia, portabilidad y fusión de tus datos.</p>
       </header>
 
       <div className="grid gap-6">
@@ -90,8 +98,8 @@ export default function BackupsPage() {
                 </CardTitle>
                 <CardDescription>
                   {user 
-                    ? `Sincronizado con la cuenta: ${user.email}` 
-                    : "Tus datos se guardan solo en este navegador. Inicia sesión para habilitar la nube."}
+                    ? `Sincronizado con: ${user.email}` 
+                    : "Tus datos se guardan localmente. Conecta para habilitar la nube."}
                 </CardDescription>
               </div>
             </div>
@@ -100,14 +108,14 @@ export default function BackupsPage() {
             {user ? (
               <div className="p-4 bg-accent/10 rounded-xl border border-accent/20">
                 <p className="text-sm text-accent font-medium">
-                  Tus datos están protegidos. Cualquier cambio que hagas se reflejará en todos tus dispositivos.
+                  Tus datos están protegidos. Los cambios se sincronizan en tiempo real con tu cuenta.
                 </p>
               </div>
             ) : (
               <div className="p-4 bg-yellow-500/10 rounded-xl border border-yellow-500/20 flex gap-3">
                 <AlertTriangle className="text-yellow-500 shrink-0" />
                 <p className="text-sm text-yellow-500">
-                  Cuidado: Si borras los datos de tu navegador o cambias de dispositivo, perderás tu progreso actual si no usas Cloud Sync o Backups manuales.
+                  Cuidado: Si borras los datos de tu navegador perderás tu progreso. Usa backups manuales o conecta con Google.
                 </p>
               </div>
             )}
@@ -115,22 +123,22 @@ export default function BackupsPage() {
         </Card>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card className="border-none bg-card shadow-xl hover:ring-1 hover:ring-primary transition-all">
+          <Card className="border-none bg-card shadow-xl hover:ring-2 hover:ring-primary transition-all rounded-[2rem]">
             <CardHeader>
-              <CardTitle className="text-lg">Exportar Datos</CardTitle>
-              <CardDescription>Descarga una copia local de todo tu universo deportivo.</CardDescription>
+              <CardTitle className="text-lg">Exportar JSON</CardTitle>
+              <CardDescription>Descarga una copia completa de tu universo deportivo.</CardDescription>
             </CardHeader>
             <CardContent>
-              <Button onClick={handleExport} className="w-full h-12 shadow-lg shadow-primary/20">
-                <Download className="w-4 h-4 mr-2" /> Descargar .json
+              <Button onClick={handleExport} className="w-full h-12 shadow-lg shadow-primary/20 rounded-xl font-black">
+                <Download className="w-4 h-4 mr-2" /> DESCARGAR BACKUP
               </Button>
             </CardContent>
           </Card>
 
-          <Card className="border-none bg-card shadow-xl hover:ring-1 hover:ring-accent transition-all">
+          <Card className="border-none bg-card shadow-xl hover:ring-2 hover:ring-accent transition-all rounded-[2rem]">
             <CardHeader>
-              <CardTitle className="text-lg">Importar Datos</CardTitle>
-              <CardDescription>Carga un archivo de backup previo para restaurar datos.</CardDescription>
+              <CardTitle className="text-lg">Importar JSON</CardTitle>
+              <CardDescription>Carga un archivo externo para fusionar o restaurar.</CardDescription>
             </CardHeader>
             <CardContent>
               <input 
@@ -140,32 +148,66 @@ export default function BackupsPage() {
                 className="hidden" 
                 accept=".json"
               />
-              <Button onClick={handleImportClick} variant="secondary" className="w-full h-12">
-                <Upload className="w-4 h-4 mr-2" /> Seleccionar Archivo
+              <Button onClick={() => fileInputRef.current?.click()} variant="secondary" className="w-full h-12 rounded-xl font-black">
+                <Upload className="w-4 h-4 mr-2" /> SELECCIONAR ARCHIVO
               </Button>
             </CardContent>
           </Card>
         </div>
 
-        <Card className="border-none bg-card shadow-xl border-t-4 border-destructive/20">
+        <Card className="border-none bg-card shadow-xl border-t-4 border-destructive/20 rounded-[2rem]">
           <CardHeader>
             <CardTitle className="text-lg text-destructive">Zona de Peligro</CardTitle>
-            <CardDescription>Acciones destructivas permanentes.</CardDescription>
+            <CardDescription>Acciones destructivas permanentes sobre el almacenamiento local.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button variant="destructive" className="w-full h-12 bg-destructive/10 hover:bg-destructive text-destructive hover:text-white border border-destructive/20" onClick={() => {
-              if (confirm("¿BORRAR TODO? Esta acción no se puede deshacer.")) {
+            <Button variant="destructive" className="w-full h-12 bg-destructive/10 hover:bg-destructive text-destructive hover:text-white border border-destructive/20 rounded-xl font-black" onClick={() => {
+              if (confirm("¿BORRAR TODO? Se eliminarán todos los datos locales.")) {
                 localStorage.removeItem('tourneycraft-store');
                 window.location.reload();
               }
             }}>
-              <Trash2 className="w-4 h-4 mr-2" /> Borrar Datos Locales
+              <Trash2 className="w-4 h-4 mr-2" /> BORRAR DATOS LOCALES
             </Button>
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
+        <DialogContent className="rounded-[2.5rem] border-none shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-black uppercase">¿Cómo deseas importar?</DialogTitle>
+            <DialogDescription>
+              El archivo contiene {pendingData?.teams?.length || 0} clubs, {pendingData?.players?.length || 0} agentes y {pendingData?.tournaments?.length || 0} torneos.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <Button 
+              onClick={() => executeImport(true)} 
+              className="h-16 rounded-2xl flex flex-col items-start px-6 gap-0 bg-accent hover:bg-accent/90"
+            >
+              <div className="flex items-center gap-2">
+                <PlusCircle className="w-4 h-4" /> <span className="font-black uppercase">Unir (Merge)</span>
+              </div>
+              <span className="text-[10px] opacity-80 normal-case font-medium">Añade los nuevos elementos sin borrar tu trabajo actual.</span>
+            </Button>
+            
+            <Button 
+              variant="outline"
+              onClick={() => executeImport(false)} 
+              className="h-16 rounded-2xl flex flex-col items-start px-6 gap-0 border-destructive/50 text-destructive hover:bg-destructive hover:text-white"
+            >
+              <div className="flex items-center gap-2">
+                <RefreshCw className="w-4 h-4" /> <span className="font-black uppercase">Reemplazar Todo</span>
+              </div>
+              <span className="text-[10px] opacity-80 normal-case font-medium">BORRA todo tu contenido actual y lo sustituye por el del archivo.</span>
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsImportModalOpen(false)}>Cancelar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-
-import { cn } from '@/lib/utils';
