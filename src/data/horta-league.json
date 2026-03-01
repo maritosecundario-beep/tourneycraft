@@ -1,0 +1,77 @@
+
+{
+  "settings": {
+    "currency": "CR",
+    "positions": ["Sharpshooter", "Blitz", "Defenseman"],
+    "positionColors": {
+      "Sharpshooter": "#ef4444",
+      "Blitz": "#0ea5e9",
+      "Defenseman": "#22c55e"
+    },
+    "attributeNames": [
+      "Triples",
+      "Tiro Medio",
+      "Tiro Libre",
+      "Mate",
+      "Bandeja",
+      "Drible",
+      "Físico",
+      "Estilo",
+      "Tapón",
+      "Robo"
+    ],
+    "theme": "midnight"
+  },
+  "teams": [
+    { "id": "torrent", "name": "Torrent", "abbreviation": "TOR", "rating": 92, "budget": 150000, "region": "Sud", "emblemShape": "shield", "emblemPattern": "none", "crestPrimary": "#ef4444", "crestSecondary": "#ffffff", "crestBorderWidth": "thin", "venueName": "Pabellón El Vedat", "venueCapacity": 5000, "venueSurface": "parquet", "venueSize": "large", "players": [] },
+    { "id": "mislata", "name": "Mislata", "abbreviation": "MIS", "rating": 90, "budget": 140000, "region": "Sud", "emblemShape": "shield", "emblemPattern": "none", "crestPrimary": "#ef4444", "crestSecondary": "#ffffff", "crestBorderWidth": "thin", "venueName": "La Canaleta", "venueCapacity": 4500, "venueSurface": "parquet", "venueSize": "large", "players": [] },
+    { "id": "alaquas", "name": "Alaquàs", "abbreviation": "ALQ", "rating": 82, "budget": 85000, "region": "Sud", "emblemShape": "shield", "emblemPattern": "none", "crestPrimary": "#ef4444", "crestSecondary": "#ffffff", "crestBorderWidth": "thin", "venueName": "El Bovalar", "venueCapacity": 3000, "venueSurface": "parquet", "venueSize": "medium", "players": [] },
+    { "id": "aldaia", "name": "Aldaia", "abbreviation": "ALD", "rating": 80, "budget": 80000, "region": "Sud", "emblemShape": "circle", "emblemPattern": "none", "crestPrimary": "#ef4444", "crestSecondary": "#ffffff", "crestBorderWidth": "thin", "venueName": "Jaume Ortí", "venueCapacity": 2500, "venueSurface": "parquet", "venueSize": "medium", "players": [] },
+    { "id": "manises", "name": "Manises", "abbreviation": "MAN", "rating": 78, "budget": 75000, "region": "Sud", "emblemShape": "circle", "emblemPattern": "none", "crestPrimary": "#ef4444", "crestSecondary": "#ffffff", "crestBorderWidth": "thin", "venueName": "Municipal Manises", "venueCapacity": 2200, "venueSurface": "parquet", "venueSize": "medium", "players": [] },
+    { "id": "xirivella", "name": "Xirivella", "abbreviation": "XIR", "rating": 76, "budget": 70000, "region": "Sud", "emblemShape": "circle", "emblemPattern": "none", "crestPrimary": "#ef4444", "crestSecondary": "#ffffff", "crestBorderWidth": "thin", "venueName": "Ramon y Cajal", "venueCapacity": 2000, "venueSurface": "parquet", "venueSize": "medium", "players": [] },
+    { "id": "quart", "name": "Quart de Poblet", "abbreviation": "QDP", "rating": 81, "budget": 82000, "region": "Sud", "emblemShape": "circle", "emblemPattern": "none", "crestPrimary": "#ef4444", "crestSecondary": "#ffffff", "crestBorderWidth": "thin", "venueName": "Municipal Quart", "venueCapacity": 2800, "venueSurface": "parquet", "venueSize": "medium", "players": [] },
+    { "id": "paiporta", "name": "Paiporta", "abbreviation": "PAI", "rating": 77, "budget": 72000, "region": "Sud", "emblemShape": "circle", "emblemPattern": "none", "crestPrimary": "#ef4444", "crestSecondary": "#ffffff", "crestBorderWidth": "thin", "venueName": "Poliesportiu Paiporta", "venueCapacity": 2100, "venueSurface": "parquet", "venueSize": "medium", "players": [] },
+    { "id": "catarroja", "name": "Catarroja", "abbreviation": "CAT", "rating": 83, "budget": 88000, "region": "Sud", "emblemShape": "circle", "emblemPattern": "none", "crestPrimary": "#ef4444", "crestSecondary": "#ffffff", "crestBorderWidth": "thin", "venueName": "Florida Catarroja", "venueCapacity": 3200, "venueSurface": "parquet", "venueSize": "medium", "players": [] },
+    { "id": "alfafar", "name": "Alfafar", "abbreviation": "ALF", "rating": 79, "budget": 78000, "region": "Sud", "emblemShape": "circle", "emblemPattern": "none", "crestPrimary": "#ef4444", "crestSecondary": "#ffffff", "crestBorderWidth": "thin", "venueName": "Complejo Alfafar", "venueCapacity": 2400, "venueSurface": "parquet", "venueSize": "medium", "players": [] },
+    { "id": "paterna", "name": "Paterna", "abbreviation": "PAT", "rating": 91, "budget": 145000, "region": "Nord", "emblemShape": "shield", "emblemPattern": "none", "crestPrimary": "#0ea5e9", "crestSecondary": "#ffffff", "crestBorderWidth": "thin", "venueName": "Palau Paterna", "venueCapacity": 4800, "venueSurface": "parquet", "venueSize": "large", "players": [] },
+    { "id": "burjassot", "name": "Burjassot", "abbreviation": "BUR", "rating": 89, "budget": 135000, "region": "Nord", "emblemShape": "shield", "emblemPattern": "none", "crestPrimary": "#0ea5e9", "crestSecondary": "#ffffff", "crestBorderWidth": "thin", "venueName": "Pavelló Burjassot", "venueCapacity": 4200, "venueSurface": "parquet", "venueSize": "large", "players": [] },
+    { "id": "alboraia", "name": "Alboraia", "abbreviation": "ALB", "rating": 85, "budget": 100000, "region": "Nord", "emblemShape": "circle", "emblemPattern": "none", "crestPrimary": "#0ea5e9", "crestSecondary": "#ffffff", "crestBorderWidth": "thin", "venueName": "Ciutat de l'Esport", "venueCapacity": 3500, "venueSurface": "parquet", "venueSize": "medium", "players": [] },
+    { "id": "moncada", "name": "Moncada", "abbreviation": "MON", "rating": 82, "budget": 88000, "region": "Nord", "emblemShape": "circle", "emblemPattern": "none", "crestPrimary": "#0ea5e9", "crestSecondary": "#ffffff", "crestBorderWidth": "thin", "venueName": "Pabellón Moncada", "venueCapacity": 3000, "venueSurface": "parquet", "venueSize": "medium", "players": [] },
+    { "id": "pucol", "name": "Puçol", "abbreviation": "PUC", "rating": 78, "budget": 76000, "region": "Nord", "emblemShape": "circle", "emblemPattern": "none", "crestPrimary": "#0ea5e9", "crestSecondary": "#ffffff", "crestBorderWidth": "thin", "venueName": "Municipal Puçol", "venueCapacity": 2200, "venueSurface": "parquet", "venueSize": "medium", "players": [] },
+    { "id": "el-puig", "name": "El Puig", "abbreviation": "EPG", "rating": 76, "budget": 72000, "region": "Nord", "emblemShape": "circle", "emblemPattern": "none", "crestPrimary": "#0ea5e9", "crestSecondary": "#ffffff", "crestBorderWidth": "thin", "venueName": "Poliesportiu Puig", "venueCapacity": 2000, "venueSurface": "parquet", "venueSize": "medium", "players": [] },
+    { "id": "rafelbunyol", "name": "Rafelbunyol", "abbreviation": "RAF", "rating": 77, "budget": 74000, "region": "Nord", "emblemShape": "circle", "emblemPattern": "none", "crestPrimary": "#0ea5e9", "crestSecondary": "#ffffff", "crestBorderWidth": "thin", "venueName": "Pavelló Rafel", "venueCapacity": 2100, "venueSurface": "parquet", "venueSize": "medium", "players": [] },
+    { "id": "meliana", "name": "Meliana", "abbreviation": "MEL", "rating": 79, "budget": 79000, "region": "Nord", "emblemShape": "circle", "emblemPattern": "none", "crestPrimary": "#0ea5e9", "crestSecondary": "#ffffff", "crestBorderWidth": "thin", "venueName": "Municipal Meliana", "venueCapacity": 2400, "venueSurface": "parquet", "venueSize": "medium", "players": [] },
+    { "id": "foios", "name": "Foios", "abbreviation": "FOI", "rating": 78, "budget": 77000, "region": "Nord", "emblemShape": "circle", "emblemPattern": "none", "crestPrimary": "#0ea5e9", "crestSecondary": "#ffffff", "crestBorderWidth": "thin", "venueName": "Pabellón Foios", "venueCapacity": 2300, "venueSurface": "parquet", "venueSize": "medium", "players": [] },
+    { "id": "almassera", "name": "Almàssera", "abbreviation": "ALM", "rating": 77, "budget": 75000, "region": "Nord", "emblemShape": "circle", "emblemPattern": "none", "crestPrimary": "#0ea5e9", "crestSecondary": "#ffffff", "crestBorderWidth": "thin", "venueName": "Municipal Almàssera", "venueCapacity": 2150, "venueSurface": "parquet", "venueSize": "medium", "players": [] }
+  ],
+  "players": [],
+  "tournaments": [
+    {
+      "id": "horta-elite-arcade",
+      "name": "Lliga l'Horta Élite Arcade",
+      "sport": "Basketball",
+      "mode": "arcade",
+      "managedParticipantId": "alaquas",
+      "entryType": "teams",
+      "format": "league",
+      "leagueType": "groups",
+      "groups": [
+        { "name": "Horta Sud", "participantIds": ["torrent", "mislata", "alaquas", "aldaia", "manises", "xirivella", "quart", "paiporta", "catarroja", "alfafar"] },
+        { "name": "Horta Nord", "participantIds": ["paterna", "burjassot", "alboraia", "moncada", "pucol", "el-puig", "rafelbunyol", "meliana", "foios", "almassera"] }
+      ],
+      "scoringRuleType": "nToNRange",
+      "nToNRangeMin": 80,
+      "nToNRangeMax": 150,
+      "participants": ["torrent", "mislata", "alaquas", "aldaia", "manises", "xirivella", "quart", "paiporta", "catarroja", "alfafar", "paterna", "burjassot", "alboraia", "moncada", "pucol", "el-puig", "rafelbunyol", "meliana", "foios", "almassera"],
+      "matches": [],
+      "settingsLocked": false,
+      "winReward": 6000,
+      "lossPenalty": 1500,
+      "drawReward": 2500,
+      "variability": 12,
+      "playoffSpots": 4,
+      "relegationSpots": 2,
+      "currentSeason": 1
+    }
+  ]
+}

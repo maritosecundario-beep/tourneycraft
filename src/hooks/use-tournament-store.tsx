@@ -7,6 +7,7 @@ import { useUser, useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { PREDEFINED_COLORS } from '@/lib/colors';
+import hortaData from '@/data/horta-league.json';
 
 interface TournamentContextType {
   teams: Team[];
@@ -27,85 +28,27 @@ interface TournamentContextType {
   importData: (data: { teams?: Team[], players?: Player[], tournaments?: Tournament[], settings?: GlobalSettings }, merge: boolean) => void;
 }
 
-const defaultSettings: GlobalSettings = {
-  currency: 'CR',
-  positions: ['Sharpshooter', 'Blitz', 'Defenseman'],
-  positionColors: {
-    'Sharpshooter': '#ef4444',
-    'Blitz': '#0ea5e9',
-    'Defenseman': '#22c55e',
-  },
-  attributeNames: [
-    'Triples', 'Tiro Medio', 'Tiro Libre', 'Mate', 'Bandeja', 
-    'Drible', 'Físico', 'Estilo', 'Tapón', 'Robo'
-  ],
-  theme: 'midnight',
-};
+const defaultSettings: GlobalSettings = hortaData.settings as GlobalSettings;
 
 const generateSeedData = () => {
-  const sudNames = [
-    { name: 'Torrent', top: true },
-    { name: 'Mislata', top: true },
-    { name: 'Alaquàs', top: false }, // Player team
-    { name: 'Aldaia', top: false },
-    { name: 'Manises', top: false },
-    { name: 'Xirivella', top: false },
-    { name: 'Quart de Poblet', top: false },
-    { name: 'Paiporta', top: false },
-    { name: 'Catarroja', top: false },
-    { name: 'Alfafar', top: false }
-  ];
-
-  const nordNames = [
-    { name: 'Paterna', top: true },
-    { name: 'Burjassot', top: true },
-    { name: 'Alboraia', top: false },
-    { name: 'Moncada', top: false },
-    { name: 'Puçol', top: false },
-    { name: 'El Puig', top: false },
-    { name: 'Rafelbunyol', top: false },
-    { name: 'Meliana', top: false },
-    { name: 'Foios', top: false },
-    { name: 'Almàssera', top: false }
-  ];
-  
-  const allTeams: Team[] = [];
+  const allTeams: Team[] = hortaData.teams.map(t => ({ ...t, players: [] })) as Team[];
   const allPlayers: Player[] = [];
 
-  const createTeam = (name: string, region: 'Sud' | 'Nord', isTop: boolean) => {
-    const id = name.toLowerCase().replace(/\s/g, '-').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    const team: Team = {
-      id,
-      name,
-      abbreviation: name.substring(0, 3).toUpperCase(),
-      rating: isTop ? 90 : 72 + Math.floor(Math.random() * 15),
-      budget: isTop ? 150000 : 45000,
-      region,
-      emblemShape: isTop ? 'shield' : 'circle',
-      emblemPattern: 'none',
-      crestPrimary: region === 'Sud' ? PREDEFINED_COLORS[24] : PREDEFINED_COLORS[0],
-      crestSecondary: PREDEFINED_COLORS[35],
-      crestBorderWidth: 'thin',
-      venueName: `Arena ${name}`,
-      venueCapacity: isTop ? 6000 : 2000,
-      venueSurface: 'parquet',
-      venueSize: isTop ? 'large' : 'medium',
-      players: []
-    };
-
-    ['Alpha', 'Beta', 'Gamma'].forEach((role, i) => {
-      const pId = `${id}-p-${i}`;
+  allTeams.forEach(team => {
+    const isTop = team.rating >= 90;
+    hortaData.settings.positions.forEach((pos, i) => {
+      const pId = `${team.id}-p-${i}`;
       const player: Player = {
         id: pId,
-        name: `${role} de ${name}`,
-        monetaryValue: isTop ? 40000 : 10000,
-        jerseyNumber: i + 10,
-        position: defaultSettings.positions[i % 3],
-        teamId: id,
+        name: `${pos} ${team.name}`,
+        monetaryValue: isTop ? 45000 : 12000,
+        jerseyNumber: i + 1,
+        position: pos,
+        teamId: team.id,
         suspensionMatchdays: 0,
-        attributes: defaultSettings.attributeNames.map(name => ({
-          name,
-          value: isTop ? 80 + Math.floor(Math.random() * 20) : 55 + Math.floor(Math.random() * 35)
+        attributes: hortaData.settings.attributeNames.map(attr => ({
+          name: attr,
+          value: isTop ? 82 + Math.floor(Math.random() * 16) : 55 + Math.floor(Math.random() * 32)
         })),
         uniformStyle: 'solid',
         kitPrimary: team.crestPrimary,
@@ -116,42 +59,13 @@ const generateSeedData = () => {
       };
       allPlayers.push(player);
     });
+  });
 
-    return team;
+  return { 
+    teams: allTeams, 
+    players: allPlayers, 
+    tournaments: hortaData.tournaments as Tournament[] 
   };
-
-  sudNames.forEach(t => allTeams.push(createTeam(t.name, 'Sud', t.top)));
-  nordNames.forEach(t => allTeams.push(createTeam(t.name, 'Nord', t.top)));
-
-  const tourney: Tournament = {
-    id: 'horta-elite-league',
-    name: "Lliga l'Horta Élite",
-    sport: 'Basketball',
-    mode: 'arcade',
-    managedParticipantId: 'alaquas',
-    entryType: 'teams',
-    format: 'league',
-    leagueType: 'groups',
-    groups: [
-      { name: "Horta Sud", participantIds: allTeams.filter(t => t.region === 'Sud').map(t => t.id) },
-      { name: "Horta Nord", participantIds: allTeams.filter(t => t.region === 'Nord').map(t => t.id) }
-    ],
-    scoringRuleType: 'nToNRange',
-    nToNRangeMin: 80,
-    nToNRangeMax: 150,
-    participants: allTeams.map(t => t.id),
-    matches: [],
-    settingsLocked: false,
-    winReward: 6000,
-    lossPenalty: 1500,
-    drawReward: 2500,
-    variability: 12,
-    playoffSpots: 4,
-    reliciationSpots: 2,
-    currentSeason: 1
-  };
-
-  return { teams: allTeams, players: allPlayers, tournaments: [tourney] };
 };
 
 const TournamentContext = createContext<TournamentContextType | undefined>(undefined);
