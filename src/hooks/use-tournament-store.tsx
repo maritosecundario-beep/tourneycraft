@@ -6,7 +6,6 @@ import { Team, Player, Tournament, GlobalSettings } from '@/lib/types';
 import { useUser, useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { PREDEFINED_COLORS } from '@/lib/colors';
 import hortaData from '@/data/horta-league.json';
 
 interface TournamentContextType {
@@ -36,11 +35,21 @@ const generateSeedData = () => {
 
   allTeams.forEach(team => {
     const isTop = team.rating >= 90;
+    const teamNameNoId = team.name;
+    
     hortaData.settings.positions.forEach((pos, i) => {
       const pId = `${team.id}-p-${i}`;
+      
+      // Biografías personalizadas basadas en posición y equipo
+      let bio = "";
+      if (pos === 'Sharpshooter') bio = `Francotirador de élite de ${teamNameNoId}. Posee un lanzamiento de seda capaz de romper cualquier defensa desde el perímetro.`;
+      if (pos === 'Blitz') bio = `Motor incansable de ${teamNameNoId}. Destaca por su explosividad en el primer paso y su visión de juego panorámica.`;
+      if (pos === 'Defenseman') bio = `Muralla inexpugnable de ${teamNameNoId}. Especialista en lectura defensiva, tapones y sacrificio por el bloque.`;
+
       const player: Player = {
         id: pId,
-        name: `${pos} ${team.name}`,
+        name: `${pos} ${teamNameNoId}`,
+        description: bio,
         monetaryValue: isTop ? 45000 : 12000,
         jerseyNumber: i + 1,
         position: pos,
