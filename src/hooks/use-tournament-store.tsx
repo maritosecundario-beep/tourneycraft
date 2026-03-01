@@ -22,6 +22,8 @@ interface TournamentContextType {
   addTournament: (tournament: Tournament) => void;
   updateTournament: (tournament: Tournament) => void;
   updateSettings: (settings: Partial<GlobalSettings>) => void;
+  transferPlayer: (playerId: string, toTeamId: string | undefined) => void;
+  applySanction: (targetId: string, type: 'team-budget' | 'player-suspension', value: number) => void;
   importData: (data: { teams?: Team[], players?: Player[], tournaments?: Tournament[], settings?: GlobalSettings }, merge: boolean) => void;
 }
 
@@ -39,7 +41,6 @@ const defaultSettings: GlobalSettings = {
   theme: 'dark',
 };
 
-// Seed Data helper
 const generateSeedData = () => {
   const sudNames = ['Torrent', 'Mislata', 'Alaquàs', 'Aldaia', 'Manises', 'Xirivella', 'Quart de Poblet', 'Paiporta', 'Catarroja', 'Alfafar'];
   const nordNames = ['Paterna', 'Burjassot', 'Alboraia', 'Moncada', 'Puçol', 'El Puig', 'Rafelbunyol', 'Meliana', 'Foios', 'Almàssera'];
@@ -54,6 +55,7 @@ const generateSeedData = () => {
       name,
       abbreviation: name.substring(0, 3).toUpperCase(),
       rating: isTop ? 92 : 75 + Math.floor(Math.random() * 15),
+      budget: isTop ? 200000 : 50000,
       region,
       emblemShape: 'shield',
       emblemPattern: 'none',
@@ -67,7 +69,6 @@ const generateSeedData = () => {
       players: []
     };
 
-    // Create 3 players for each team
     ['Estrella', 'Capità', 'Base'].forEach((role, i) => {
       const pId = `${id}-p-${i}`;
       const player: Player = {
@@ -77,6 +78,7 @@ const generateSeedData = () => {
         jerseyNumber: i + 7,
         position: i === 0 ? 'PG' : i === 1 ? 'SF' : 'C',
         teamId: id,
+        suspensionMatchdays: 0,
         attributes: defaultSettings.attributeNames.map(name => ({
           name,
           value: isTop ? 85 + Math.floor(Math.random() * 15) : 60 + Math.floor(Math.random() * 30)
@@ -102,20 +104,23 @@ const generateSeedData = () => {
     name: "Lliga Basket l'Horta",
     sport: 'Basketball',
     mode: 'arcade',
-    managedTeamId: 'alaquàs',
+    managedParticipantId: 'alaquàs',
+    entryType: 'teams',
     format: 'league',
     leagueType: 'groups',
     groups: [
-      { name: "Grup Sud (l'Horta Sud)", teamIds: allTeams.filter(t => t.region === 'Sud').map(t => t.id) },
-      { name: "Grup Nord (l'Horta Nord)", teamIds: allTeams.filter(t => t.region === 'Nord').map(t => t.id) }
+      { name: "Grup Sud (l'Horta Sud)", participantIds: allTeams.filter(t => t.region === 'Sud').map(t => t.id) },
+      { name: "Grup Nord (l'Horta Nord)", participantIds: allTeams.filter(t => t.region === 'Nord').map(t => t.id) }
     ],
     scoringRuleType: 'nToNRange',
-    teams: allTeams.map(t => t.id),
+    nToNRangeMin: 80,
+    nToNRangeMax: 150,
+    participants: allTeams.map(t => t.id),
     matches: [],
     settingsLocked: false,
-    winReward: 100,
-    lossPenalty: 25,
-    drawReward: 40,
+    winReward: 5000,
+    lossPenalty: 1000,
+    drawReward: 2000,
     variability: 15,
     playoffSpots: 4,
     relegationSpots: 2,
@@ -150,7 +155,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         console.error("Store Load Error:", e);
       }
     } else {
-      // Seed with Horta Sud/Nord data if empty
       const seed = generateSeedData();
       setTeams(seed.teams);
       setPlayers(seed.players);
@@ -159,28 +163,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     }
     setIsLoaded(true);
   }, []);
-
-  useEffect(() => {
-    if (user && db && isLoaded) {
-      const userDocRef = doc(db, 'users', user.uid, 'backups', 'latest');
-      getDoc(userDocRef).then((snapshot) => {
-        if (snapshot.exists()) {
-          const cloudData = snapshot.data();
-          setTeams(cloudData.teams || []);
-          setPlayers(cloudData.players || []);
-          setTournaments(cloudData.tournaments || []);
-          setSettings(cloudData.settings || defaultSettings);
-          localStorage.setItem('tourneycraft-store', JSON.stringify(cloudData));
-        }
-      });
-    }
-  }, [user?.uid, db, isLoaded]);
-
-  useEffect(() => {
-    if (isLoaded) {
-      document.documentElement.className = settings.theme || 'dark';
-    }
-  }, [settings.theme, isLoaded]);
 
   useEffect(() => {
     if (isLoaded) {
@@ -196,28 +178,57 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
             ownerId: user.uid
           }, { merge: true });
         }
-      }, 500);
-
+      }, 1000);
       return () => clearTimeout(timer);
     }
   }, [teams, players, tournaments, settings, isLoaded, user?.uid, db]);
+
+  const transferPlayer = useCallback((playerId: string, toTeamId: string | undefined) => {
+    setPlayers(prev => prev.map(p => {
+      if (p.id === playerId) {
+        const oldTeamId = p.teamId;
+        const playerVal = p.monetaryValue;
+
+        if (toTeamId) {
+          setTeams(tPrev => tPrev.map(t => {
+            if (t.id === toTeamId) return { ...t, budget: t.budget - playerVal };
+            if (t.id === oldTeamId) return { ...t, budget: t.budget + playerVal };
+            return t;
+          }));
+        } else if (oldTeamId) {
+          setTeams(tPrev => tPrev.map(t => {
+            if (t.id === oldTeamId) return { ...t, budget: t.budget + playerVal };
+            return t;
+          }));
+        }
+
+        return { ...p, teamId: toTeamId };
+      }
+      return p;
+    }));
+  }, []);
+
+  const applySanction = useCallback((targetId: string, type: 'team-budget' | 'player-suspension', value: number) => {
+    if (type === 'team-budget') {
+      setTeams(prev => prev.map(t => t.id === targetId ? { ...t, budget: t.budget - value } : t));
+    } else {
+      setPlayers(prev => prev.map(p => p.id === targetId ? { ...p, suspensionMatchdays: p.suspensionMatchdays + value } : p));
+    }
+  }, []);
 
   const importData = useCallback((data: any, merge: boolean) => {
     if (merge) {
       setTeams(prev => {
         const existingIds = new Set(prev.map(t => t.id));
-        const newOnes = (data.teams || []).filter((t: any) => !existingIds.has(t.id));
-        return [...prev, ...newOnes];
+        return [...prev, ...(data.teams || []).filter((t: any) => !existingIds.has(t.id))];
       });
       setPlayers(prev => {
         const existingIds = new Set(prev.map(p => p.id));
-        const newOnes = (data.players || []).filter((p: any) => !existingIds.has(p.id));
-        return [...prev, ...newOnes];
+        return [...prev, ...(data.players || []).filter((p: any) => !existingIds.has(p.id))];
       });
       setTournaments(prev => {
         const existingIds = new Set(prev.map(t => t.id));
-        const newOnes = (data.tournaments || []).filter((t: any) => !existingIds.has(t.id));
-        return [...prev, ...newOnes];
+        return [...prev, ...(data.tournaments || []).filter((t: any) => !existingIds.has(t.id))];
       });
       if (data.settings) setSettings(prev => ({ ...prev, ...data.settings }));
     } else {
@@ -228,47 +239,25 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     }
   }, []);
 
-  const addTeam = useCallback((team: Team) => setTeams((prev) => [...prev, team]), []);
-  const updateTeam = useCallback((team: Team) => setTeams((prev) => prev.map((t) => (t.id === team.id ? team : t))), []);
-  const deleteTeam = useCallback((id: string) => setTeams((prev) => prev.filter((t) => t.id !== id)), []);
-
-  const addPlayer = useCallback((player: Player) => setPlayers((prev) => [...prev, player]), []);
-  const updatePlayer = useCallback((player: Player) => setPlayers((prev) => prev.map((p) => (p.id === player.id ? player : p))), []);
-  const deletePlayer = useCallback((id: string) => setPlayers((prev) => prev.filter((p) => p.id !== id)), []);
-
-  const addTournament = useCallback((tournament: Tournament) => setTournaments((prev) => [...prev, tournament]), []);
-  const updateTournament = useCallback((tournament: Tournament) => setTournaments((prev) => prev.map((t) => (t.id === tournament.id ? tournament : t))), []);
-
-  const updateSettings = useCallback((newSettings: Partial<GlobalSettings>) => setSettings((prev) => ({ ...prev, ...newSettings })), []);
+  const addTeam = useCallback((team: Team) => setTeams(p => [...p, team]), []);
+  const updateTeam = useCallback((team: Team) => setTeams(p => p.map(t => t.id === team.id ? team : t)), []);
+  const deleteTeam = useCallback((id: string) => setTeams(p => p.filter(t => t.id !== id)), []);
+  const addPlayer = useCallback((player: Player) => setPlayers(p => [...p, player]), []);
+  const updatePlayer = useCallback((player: Player) => setPlayers(p => p.map(p2 => p2.id === player.id ? player : p2)), []);
+  const deletePlayer = useCallback((id: string) => setPlayers(p => p.filter(p2 => p2.id !== id)), []);
+  const addTournament = useCallback((t: Tournament) => setTournaments(p => [...p, t]), []);
+  const updateTournament = useCallback((t: Tournament) => setTournaments(p => p.map(t2 => t2.id === t.id ? t : t2)), []);
+  const updateSettings = useCallback((s: Partial<GlobalSettings>) => setSettings(p => ({ ...p, ...s })), []);
 
   const value = useMemo(() => ({
-    teams,
-    players,
-    tournaments,
-    settings,
-    addTeam,
-    updateTeam,
-    deleteTeam,
-    addPlayer,
-    updatePlayer,
-    deletePlayer,
-    addTournament,
-    updateTournament,
-    updateSettings,
-    importData,
-  }), [teams, players, tournaments, settings, addTeam, updateTeam, deleteTeam, addPlayer, updatePlayer, deletePlayer, addTournament, updateTournament, updateSettings, importData]);
+    teams, players, tournaments, settings, addTeam, updateTeam, deleteTeam, addPlayer, updatePlayer, deletePlayer, addTournament, updateTournament, updateSettings, importData, transferPlayer, applySanction
+  }), [teams, players, tournaments, settings, addTeam, updateTeam, deleteTeam, addPlayer, updatePlayer, deletePlayer, addTournament, updateTournament, updateSettings, importData, transferPlayer, applySanction]);
 
-  return (
-    <TournamentContext.Provider value={value}>
-      {children}
-    </TournamentContext.Provider>
-  );
+  return <TournamentContext.Provider value={value}>{children}</TournamentContext.Provider>;
 }
 
 export function useTournamentStore() {
   const context = useContext(TournamentContext);
-  if (!context) {
-    throw new Error('useTournamentStore must be used within a TournamentProvider');
-  }
+  if (!context) throw new Error('useTournamentStore must be used within a TournamentProvider');
   return context;
 }

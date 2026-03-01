@@ -7,13 +7,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { Search, Trash2, Pencil, Sparkles, Shield, Star } from 'lucide-react';
+import { Search, Trash2, Pencil, Sparkles, Shield, Star, Coins, UserPlus } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { EmblemShape, EmblemPattern, VenueSurface, VenueSize, Team } from '@/lib/types';
+import { EmblemShape, EmblemPattern, VenueSurface, VenueSize, Team, Player } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { PREDEFINED_COLORS } from '@/lib/colors';
 
@@ -108,7 +108,7 @@ const ColorPicker = ({ label, value, onChange }: { label: string, value: string,
 );
 
 export default function TeamsPage() {
-  const { teams, addTeam, updateTeam, deleteTeam } = useTournamentStore();
+  const { teams, players, settings, addTeam, updateTeam, deleteTeam, transferPlayer } = useTournamentStore();
   const { toast } = useToast();
   const [search, setSearch] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -117,6 +117,7 @@ export default function TeamsPage() {
   const [name, setName] = useState('');
   const [abbreviation, setAbbreviation] = useState('');
   const [rating, setRating] = useState(50);
+  const [budget, setBudget] = useState(50000);
   const [crestShape, setCrestShape] = useState<EmblemShape>('shield');
   const [crestPattern, setCrestPattern] = useState<EmblemPattern>('none');
   const [crestC1, setCrestC1] = useState(PREDEFINED_COLORS[24]);
@@ -134,6 +135,7 @@ export default function TeamsPage() {
       setName(editingTeam.name);
       setAbbreviation(editingTeam.abbreviation);
       setRating(editingTeam.rating);
+      setBudget(editingTeam.budget || 50000);
       setCrestShape(editingTeam.emblemShape);
       setCrestPattern(editingTeam.emblemPattern || 'none');
       setCrestC1(editingTeam.crestPrimary);
@@ -151,7 +153,7 @@ export default function TeamsPage() {
   }, [editingTeam]);
 
   const resetForm = () => {
-    setName(''); setAbbreviation(''); setRating(50);
+    setName(''); setAbbreviation(''); setRating(50); setBudget(50000);
     setCrestShape('shield'); setCrestPattern('none');
     setCrestC1(PREDEFINED_COLORS[24]); setCrestC2(PREDEFINED_COLORS[35]);
     setCrestC3(PREDEFINED_COLORS[35]); setCrestC4(undefined);
@@ -167,7 +169,7 @@ export default function TeamsPage() {
     
     const teamData: Team = {
       id: editingTeam ? editingTeam.id : Math.random().toString(36).substr(2, 9),
-      name, abbreviation: abbreviation.toUpperCase(), rating,
+      name, abbreviation: abbreviation.toUpperCase(), rating, budget,
       emblemShape: crestShape, emblemPattern: crestPattern, crestPrimary: crestC1, crestSecondary: crestC2,
       crestTertiary: crestC3, crestAccent: crestC4, crestBorderWidth: crestBorder,
       venueName: venueName || 'Arena Principal', venueCapacity, venueSurface, venueSize,
@@ -197,7 +199,7 @@ export default function TeamsPage() {
           <h1 className="text-3xl font-black uppercase flex items-center gap-3">
             Clubs <Sparkles className="text-accent" />
           </h1>
-          <p className="text-muted-foreground">Gestiona tus franquicias y estadios.</p>
+          <p className="text-muted-foreground">Gestiona tus franquicias y su economía inicial.</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if(!open) setEditingTeam(null); }}>
           <DialogTrigger asChild><Button className="font-black rounded-xl h-12 shadow-lg shadow-primary/20">FUNDAR CLUB</Button></DialogTrigger>
@@ -209,7 +211,7 @@ export default function TeamsPage() {
               <TabsList className="grid grid-cols-3 rounded-none h-14 border-b bg-card p-1">
                 <TabsTrigger value="base" className="rounded-xl data-[state=active]:bg-primary data-[state=active]:text-white">General</TabsTrigger>
                 <TabsTrigger value="crest" className="rounded-xl data-[state=active]:bg-primary data-[state=active]:text-white">Heráldica</TabsTrigger>
-                <TabsTrigger value="venue" className="rounded-xl data-[state=active]:bg-primary data-[state=active]:text-white">Infraestructura</TabsTrigger>
+                <TabsTrigger value="venue" className="rounded-xl data-[state=active]:bg-primary data-[state=active]:text-white">Sede</TabsTrigger>
               </TabsList>
               
               <div className="flex-1 overflow-y-auto p-6 scrollbar-hide">
@@ -218,12 +220,18 @@ export default function TeamsPage() {
                     <div className="space-y-2"><Label>Nombre del Club</Label><Input value={name} onChange={e => setName(e.target.value)} className="h-12 rounded-xl" /></div>
                     <div className="space-y-2"><Label>Siglas (3 car.)</Label><Input maxLength={3} value={abbreviation} onChange={e => setAbbreviation(e.target.value)} className="h-12 rounded-xl" /></div>
                   </div>
-                  <div className="space-y-2 p-4 bg-muted/10 rounded-2xl border">
-                    <div className="flex justify-between items-center mb-2">
-                      <Label>Rating Global</Label>
-                      <span className="text-lg font-black text-primary">{rating}</span>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2 p-4 bg-muted/10 rounded-2xl border">
+                      <div className="flex justify-between items-center mb-2">
+                        <Label>Rating Global</Label>
+                        <span className="text-lg font-black text-primary">{rating}</span>
+                      </div>
+                      <Slider value={[rating]} onValueChange={v => setRating(v[0])} max={100} min={1} />
                     </div>
-                    <Slider value={[rating]} onValueChange={v => setRating(v[0])} max={100} min={1} />
+                    <div className="space-y-2 p-4 bg-muted/10 rounded-2xl border">
+                      <Label className="flex items-center gap-2"><Coins className="w-4 h-4 text-accent" /> Presupuesto Inicial ({settings.currency})</Label>
+                      <Input type="number" value={budget} onChange={e => setBudget(Number(e.target.value))} className="h-10 mt-2 rounded-lg" />
+                    </div>
                   </div>
                 </TabsContent>
 
@@ -290,18 +298,6 @@ export default function TeamsPage() {
         </Dialog>
       </header>
 
-      <div className="px-4 md:px-0">
-        <div className="relative group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5 group-focus-within:text-primary transition-colors" />
-          <Input 
-            className="pl-12 h-14 rounded-2xl border-none shadow-xl bg-card text-lg focus-visible:ring-2 focus-visible:ring-primary" 
-            placeholder="Filtrar clubs por nombre o siglas..." 
-            value={search} 
-            onChange={e => setSearch(e.target.value)} 
-          />
-        </div>
-      </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 px-4 md:px-0">
         {filteredTeams.map((team) => (
           <Card key={team.id} className="rounded-[2.5rem] border-none shadow-2xl overflow-hidden hover:translate-y-[-8px] transition-all duration-300 group">
@@ -309,39 +305,53 @@ export default function TeamsPage() {
             <div className="p-8">
               <div className="flex gap-6 items-center mb-8">
                 <div className="w-20 h-20 bg-muted/30 rounded-[2rem] flex items-center justify-center border-2 border-dashed group-hover:border-primary/50 transition-colors relative shadow-inner">
-                  <CrestIcon 
-                    shape={team.emblemShape} pattern={team.emblemPattern} 
-                    c1={team.crestPrimary} c2={team.crestSecondary} c3={team.crestTertiary || team.crestSecondary} c4={team.crestAccent} 
-                    border={team.crestBorderWidth} size="w-12 h-12" 
-                  />
+                  <CrestIcon shape={team.emblemShape} pattern={team.emblemPattern} c1={team.crestPrimary} c2={team.crestSecondary} c3={team.crestTertiary || team.crestSecondary} c4={team.crestAccent} border={team.crestBorderWidth} size="w-12 h-12" />
                   <div className="absolute -bottom-2 -right-2 bg-primary text-[10px] font-black px-3 py-1 rounded-full text-white shadow-xl">
                     {team.abbreviation}
                   </div>
                 </div>
                 <div className="flex-1 overflow-hidden">
                   <h3 className="text-2xl font-black uppercase truncate tracking-tighter">{team.name}</h3>
-                  <div className="flex items-center gap-2 mt-2">
-                    <Star className="w-4 h-4 text-yellow-500 fill-current" />
-                    <span className="text-sm font-black text-primary tracking-widest">{team.rating} GLOBAL</span>
+                  <div className="flex items-center gap-3 mt-2">
+                    <div className="flex items-center gap-1 text-xs font-black text-accent"><Coins className="w-3 h-3" /> {team.budget?.toLocaleString()}</div>
+                    <div className="flex items-center gap-1 text-xs font-black text-primary"><Star className="w-3 h-3 fill-current" /> {team.rating}</div>
                   </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 mb-8">
-                <div className="bg-muted/30 p-4 rounded-3xl border border-border/50">
-                  <p className="text-[10px] font-black text-muted-foreground uppercase mb-1">Sede Central</p>
-                  <p className="text-sm font-bold truncate">{team.venueName}</p>
-                </div>
-                <div className="bg-muted/30 p-4 rounded-3xl border border-border/50">
-                  <p className="text-[10px] font-black text-muted-foreground uppercase mb-1">Aforo</p>
-                  <p className="text-sm font-bold">{team.venueCapacity.toLocaleString()}</p>
                 </div>
               </div>
 
               <div className="flex gap-3">
                 <Button className="flex-1 h-12 rounded-2xl font-black shadow-lg" variant="secondary" onClick={() => { setEditingTeam(team); setIsDialogOpen(true); }}>
-                  <Pencil className="w-4 h-4 mr-2" /> REDISEÑAR
+                  <Pencil className="w-4 h-4 mr-2" /> EDITAR
                 </Button>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" className="h-12 rounded-2xl font-black border-accent text-accent"><UserPlus className="w-4 h-4" /></Button>
+                  </DialogTrigger>
+                  <DialogContent className="rounded-[2rem] max-w-lg">
+                    <DialogHeader><DialogTitle className="font-black uppercase">Mercado de Traspasos</DialogTitle></DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <p className="text-xs font-bold text-muted-foreground uppercase">Fichar Agente Libre para {team.name}</p>
+                      <div className="grid gap-2">
+                        {players.filter(p => !p.teamId).map(p => (
+                          <div key={p.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-xl">
+                            <div>
+                              <p className="font-black text-sm">{p.name}</p>
+                              <p className="text-[10px] font-bold text-accent">{p.monetaryValue.toLocaleString()} {settings.currency}</p>
+                            </div>
+                            <Button size="sm" className="font-black h-8" onClick={() => {
+                              if (team.budget < p.monetaryValue) {
+                                toast({ title: "Fondos Insuficientes", description: "El club no tiene presupuesto para este agente.", variant: "destructive" });
+                                return;
+                              }
+                              transferPlayer(p.id, team.id);
+                              toast({ title: "Fichaje Confirmado", description: `${p.name} se une a ${team.name}.` });
+                            }}>FICHAR</Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
                 <Button variant="destructive" size="icon" className="h-12 w-12 rounded-2xl shadow-lg shadow-destructive/10" onClick={() => {
                   if(confirm(`¿Desaparecer el club ${team.name}?`)) deleteTeam(team.id);
                 }}>
@@ -351,12 +361,6 @@ export default function TeamsPage() {
             </div>
           </Card>
         ))}
-        {filteredTeams.length === 0 && (
-          <div className="col-span-full py-20 text-center bg-card rounded-[3rem] shadow-xl border-4 border-dashed border-muted/20">
-            <Shield className="w-20 h-20 text-muted mx-auto mb-6 opacity-20" />
-            <h2 className="text-2xl font-black text-muted-foreground">No se encontraron clubs registrados.</h2>
-          </div>
-        )}
       </div>
     </div>
   );
