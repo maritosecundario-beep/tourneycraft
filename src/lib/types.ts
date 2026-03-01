@@ -76,6 +76,7 @@ export type Tournament = {
 export type GlobalSettings = {
   currency: string;
   positions: string[];
+  positionColors: Record<string, string>;
   attributeNames: string[];
   theme: 'dark' | 'midnight' | 'obsidian';
 };

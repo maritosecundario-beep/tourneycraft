@@ -25,6 +25,11 @@ interface TournamentContextType {
 const defaultSettings: GlobalSettings = {
   currency: 'CR',
   positions: ['POS 1', 'POS 2', 'POS 3'],
+  positionColors: {
+    'POS 1': '#3b82f6',
+    'POS 2': '#10b981',
+    'POS 3': '#f59e0b'
+  },
   attributeNames: ['Skill A', 'Skill B', 'Skill C'],
   theme: 'dark',
 };
@@ -49,17 +54,26 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         ...t,
         primaryColor: t.primaryColor || '#3b82f6',
         secondaryColor: t.secondaryColor || '#ffffff',
-        uniformStyle: t.uniformStyle || t.kitDesign || 'solid',
-        emblemShape: t.emblemShape || t.crestType || 'shield',
-        venueName: t.venueName || t.stadiumName || 'Main Arena',
-        venueCapacity: t.venueCapacity || t.stadiumCapacity || 5000,
-        venueSurface: t.venueSurface || t.stadiumSurface || 'hardcourt'
+        uniformStyle: t.uniformStyle || 'solid',
+        emblemShape: t.emblemShape || 'shield',
+        venueName: t.venueName || 'Main Arena',
+        venueCapacity: t.venueCapacity || 5000,
+        venueSurface: t.venueSurface || 'hardcourt'
       }));
       
       setTeams(migratedTeams);
       setPlayers(parsed.players || []);
       setTournaments(parsed.tournaments || []);
-      setSettings(parsed.settings || defaultSettings);
+      
+      // Merge with default position colors if missing
+      const baseSettings = parsed.settings || defaultSettings;
+      if (!baseSettings.positionColors) {
+        baseSettings.positionColors = {};
+        baseSettings.positions.forEach((pos: string) => {
+          baseSettings.positionColors[pos] = '#3b82f6';
+        });
+      }
+      setSettings(baseSettings);
     }
     setIsLoaded(true);
   }, []);
@@ -93,6 +107,9 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
           ownerId: user.uid
         }, { merge: true });
       }
+
+      // Apply theme class to document
+      document.documentElement.className = settings.theme || 'dark';
     }
   }, [teams, players, tournaments, settings, isLoaded, user, db]);
 
