@@ -1,3 +1,22 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "stadium-placeholder",
+      "description": "Modern Sports Stadium",
+      "imageUrl": "https://images.unsplash.com/photo-1569863959165-56dae551d4fc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxzcG9ydHMlMjBzdGFkaXVtfGVufDB8fHx8MTc3MjM0MDM0M3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "sports stadium"
+    },
+    {
+      "id": "team-crest-1",
+      "description": "Abstract Team Crest 1",
+      "imageUrl": "https://images.unsplash.com/photo-1718465388901-9c628510c01e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxzaGllbGQlMjBpY29ufGVufDB8fHx8MTc3MjM2ODE2Nnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "shield icon"
+    },
+    {
+      "id": "team-crest-2",
+      "description": "Abstract Team Crest 2",
+      "imageUrl": "https://images.unsplash.com/photo-1765555648802-53235276a40b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxoZXJhbGRyeSUyMHN5bWJvbHxlbnwwfHx8fDE3NzIzNjgxNjZ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "heraldry symbol"
+    }
+  ]
 }
