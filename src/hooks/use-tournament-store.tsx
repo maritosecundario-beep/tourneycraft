@@ -31,50 +31,65 @@ interface TournamentContextType {
 
 const defaultSettings: GlobalSettings = hortaData.settings as GlobalSettings;
 
+// Generador de nombres reales para mayor originalidad
+const realNames = [
+  "Ferran", "Andreu", "Vicent", "Marc", "Joan", "Carles", "Pau", "Sergi", "Jordi", "Martí", "Aleix", "Enric", "Oriol", "Guillem", "Pol", "Arnau", "Biel", "Hugo", "Yeray", "Iker", "Lucas", "Mateo", "Bruno", "Gael", "Leo", "Enzo", "Izan", "Thiago", "Eric", "Mario", "Adrian", "David", "Pablo", "Sergio", "Ivan", "Alvaro", "Ruben", "Diego", "Raul", "Javi", "Victor", "Jorge", "Alberto", "Oscar", "Manuel", "Luis", "Jose", "Juan", "Francisco", "Antonio", "Ramon", "Pepe", "Paco"
+];
+const realSurnames = [
+  "Garcia", "Rodriguez", "Gonzalez", "Fernandez", "Lopez", "Martinez", "Sanchez", "Perez", "Gomez", "Martin", "Jimenez", "Ruiz", "Hernandez", "Diaz", "Moreno", "Muñoz", "Alvarez", "Romero", "Alonso", "Gutierrez", "Navarro", "Torres", "Dominguez", "Vazquez", "Ramos", "Gil", "Ramirez", "Serrano", "Blanco", "Molina", "Morales", "Suarez", "Ortega", "Delgado", "Castro", "Ortiz", "Rubio", "Marin", "Sanz", "Nuñez", "Iglesias", "Medina", "Garrido", "Santos", "Castillo", "Cortes", "Lozano", "Cano", "Prieto", "Mendez", "Cruz", "Calvo", "Gallego", "Vidal", "Leon", "Herrera", "Peña", "Flores", "Cabrera", "Campos", "Vega", "Fuentes", "Carrasco", "Diez", "Caballero", "Reyes", "Nieto", "Aguilar", "Pascual", "Santana", "Gimenez", "Hidalgo", "Lorenzo", "Montero", "Ibañez", "Ferrer", "Duran", "Santiago", "Benitez", "Mora", "Vicente", "Varga", "Arias", "Carmona", "Crespo", "Roman", "Pastor", "Soto", "Saez", "Velasco", "Soler", "Bravo", "Esteban", "Rueda"
+];
+
+const getRandomName = () => `${realNames[Math.floor(Math.random() * realNames.length)]} ${realSurnames[Math.floor(Math.random() * realSurnames.length)]}`;
+
 const generateSeedData = () => {
   const allTeams: Team[] = hortaData.teams.map(t => ({ ...t, players: [] })) as Team[];
   const allPlayers: Player[] = [];
 
+  // Usar los jugadores ya definidos en el JSON si existen, si no, generarlos
+  const existingPlayers = hortaData.players || [];
+  allPlayers.push(...existingPlayers);
+
   allTeams.forEach(team => {
-    const isTop = team.rating >= 90;
-    const teamNameNoId = team.name;
-    
-    // Cada equipo tiene 3 jugadores: 1 Sharpshooter, 1 Blitz, 1 Defenseman
-    const positions = ['Sharpshooter', 'Blitz', 'Defenseman'];
-    
-    positions.forEach((pos, i) => {
-      const pId = `${team.id}-p-${i}`;
+    // Si el equipo no tiene jugadores asignados en el JSON, creamos 3 originales
+    const currentTeamPlayers = existingPlayers.filter(p => p.teamId === team.id);
+    if (currentTeamPlayers.length === 0) {
+      const isTop = team.rating >= 90;
+      const positions = ['Sharpshooter', 'Blitz', 'Defenseman'];
       
-      let bio = "";
-      if (pos === 'Sharpshooter') bio = `Francotirador de élite de ${teamNameNoId}. Posee un lanzamiento de seda capaz de romper cualquier defensa desde el perímetro con una precisión quirúrgica.`;
-      if (pos === 'Blitz') bio = `Motor incansable de ${teamNameNoId}. Destaca por su explosividad en el primer paso y su visión de juego panorámica para asistir bajo presión.`;
-      if (pos === 'Defenseman') bio = `Muralla inexpugnable de ${teamNameNoId}. Especialista en lectura defensiva, tapones y sacrificio por el bloque, es el alma del equipo.`;
+      positions.forEach((pos, i) => {
+        const pId = `${team.id}-p-gen-${i}`;
+        const name = getRandomName();
+        
+        let bio = "";
+        if (pos === 'Sharpshooter') bio = `Especialista en larga distancia de ${team.name}. Su capacidad para anotar bajo presión técnica lo convierte en una pieza clave del quinteto.`;
+        if (pos === 'Blitz') bio = `El relámpago de ${team.name}. Posee un drible endiablado y una visión de juego periférica que rompe cualquier defensa zonal.`;
+        if (pos === 'Defenseman') bio = `El baluarte defensivo de ${team.name}. Experto en lectura de jugadas rivales y sacrificado en el rebote ofensivo.`;
 
-      // Valor acorde al equipo (rating * factor)
-      const playerVal = Math.floor((team.rating * (isTop ? 0.8 : 0.4)));
+        const playerVal = Math.floor((team.rating * (isTop ? 0.8 : 0.4)));
 
-      const player: Player = {
-        id: pId,
-        name: `${pos} ${teamNameNoId}`,
-        description: bio,
-        monetaryValue: playerVal,
-        jerseyNumber: i + 1,
-        position: pos,
-        teamId: team.id,
-        suspensionMatchdays: 0,
-        attributes: hortaData.settings.attributeNames.map(attr => ({
-          name: attr,
-          value: isTop ? 82 + Math.floor(Math.random() * 16) : 55 + Math.floor(Math.random() * 32)
-        })),
-        uniformStyle: 'solid',
-        kitPrimary: team.crestPrimary,
-        kitSecondary: team.crestSecondary,
-        crestPlacement: 'left',
-        sponsorPlacement: 'middle',
-        brandPlacement: 'right'
-      };
-      allPlayers.push(player);
-    });
+        const player: Player = {
+          id: pId,
+          name,
+          description: bio,
+          monetaryValue: playerVal,
+          jerseyNumber: Math.floor(Math.random() * 99) + 1,
+          position: pos,
+          teamId: team.id,
+          suspensionMatchdays: 0,
+          attributes: hortaData.settings.attributeNames.map(attr => ({
+            name: attr,
+            value: isTop ? 82 + Math.floor(Math.random() * 16) : 55 + Math.floor(Math.random() * 32)
+          })),
+          uniformStyle: 'solid',
+          kitPrimary: team.crestPrimary,
+          kitSecondary: team.crestSecondary,
+          crestPlacement: 'left',
+          sponsorPlacement: 'middle',
+          brandPlacement: 'right'
+        };
+        allPlayers.push(player);
+      });
+    }
   });
 
   return { 
