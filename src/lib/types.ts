@@ -49,6 +49,7 @@ export type Team = {
   name: string;
   abbreviation: string;
   rating: number; // 1-100
+  region?: 'Sud' | 'Nord';
   emblemShape: EmblemShape;
   emblemPattern: EmblemPattern;
   crestPrimary: string;
@@ -80,13 +81,20 @@ export type Match = {
   winnerId?: string;
 };
 
+export type TournamentGroup = {
+  name: string;
+  teamIds: string[];
+};
+
 export type Tournament = {
   id: string;
   name: string;
   sport: string;
   mode: TournamentMode;
+  managedTeamId?: string;
   format: TournamentFormat;
   leagueType?: LeagueType;
+  groups?: TournamentGroup[];
   scoringRuleType: ScoringRuleType;
   teams: string[]; // IDs
   matches: Match[];
@@ -95,7 +103,6 @@ export type Tournament = {
   lossPenalty: number;
   drawReward: number;
   variability: number;
-  // New Fields for Season Management
   playoffSpots: number;
   relegationSpots: number;
   currentSeason: number;
