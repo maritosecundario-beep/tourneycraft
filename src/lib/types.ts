@@ -12,7 +12,7 @@ export type Player = {
   position: string;
   attributes: PlayerAttribute[];
   teamId?: string;
-  // Kit Configuration (Exclusivo de Jugadores/Agentes Libres)
+  // Kit Configuration
   uniformStyle: UniformStyle;
   kitPrimary: string;
   kitSecondary: string;
@@ -49,7 +49,6 @@ export type Team = {
   name: string;
   abbreviation: string;
   rating: number; // 1-100
-  // Crest Configuration (Los equipos mantienen su heráldica)
   emblemShape: EmblemShape;
   emblemPattern: EmblemPattern;
   crestPrimary: string;
@@ -57,12 +56,10 @@ export type Team = {
   crestTertiary?: string;
   crestAccent?: string;
   crestBorderWidth: 'none' | 'thin' | 'thick';
-  // Venue Configuration
   venueName: string;
   venueCapacity: number;
   venueSurface: VenueSurface;
   venueSize: VenueSize;
-  // Relationships
   players: Player[];
 };
 
@@ -98,6 +95,10 @@ export type Tournament = {
   lossPenalty: number;
   drawReward: number;
   variability: number;
+  // New Fields for Season Management
+  playoffSpots: number;
+  relegationSpots: number;
+  currentSeason: number;
 };
 
 export type GlobalSettings = {

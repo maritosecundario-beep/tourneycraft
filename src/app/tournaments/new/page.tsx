@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -9,15 +10,14 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { Wand2, Trophy, Settings2, Users } from 'lucide-react';
+import { Wand2, Trophy, Settings2, Users, ArrowDownToLine, ArrowUpToLine } from 'lucide-react';
 import { aiPoweredTournamentSetup } from '@/ai/flows/ai-powered-tournament-setup';
 import { useToast } from '@/hooks/use-toast';
 import { TournamentMode, TournamentFormat, ScoringRuleType } from '@/lib/types';
 
 export default function NewTournamentPage() {
   const router = useRouter();
-  const { addTournament, teams, settings } = useTournamentStore();
+  const { addTournament, teams } = useTournamentStore();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [aiDescription, setAiDescription] = useState('');
@@ -27,8 +27,9 @@ export default function NewTournamentPage() {
   const [sport, setSport] = useState('Football');
   const [mode, setMode] = useState<TournamentMode>('normal');
   const [format, setFormat] = useState<TournamentFormat>('league');
-  const [scoringType, setScoringType] = useState<ScoringRuleType>('nToNRange');
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
+  const [playoffSpots, setPlayoffSpots] = useState(4);
+  const [relegationSpots, setRelegationSpots] = useState(3);
 
   const handleCreateAI = async () => {
     if (!aiDescription) return;
@@ -43,13 +44,16 @@ export default function NewTournamentPage() {
         mode: result.mode,
         format: result.format,
         scoringRuleType: result.scoringRules.type as ScoringRuleType,
-        teams: [], // User needs to pick teams manually or AI picks top ratings
+        teams: [], 
         settingsLocked: !result.allowAdjustmentsAfterCreation,
         winReward: result.initialTeamEconomics.winAmount,
         lossPenalty: result.initialTeamEconomics.lossAmount,
         drawReward: result.initialTeamEconomics.drawAmount,
         variability: result.initialTeamEconomics.maxChangePercentage,
-        matches: []
+        matches: [],
+        playoffSpots: result.hasPlayoffRound ? 4 : 0,
+        relegationSpots: 3,
+        currentSeason: 1
       };
 
       addTournament(newTourney as any);
@@ -74,14 +78,17 @@ export default function NewTournamentPage() {
       sport,
       mode,
       format,
-      scoringRuleType: scoringType,
+      scoringRuleType: 'nToNRange',
       teams: selectedTeams,
       settingsLocked: false,
       winReward: 100,
       lossPenalty: 25,
       drawReward: 40,
       variability: 10,
-      matches: []
+      matches: [],
+      playoffSpots: format === 'league' ? playoffSpots : 0,
+      relegationSpots: format === 'league' ? relegationSpots : 0,
+      currentSeason: 1
     };
 
     addTournament(newTourney as any);
@@ -94,130 +101,161 @@ export default function NewTournamentPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="max-w-4xl mx-auto space-y-8 pb-32">
       <header>
-        <h1 className="text-3xl font-bold flex items-center gap-3">
-          <Trophy className="text-primary" /> Setup New Tournament
+        <h1 className="text-4xl font-black flex items-center gap-3">
+          <Trophy className="text-primary w-10 h-10" /> Tournament Architect
         </h1>
-        <p className="text-muted-foreground">Choose your method of creation.</p>
+        <p className="text-muted-foreground text-lg">Define the structure of your next competitive season.</p>
       </header>
 
       <Tabs defaultValue="manual" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 h-14 bg-card p-1 rounded-2xl">
-          <TabsTrigger value="manual" className="rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <Settings2 className="w-4 h-4 mr-2" /> Manual Setup
+        <TabsList className="grid w-full grid-cols-2 h-16 bg-card p-1 rounded-3xl border shadow-sm">
+          <TabsTrigger value="manual" className="rounded-2xl text-lg font-bold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
+            <Settings2 className="w-5 h-5 mr-2" /> Manual Setup
           </TabsTrigger>
-          <TabsTrigger value="ai" className="rounded-xl data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">
-            <Wand2 className="w-4 h-4 mr-2" /> AI Assistant
+          <TabsTrigger value="ai" className="rounded-2xl text-lg font-bold data-[state=active]:bg-accent data-[state=active]:text-accent-foreground transition-all">
+            <Wand2 className="w-5 h-5 mr-2" /> AI Assistant
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="manual" className="mt-6 space-y-6">
-          <Card className="border-none bg-card shadow-xl">
-            <CardHeader>
-              <CardTitle>Core Settings</CardTitle>
+        <TabsContent value="manual" className="mt-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <Card className="border-none bg-card shadow-2xl rounded-[2.5rem] overflow-hidden">
+            <CardHeader className="bg-muted/20 border-b p-8">
+              <CardTitle className="text-2xl font-black uppercase">Core Foundation</CardTitle>
+              <CardDescription>Basic rules and identification.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="grid gap-2">
-                  <Label htmlFor="tname">Tournament Name</Label>
-                  <Input id="tname" placeholder="e.g. Champions League 2024" value={name} onChange={(e) => setName(e.target.value)} />
+            <CardContent className="p-8 space-y-8">
+              <div className="grid gap-6 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground">Tournament Name</Label>
+                  <Input placeholder="e.g. World Super League" value={name} onChange={(e) => setName(e.target.value)} className="h-14 rounded-2xl text-lg" />
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="sport">Sport Type</Label>
+                <div className="space-y-2">
+                  <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground">Sport Discipline</Label>
                   <Select value={sport} onValueChange={setSport}>
-                    <SelectTrigger id="sport">
-                      <SelectValue placeholder="Select Sport" />
+                    <SelectTrigger className="h-14 rounded-2xl text-lg">
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Football">Football</SelectItem>
-                      <SelectItem value="Basketball">Basketball</SelectItem>
-                      <SelectItem value="Tennis">Tennis</SelectItem>
-                      <SelectItem value="Custom">Custom</SelectItem>
+                      <SelectItem value="Football">⚽ Football</SelectItem>
+                      <SelectItem value="Basketball">🏀 Basketball</SelectItem>
+                      <SelectItem value="Tennis">🎾 Tennis</SelectItem>
+                      <SelectItem value="E-Sports">🎮 E-Sports</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="grid gap-2">
-                  <Label>Mode</Label>
+              <div className="grid gap-6 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground">Operating Mode</Label>
                   <Select value={mode} onValueChange={(v: any) => setMode(v)}>
-                    <SelectTrigger>
+                    <SelectTrigger className="h-14 rounded-2xl">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="normal">Normal (Fully Simulated)</SelectItem>
-                      <SelectItem value="arcade">Arcade (Player Controlled)</SelectItem>
+                      <SelectItem value="normal">Normal (Simulated)</SelectItem>
+                      <SelectItem value="arcade">Arcade (Player Focus)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="grid gap-2">
-                  <Label>Format</Label>
+                <div className="space-y-2">
+                  <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground">Format</Label>
                   <Select value={format} onValueChange={(v: any) => setFormat(v)}>
-                    <SelectTrigger>
+                    <SelectTrigger className="h-14 rounded-2xl">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="league">League (Round Robin)</SelectItem>
+                      <SelectItem value="league">League (Standings)</SelectItem>
                       <SelectItem value="knockout">Knockout (Bracket)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
+
+              {format === 'league' && (
+                <div className="grid gap-6 md:grid-cols-2 p-6 bg-accent/5 rounded-3xl border border-accent/20 animate-in zoom-in-95">
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2 text-xs font-black uppercase text-accent">
+                      <ArrowUpToLine className="w-4 h-4" /> Playoff Spots
+                    </Label>
+                    <Input type="number" value={playoffSpots} onChange={e => setPlayoffSpots(Number(e.target.value))} className="h-12 rounded-xl" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2 text-xs font-black uppercase text-destructive">
+                      <ArrowDownToLine className="w-4 h-4" /> Relegation Spots
+                    </Label>
+                    <Input type="number" value={relegationSpots} onChange={e => setRelegationSpots(Number(e.target.value))} className="h-12 rounded-xl" />
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          <Card className="border-none bg-card shadow-xl">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5" /> Select Participants
+          <Card className="border-none bg-card shadow-2xl rounded-[2.5rem]">
+            <CardHeader className="p-8 border-b">
+              <CardTitle className="text-2xl font-black uppercase flex items-center gap-3">
+                <Users className="w-6 h-6 text-primary" /> Roster Selection
               </CardTitle>
+              <CardDescription>Choose at least 2 teams to participate.</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <CardContent className="p-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 {teams.map(team => (
                   <Button 
                     key={team.id} 
                     variant={selectedTeams.includes(team.id) ? "default" : "outline"}
-                    className="justify-start truncate"
+                    className={cn(
+                      "h-16 rounded-2xl justify-start px-4 transition-all",
+                      selectedTeams.includes(team.id) ? "shadow-lg scale-105" : "hover:bg-muted"
+                    )}
                     onClick={() => toggleTeam(team.id)}
                   >
-                    <span className="w-8 h-8 bg-muted rounded flex items-center justify-center mr-2 text-xs">
+                    <div className="w-10 h-10 bg-muted/50 rounded-xl flex items-center justify-center mr-3 font-black text-xs">
                       {team.abbreviation}
-                    </span>
-                    {team.name}
+                    </div>
+                    <span className="font-bold truncate">{team.name}</span>
                   </Button>
                 ))}
               </div>
-              {teams.length === 0 && <p className="text-center py-8 text-muted-foreground">No teams found. Create teams first!</p>}
+              {teams.length === 0 && (
+                <div className="text-center py-12 bg-muted/10 rounded-[2rem] border-2 border-dashed">
+                  <p className="text-muted-foreground">No clubs found. Create some teams first!</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          <Button onClick={handleCreateManual} className="w-full h-12 text-lg shadow-lg shadow-primary/20">
-            Finalize Tournament
+          <Button onClick={handleCreateManual} className="w-full h-20 rounded-[2rem] text-2xl font-black shadow-2xl shadow-primary/20 bg-primary hover:bg-primary/90">
+            LAUNCH SEASON
           </Button>
         </TabsContent>
 
-        <TabsContent value="ai" className="mt-6">
-          <Card className="border-none bg-card shadow-xl">
-            <CardHeader>
-              <CardTitle>AI Tournament Architect</CardTitle>
-              <CardDescription>Describe your tournament in natural language and we'll handle the rest.</CardDescription>
+        <TabsContent value="ai" className="mt-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <Card className="border-none bg-card shadow-2xl rounded-[3rem] overflow-hidden">
+            <CardHeader className="bg-accent/10 border-b p-10">
+              <CardTitle className="text-3xl font-black uppercase text-accent flex items-center gap-3">
+                <Wand2 className="w-8 h-8" /> Generative Architect
+              </CardTitle>
+              <CardDescription className="text-lg">Describe the competition and let the AI build the rules, rewards, and spots.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid gap-2">
-                <Label htmlFor="aidec">Describe your tournament</Label>
+            <CardContent className="p-10 space-y-8">
+              <div className="space-y-4">
+                <Label className="text-sm font-black uppercase text-muted-foreground">Natural Language Brief</Label>
                 <textarea 
-                  id="aidec" 
-                  className="flex min-h-[150px] w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
-                  placeholder="e.g. A 16-team soccer league with a playoff round. Win gives 150 CR, loss removes 50. High variability matches."
+                  className="flex min-h-[250px] w-full rounded-[2rem] border-none bg-muted/20 p-8 text-xl ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent transition-all"
+                  placeholder="e.g. A 20-team European Super League. Top 4 go to playoffs, bottom 3 are relegated. High monetary rewards for wins..."
                   value={aiDescription}
                   onChange={(e) => setAiDescription(e.target.value)}
                 />
               </div>
-              <Button onClick={handleCreateAI} disabled={loading || !aiDescription} className="w-full h-12 bg-accent hover:bg-accent/90 text-accent-foreground shadow-lg shadow-accent/20">
-                {loading ? "Architecting..." : "Generate Tournament Design"}
+              <Button 
+                onClick={handleCreateAI} 
+                disabled={loading || !aiDescription} 
+                className="w-full h-20 rounded-[2rem] text-2xl font-black bg-accent hover:bg-accent/90 text-accent-foreground shadow-2xl shadow-accent/20"
+              >
+                {loading ? "Architecting Universe..." : "GENERATE TOURNAMENT"}
               </Button>
             </CardContent>
           </Card>
