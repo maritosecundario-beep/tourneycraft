@@ -1,9 +1,10 @@
+
 "use client";
 
 import { useTournamentStore } from '@/hooks/use-tournament-store';
 import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Trophy, Calendar, Users, Play, ShieldAlert, ShoppingBag, Layers, Target, ChevronRight, UserCircle2, Star, Sword } from 'lucide-react';
+import { Trophy, Calendar, Users, Play, ShieldAlert, ShoppingBag, Layers, Target, ChevronRight, UserCircle2, Star, Sword, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +24,7 @@ import {
 } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { CrestIcon } from '@/components/ui/crest-icon';
 
 export default function TournamentDetailPage() {
   const { id } = useParams();
@@ -113,23 +115,6 @@ export default function TournamentDetailPage() {
     const rule = tournament.scoringRuleType;
     const val = tournament.scoringValue || 3;
 
-    // AI Player Selection
-    const homePlayers = players.filter(p => p.teamId === m.homeId).sort((a, b) => b.monetaryValue - a.monetaryValue);
-    const awayPlayers = players.filter(p => p.teamId === m.awayId).sort((a, b) => b.monetaryValue - a.monetaryValue);
-    
-    let hPlayerId = homePlayers[0]?.id;
-    let aPlayerId = awayPlayers[0]?.id;
-
-    if (!isDual) {
-      // 70% chance best player plays in main league
-      if (Math.random() > 0.7) hPlayerId = homePlayers[1]?.id || hPlayerId;
-      if (Math.random() > 0.7) aPlayerId = awayPlayers[1]?.id || aPlayerId;
-    } else {
-      // If it's dual, they use the ones not used in main (simplified here)
-      hPlayerId = homePlayers[1]?.id || hPlayerId;
-      aPlayerId = awayPlayers[1]?.id || aPlayerId;
-    }
-
     if (rule === 'bestOfN') {
       hScore = Math.floor(Math.random() * (val + 1));
       aScore = val - hScore;
@@ -144,7 +129,41 @@ export default function TournamentDetailPage() {
       aScore = targetSum - hScore;
     }
 
+    // Assign generic best players for simulation
+    const homePlayers = players.filter(p => p.teamId === m.homeId).sort((a, b) => b.monetaryValue - a.monetaryValue);
+    const awayPlayers = players.filter(p => p.teamId === m.awayId).sort((a, b) => b.monetaryValue - a.monetaryValue);
+    
+    let hPlayerId = homePlayers[0]?.id;
+    let aPlayerId = awayPlayers[0]?.id;
+
+    if (!isDual) {
+      if (Math.random() > 0.7) hPlayerId = homePlayers[1]?.id || hPlayerId;
+      if (Math.random() > 0.7) aPlayerId = awayPlayers[1]?.id || aPlayerId;
+    } else {
+      hPlayerId = homePlayers[1]?.id || hPlayerId;
+      aPlayerId = awayPlayers[1]?.id || aPlayerId;
+    }
+
     return { hScore, aScore, hPlayerId, aPlayerId };
+  };
+
+  const handleSimulateSingleMatch = (matchId: string, isDual: boolean = false) => {
+    const m = (isDual ? tournament.dualLeagueMatches : tournament.matches).find(x => x.id === matchId);
+    if (!m || m.isSimulated) return;
+
+    const { hScore, aScore, hPlayerId, aPlayerId } = simulateMatchLogic(m, isDual);
+    resolveMatch(tournament.id, m.id, hScore, aScore, isDual, hPlayerId, aPlayerId);
+    
+    // Auto-resolve dual if it was a primary match simulation
+    if (!isDual && tournament.dualLeagueEnabled) {
+      const dm = tournament.dualLeagueMatches.find(d => d.matchday === m.matchday && d.homeId === m.awayId && d.awayId === m.homeId);
+      if (dm && !dm.isSimulated) {
+        const { hScore: dh, aScore: da, hPlayerId: dhp, aPlayerId: dap } = simulateMatchLogic(dm, true);
+        resolveMatch(tournament.id, dm.id, dh, da, true, dhp, dap);
+      }
+    }
+
+    toast({ title: "Encuentro Finalizado", description: `Resultado: ${hScore} - ${aScore}` });
   };
 
   const handleSimulateMatchday = () => {
@@ -154,7 +173,6 @@ export default function TournamentDetailPage() {
       return;
     }
 
-    // Simulate others
     currentMatchdayMatches.forEach(m => {
       if (m.isSimulated) return;
       const { hScore, aScore, hPlayerId, aPlayerId } = simulateMatchLogic(m);
@@ -178,8 +196,6 @@ export default function TournamentDetailPage() {
     if (!selectedMatch || !selectedPlayerId) return;
 
     const { hScore, aScore } = simulateMatchLogic(selectedMatch);
-    
-    // User influence: boost score based on chosen player
     const player = players.find(p => p.id === selectedPlayerId);
     const playerBonus = (player?.monetaryValue || 0) / 10000;
     
@@ -194,7 +210,6 @@ export default function TournamentDetailPage() {
 
     resolveMatch(tournament.id, selectedMatch.id, finalH, finalA, false, selectedPlayerId);
 
-    // Mirror Dual Match
     if (tournament.dualLeagueEnabled) {
       const dualMatch = tournament.dualLeagueMatches.find(dm => dm.matchday === selectedMatch.matchday && dm.homeId === selectedMatch.awayId && dm.awayId === selectedMatch.homeId);
       if (dualMatch) {
@@ -205,7 +220,6 @@ export default function TournamentDetailPage() {
       }
     }
 
-    // Resolve others in matchday
     currentMatchdayMatches.forEach(m => {
       if (m.isSimulated || m.id === selectedMatch.id) return;
       const { hScore: hs, aScore: as, hPlayerId, aPlayerId } = simulateMatchLogic(m);
@@ -222,7 +236,7 @@ export default function TournamentDetailPage() {
 
     updateTournament({ ...tournament, currentMatchday: tournament.currentMatchday + 1 });
     setIsPreviewOpen(false);
-    toast({ title: "Victoria Heroica", description: "Tu partido ha finalizado. Clasificación actualizada." });
+    toast({ title: "Jornada Completada", description: "Tu partido ha finalizado. Clasificación actualizada." });
   };
 
   return (
@@ -315,6 +329,7 @@ export default function TournamentDetailPage() {
                     <div className="flex justify-between py-2 border-b"><span className="text-muted-foreground uppercase text-[10px]">Suma Total</span><span className="text-accent">{tournament.nToNRangeMin} - {tournament.nToNRangeMax}</span></div>
                   )}
                   <div className="flex justify-between py-2 border-b"><span className="text-muted-foreground uppercase text-[10px]">Victoria</span><span className="text-primary">+{tournament.winReward} {settings.currency}</span></div>
+                  <div className="flex justify-between py-2 border-b"><span className="text-muted-foreground uppercase text-[10px]">Derrota</span><span className="text-destructive">-{tournament.lossPenalty} {settings.currency}</span></div>
                 </div>
               </Card>
 
@@ -348,39 +363,92 @@ export default function TournamentDetailPage() {
               <CardTitle className="text-xl font-black uppercase">Calendario de Temporada</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <ScrollArea className="h-[600px]">
-                <div className="divide-y">
+              <ScrollArea className="h-[700px]">
+                <div className="divide-y divide-muted/10">
                   {Array.from({ length: Math.max(...tournament.matches.map(m => m.matchday), 0) }).map((_, i) => {
                     const matchday = i + 1;
                     const matches = tournament.matches.filter(m => m.matchday === matchday);
                     return (
                       <div key={matchday} className="p-8">
-                        <h3 className="text-sm font-black uppercase text-accent mb-6 flex items-center gap-2">
-                          <Calendar className="w-4 h-4" /> JORNADA {matchday}
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {matches.map(m => (
-                            <div key={m.id} className={cn(
-                              "flex items-center justify-between p-4 rounded-2xl border",
-                              m.isSimulated ? "bg-muted/10 opacity-70" : "bg-card shadow-sm"
-                            )}>
-                              <div className="flex-1 text-right font-black uppercase text-xs">
-                                {teams.find(t => t.id === m.homeId)?.name}
-                              </div>
-                              <div className="mx-6 flex items-center gap-2">
-                                <div className="w-8 h-8 flex items-center justify-center bg-muted rounded-lg font-black">
-                                  {m.homeScore ?? '-'}
+                        <header className="flex justify-between items-center mb-8">
+                          <h3 className="text-sm font-black uppercase text-accent flex items-center gap-2 tracking-widest">
+                            <Calendar className="w-4 h-4" /> JORNADA {matchday}
+                          </h3>
+                          {matchday === tournament.currentMatchday && (
+                            <Badge className="bg-accent font-black">ACTUAL</Badge>
+                          )}
+                        </header>
+                        
+                        <div className="space-y-4 max-w-2xl mx-auto">
+                          {matches.map(m => {
+                            const homeTeam = teams.find(t => t.id === m.homeId);
+                            const awayTeam = teams.find(t => t.id === m.awayId);
+                            if (!homeTeam || !awayTeam) return null;
+
+                            return (
+                              <div key={m.id} className={cn(
+                                "grid grid-cols-[1fr_auto_1fr_auto] items-center gap-6 p-6 rounded-3xl border transition-all",
+                                m.isSimulated ? "bg-muted/5 opacity-60" : "bg-card shadow-lg hover:shadow-2xl hover:border-primary/30"
+                              )}>
+                                {/* LOCAL */}
+                                <div className="flex flex-col items-center gap-2">
+                                  <CrestIcon 
+                                    shape={homeTeam.emblemShape} 
+                                    pattern={homeTeam.emblemPattern} 
+                                    c1={homeTeam.crestPrimary} 
+                                    c2={homeTeam.crestSecondary} 
+                                    c3={homeTeam.crestTertiary || homeTeam.crestSecondary}
+                                    size="w-12 h-12"
+                                  />
+                                  <span className="font-black text-lg">{homeTeam.abbreviation}</span>
                                 </div>
-                                <span className="font-black opacity-20">:</span>
-                                <div className="w-8 h-8 flex items-center justify-center bg-muted rounded-lg font-black">
-                                  {m.awayScore ?? '-'}
+
+                                {/* SCORE */}
+                                <div className="flex items-center gap-3 px-6">
+                                  <div className={cn(
+                                    "w-12 h-12 flex items-center justify-center rounded-xl font-black text-xl border-2",
+                                    m.isSimulated ? "bg-muted/20" : "bg-primary/5 border-dashed"
+                                  )}>
+                                    {m.homeScore ?? '-'}
+                                  </div>
+                                  <span className="font-black opacity-30 text-2xl">:</span>
+                                  <div className={cn(
+                                    "w-12 h-12 flex items-center justify-center rounded-xl font-black text-xl border-2",
+                                    m.isSimulated ? "bg-muted/20" : "bg-primary/5 border-dashed"
+                                  )}>
+                                    {m.awayScore ?? '-'}
+                                  </div>
+                                </div>
+
+                                {/* VISITANTE */}
+                                <div className="flex flex-col items-center gap-2">
+                                  <CrestIcon 
+                                    shape={awayTeam.emblemShape} 
+                                    pattern={awayTeam.emblemPattern} 
+                                    c1={awayTeam.crestPrimary} 
+                                    c2={awayTeam.crestSecondary} 
+                                    c3={awayTeam.crestTertiary || awayTeam.crestSecondary}
+                                    size="w-12 h-12"
+                                  />
+                                  <span className="font-black text-lg">{awayTeam.abbreviation}</span>
+                                </div>
+
+                                {/* ACTIONS */}
+                                <div className="pl-4 border-l border-muted/20">
+                                  {!m.isSimulated && (
+                                    <Button 
+                                      size="icon" 
+                                      variant="ghost" 
+                                      className="hover:bg-primary/10 text-primary"
+                                      onClick={() => handleSimulateSingleMatch(m.id)}
+                                    >
+                                      <Zap className="w-5 h-5 fill-current" />
+                                    </Button>
+                                  )}
                                 </div>
                               </div>
-                              <div className="flex-1 text-left font-black uppercase text-xs">
-                                {teams.find(t => t.id === m.awayId)?.name}
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     );
@@ -393,45 +461,57 @@ export default function TournamentDetailPage() {
 
         {tournament.dualLeagueEnabled && (
           <TabsContent value="dual" className="space-y-8">
-            {dualStandings.map((group, gIdx) => (
-              <Card key={gIdx} className="border-none bg-card shadow-2xl rounded-[3rem] overflow-hidden">
-                <CardHeader className="bg-accent/10 border-b p-8">
-                  <div className="flex items-center gap-3">
-                    <Layers className="text-accent" />
-                    <CardTitle className="text-xl font-black uppercase">{group.name}</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <Table>
-                    <TableHeader className="bg-muted/5">
-                      <TableRow className="hover:bg-transparent border-b">
-                        <TableHead className="w-16 text-center font-black">#</TableHead>
-                        <TableHead className="font-black uppercase">Equipo (Reservas)</TableHead>
-                        <TableHead className="text-center font-black">P</TableHead>
-                        <TableHead className="text-center font-black text-accent">PTS</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {group.standings.map((item, idx) => (
-                        <TableRow key={item.id} className="h-16">
-                          <TableCell className="text-center font-black text-lg">{idx + 1}</TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center font-black text-[10px]">
-                                {'abbreviation' in item ? item.abbreviation : item.name.substring(0,2).toUpperCase()}
-                              </div>
-                              <span className="font-bold">{item.name}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-center font-bold">{item.played}</TableCell>
-                          <TableCell className="text-center font-black text-xl text-accent">{item.pts}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            ))}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2 space-y-8">
+                {dualStandings.map((group, gIdx) => (
+                  <Card key={gIdx} className="border-none bg-card shadow-2xl rounded-[3rem] overflow-hidden">
+                    <CardHeader className="bg-accent/10 border-b p-8">
+                      <div className="flex items-center gap-3">
+                        <Layers className="text-accent" />
+                        <CardTitle className="text-xl font-black uppercase">{group.name}</CardTitle>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      <Table>
+                        <TableHeader className="bg-muted/5">
+                          <TableRow className="hover:bg-transparent border-b">
+                            <TableHead className="w-16 text-center font-black">#</TableHead>
+                            <TableHead className="font-black uppercase">Equipo (Reservas)</TableHead>
+                            <TableHead className="text-center font-black">P</TableHead>
+                            <TableHead className="text-center font-black text-accent">PTS</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {group.standings.map((item, idx) => (
+                            <TableRow key={item.id} className="h-16">
+                              <TableCell className="text-center font-black text-lg">{idx + 1}</TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center font-black text-[10px]">
+                                    {'abbreviation' in item ? item.abbreviation : item.name.substring(0,2).toUpperCase()}
+                                  </div>
+                                  <span className="font-bold">{item.name}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-center font-bold">{item.played}</TableCell>
+                              <TableCell className="text-center font-black text-xl text-accent">{item.pts}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+              <div className="space-y-6">
+                <Card className="border-none bg-accent/5 shadow-2xl rounded-[3rem] p-8 border border-accent/20">
+                  <CardTitle className="text-lg font-black uppercase mb-4 flex items-center gap-2"><Zap className="w-5 h-5 text-accent" /> Motor Reserva</CardTitle>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    La liga dual utiliza la misma lógica de puntuación que la principal. Los resultados espejo aseguran que todos los jugadores participen en el ecosistema.
+                  </p>
+                </Card>
+              </div>
+            </div>
           </TabsContent>
         )}
 
@@ -474,7 +554,17 @@ export default function TournamentDetailPage() {
                 <div className="grid gap-3">
                   {teams.filter(t => tournament.participants.includes(t.id)).map(t => (
                     <div key={t.id} className="flex items-center justify-between p-4 bg-accent/5 rounded-2xl border border-accent/20">
-                      <span className="font-black text-sm">{t.name}</span>
+                      <div className="flex items-center gap-3">
+                        <CrestIcon 
+                          shape={t.emblemShape} 
+                          pattern={t.emblemPattern} 
+                          c1={t.crestPrimary} 
+                          c2={t.crestSecondary} 
+                          c3={t.crestTertiary || t.crestSecondary}
+                          size="w-6 h-6"
+                        />
+                        <span className="font-black text-sm">{t.name}</span>
+                      </div>
                       <span className="font-black text-accent">{t.budget.toLocaleString()} {settings.currency}</span>
                     </div>
                   ))}
@@ -579,7 +669,6 @@ export default function TournamentDetailPage() {
 
               <div className="flex-1 overflow-y-auto p-8 space-y-8">
                 <div className="grid grid-cols-2 gap-12">
-                  {/* Stats Comparison */}
                   <div className="space-y-4">
                     <h4 className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2">
                       <Star className="w-3 h-3" /> Perfil del Rival
@@ -608,7 +697,6 @@ export default function TournamentDetailPage() {
                     })()}
                   </div>
 
-                  {/* Player Selection */}
                   <div className="space-y-4">
                     <h4 className="text-[10px] font-black uppercase text-accent tracking-widest flex items-center gap-2">
                       <UserCircle2 className="w-3 h-3" /> Selección de Protagonista
