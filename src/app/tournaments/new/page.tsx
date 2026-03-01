@@ -35,6 +35,8 @@ export default function NewTournamentPage() {
   // Scoring & Econ
   const [scoringType, setScoringType] = useState<ScoringRuleType>('nToNRange');
   const [scoringValue, setScoringValue] = useState(3); // Para Best of N o First to N
+  const [nToNRangeMin, setNToNRangeMin] = useState(80);
+  const [nToNRangeMax, setNToNRangeMax] = useState(150);
   const [winReward, setWinReward] = useState(100);
   const [lossPenalty, setLossPenalty] = useState(20);
   const [drawReward, setDrawReward] = useState(40);
@@ -58,6 +60,8 @@ export default function NewTournamentPage() {
         format: result.format,
         scoringRuleType: result.scoringRules.type as ScoringRuleType,
         scoringValue: result.scoringRules.bestOfNValue || result.scoringRules.firstToNValue || 3,
+        nToNRangeMin: result.scoringRules.nToNRangeMin,
+        nToNRangeMax: result.scoringRules.nToNRangeMax,
         participants: [], 
         settingsLocked: !result.allowAdjustmentsAfterCreation,
         winReward: result.initialTeamEconomics.winAmount,
@@ -71,10 +75,10 @@ export default function NewTournamentPage() {
       };
 
       addTournament(newTourney as any);
-      toast({ title: "Tournament Ready", description: "AI has pre-configured your tournament." });
+      toast({ title: "Torneo IA Preparado", description: "La IA ha configurado tu universo de competición." });
       router.push(`/tournaments/${newTourney.id}`);
     } catch (e) {
-      toast({ title: "AI Error", description: "Failed to parse description.", variant: "destructive" });
+      toast({ title: "Error IA", description: "No se pudo interpretar la descripción del torneo.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -82,7 +86,7 @@ export default function NewTournamentPage() {
 
   const handleCreateManual = () => {
     if (!name || selectedParticipants.length < 2) {
-      toast({ title: "Error", description: "Name and at least 2 participants are required.", variant: "destructive" });
+      toast({ title: "Error", description: "Nombre y al menos 2 participantes requeridos.", variant: "destructive" });
       return;
     }
 
@@ -96,6 +100,8 @@ export default function NewTournamentPage() {
       leagueType,
       scoringRuleType: scoringType,
       scoringValue,
+      nToNRangeMin: scoringType === 'nToNRange' ? nToNRangeMin : undefined,
+      nToNRangeMax: scoringType === 'nToNRange' ? nToNRangeMax : undefined,
       participants: selectedParticipants,
       settingsLocked: false,
       winReward,
@@ -109,7 +115,7 @@ export default function NewTournamentPage() {
     };
 
     addTournament(newTourney as any);
-    toast({ title: "Season Launched", description: "Competencia creada con éxito." });
+    toast({ title: "Temporada Lanzada", description: "Competición creada con éxito." });
     router.push(`/tournaments/${newTourney.id}`);
   };
 
@@ -216,14 +222,28 @@ export default function NewTournamentPage() {
                   <Select value={scoringType} onValueChange={(v: any) => setScoringType(v)}>
                     <SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="nToNRange">Rango de Puntos (Normal)</SelectItem>
+                      <SelectItem value="nToNRange">Rango de Puntos (Dual)</SelectItem>
                       <SelectItem value="bestOfN">Al mejor de N (Sets/Periodos)</SelectItem>
                       <SelectItem value="firstToN">Primero en marcar N (Arcade)</SelectItem>
                     </SelectContent>
                   </Select>
+                  
+                  {scoringType === 'nToNRange' && (
+                    <div className="grid grid-cols-2 gap-4 animate-in zoom-in-95">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-black uppercase">Mínimo Suma</Label>
+                        <Input type="number" value={nToNRangeMin} onChange={e => setNToNRangeMin(Number(e.target.value))} className="h-10 rounded-lg" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-black uppercase">Máximo Suma</Label>
+                        <Input type="number" value={nToNRangeMax} onChange={e => setNToNRangeMax(Number(e.target.value))} className="h-10 rounded-lg" />
+                      </div>
+                    </div>
+                  )}
+
                   {(scoringType === 'bestOfN' || scoringType === 'firstToN') && (
                     <div className="flex items-center gap-4 animate-in zoom-in-95">
-                      <Label className="shrink-0">Valor de N:</Label>
+                      <Label className="shrink-0 font-black uppercase text-xs">Valor de N:</Label>
                       <Input type="number" value={scoringValue} onChange={e => setScoringValue(Number(e.target.value))} className="h-10 w-24 rounded-lg" />
                     </div>
                   )}
@@ -311,7 +331,7 @@ export default function NewTournamentPage() {
             <CardContent className="p-10 space-y-8">
               <textarea 
                 className="flex min-h-[250px] w-full rounded-[2rem] border-none bg-muted/20 p-8 text-xl ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent transition-all"
-                placeholder="Ej: Una liga de 16 equipos de l'Horta dividida en Sud y Nord. Al mejor de 3 sets. 1000 créditos por ganar. Los 4 últimos bajan..."
+                placeholder="Ej: Una liga de 16 equipos dividida en dos grupos. Rango de puntos de 80 a 150. Victoria da 5000 créditos. Los 4 últimos bajan..."
                 value={aiDescription}
                 onChange={(e) => setAiDescription(e.target.value)}
               />

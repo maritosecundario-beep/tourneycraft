@@ -183,6 +183,22 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     }
   }, [teams, players, tournaments, settings, isLoaded, user?.uid, db]);
 
+  // Effect to apply theme class to the document root
+  useEffect(() => {
+    if (isLoaded) {
+      const themeList = ['light', 'dark', 'midnight', 'obsidian', 'nord', 'retro'];
+      document.documentElement.classList.remove(...themeList);
+      document.documentElement.classList.add(settings.theme);
+      
+      // Also sync with system color scheme for browser elements
+      if (settings.theme === 'dark' || settings.theme === 'midnight' || settings.theme === 'obsidian') {
+        document.documentElement.style.colorScheme = 'dark';
+      } else {
+        document.documentElement.style.colorScheme = 'light';
+      }
+    }
+  }, [settings.theme, isLoaded]);
+
   const transferPlayer = useCallback((playerId: string, toTeamId: string | undefined) => {
     setPlayers(prev => prev.map(p => {
       if (p.id === playerId) {
