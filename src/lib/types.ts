@@ -61,7 +61,7 @@ export type Team = {
   venueCapacity: number;
   venueSurface: VenueSurface;
   venueSize: VenueSize;
-  players: Player[];
+  players: string[]; // IDs
 };
 
 export type ScoringRuleType = 'nToNRange' | 'bestOfN' | 'firstToN';
@@ -69,11 +69,12 @@ export type ScoringRuleType = 'nToNRange' | 'bestOfN' | 'firstToN';
 export type TournamentMode = 'normal' | 'arcade';
 export type TournamentFormat = 'league' | 'knockout';
 export type LeagueType = 'single-table' | 'groups' | 'conferences';
+export type TournamentEntryType = 'teams' | 'players';
 
 export type Match = {
   id: string;
-  homeTeamId: string;
-  awayTeamId: string;
+  homeId: string; // Puede ser Team ID o Player ID
+  awayId: string; // Puede ser Team ID o Player ID
   homeScore?: number;
   awayScore?: number;
   isSimulated: boolean;
@@ -83,7 +84,7 @@ export type Match = {
 
 export type TournamentGroup = {
   name: string;
-  teamIds: string[];
+  participantIds: string[];
 };
 
 export type Tournament = {
@@ -91,18 +92,21 @@ export type Tournament = {
   name: string;
   sport: string;
   mode: TournamentMode;
-  managedTeamId?: string;
+  entryType: TournamentEntryType;
+  managedParticipantId?: string;
   format: TournamentFormat;
   leagueType?: LeagueType;
   groups?: TournamentGroup[];
   scoringRuleType: ScoringRuleType;
-  teams: string[]; // IDs
+  scoringValue?: number; // N para bestOfN o firstToN
+  participants: string[]; // IDs de equipos o jugadores
   matches: Match[];
   settingsLocked: boolean;
+  // Economía
   winReward: number;
   lossPenalty: number;
   drawReward: number;
-  variability: number;
+  variability: number; // 0-100 (porcentaje de rango de cambio)
   playoffSpots: number;
   relegationSpots: number;
   currentSeason: number;
