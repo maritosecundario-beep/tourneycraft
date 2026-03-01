@@ -11,26 +11,26 @@ export type Player = {
   position: string;
   attributes: PlayerAttribute[];
   teamId?: string;
-  kitCustomization?: string;
+  visualCustomization?: string;
 };
 
-export type KitDesign = 'solid' | 'stripes' | 'hoops' | 'halves' | 'gradient';
-export type CrestType = 'shield' | 'circle' | 'square' | 'modern';
-export type StadiumSurface = 'grass' | 'artificial' | 'clay' | 'hardcourt';
+export type UniformStyle = 'solid' | 'stripes' | 'hoops' | 'halves' | 'gradient' | 'minimal';
+export type EmblemShape = 'shield' | 'circle' | 'square' | 'modern' | 'diamond';
+export type VenueSurface = 'grass' | 'artificial' | 'clay' | 'hardcourt' | 'parquet' | 'ice' | 'sand';
 
 export type Team = {
   id: string;
   name: string;
   abbreviation: string;
   rating: number; // 1-100
-  crestUrl?: string;
-  crestType: CrestType;
+  logoUrl?: string;
+  emblemShape: EmblemShape;
   primaryColor: string;
   secondaryColor: string;
-  kitDesign: KitDesign;
-  stadiumName: string;
-  stadiumCapacity: number;
-  stadiumSurface: StadiumSurface;
+  uniformStyle: UniformStyle;
+  venueName: string;
+  venueCapacity: number;
+  venueSurface: VenueSurface;
   players: Player[];
 };
 
@@ -49,7 +49,7 @@ export type Match = {
   isSimulated: boolean;
   matchday: number;
   winnerId?: string;
-  isPrimary?: boolean; // For dual league
+  isPrimary?: boolean;
 };
 
 export type Tournament = {

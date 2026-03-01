@@ -24,8 +24,8 @@ interface TournamentContextType {
 
 const defaultSettings: GlobalSettings = {
   currency: 'CR',
-  positions: ['GK', 'DF', 'MD', 'FW'],
-  attributeNames: ['Shoot', 'Defense', 'Speed', 'Passing'],
+  positions: ['POS 1', 'POS 2', 'POS 3'],
+  attributeNames: ['Skill A', 'Skill B', 'Skill C'],
   theme: 'dark',
 };
 
@@ -41,20 +41,19 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   const { user } = useUser();
   const db = useFirestore();
 
-  // Initial Load from LocalStorage
   useEffect(() => {
     const saved = localStorage.getItem('tourneycraft-store');
     if (saved) {
       const parsed = JSON.parse(saved);
-      // Migration/Safety check for old team formats
       const migratedTeams = (parsed.teams || []).map((t: any) => ({
         ...t,
         primaryColor: t.primaryColor || '#3b82f6',
         secondaryColor: t.secondaryColor || '#ffffff',
-        kitDesign: t.kitDesign || 'solid',
-        crestType: t.crestType || 'shield',
-        stadiumCapacity: t.stadiumCapacity || 25000,
-        stadiumSurface: t.stadiumSurface || 'grass'
+        uniformStyle: t.uniformStyle || t.kitDesign || 'solid',
+        emblemShape: t.emblemShape || t.crestType || 'shield',
+        venueName: t.venueName || t.stadiumName || 'Main Arena',
+        venueCapacity: t.venueCapacity || t.stadiumCapacity || 5000,
+        venueSurface: t.venueSurface || t.stadiumSurface || 'hardcourt'
       }));
       
       setTeams(migratedTeams);
@@ -65,7 +64,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     setIsLoaded(true);
   }, []);
 
-  // Sync from Cloud when user logs in
   useEffect(() => {
     if (user && db && isLoaded) {
       const userDocRef = doc(db, 'users', user.uid, 'backups', 'latest');
@@ -76,14 +74,12 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
           setPlayers(cloudData.players || []);
           setTournaments(cloudData.tournaments || []);
           setSettings(cloudData.settings || defaultSettings);
-          // Sync local storage too
           localStorage.setItem('tourneycraft-store', JSON.stringify(cloudData));
         }
       });
     }
   }, [user, db, isLoaded]);
 
-  // Save to LocalStorage and Cloud on changes
   useEffect(() => {
     if (isLoaded) {
       const dataToSave = { teams, players, tournaments, settings };
