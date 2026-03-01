@@ -26,6 +26,7 @@ export type EmblemShape =
 export type EmblemPattern = 'none' | 'vertical-split' | 'horizontal-split' | 'diagonal-split' | 'cross' | 'saltire' | 'quarters';
 export type ElementPlacement = 'left' | 'center' | 'right';
 export type VerticalPlacement = 'top' | 'middle' | 'bottom';
+export type ElementSize = 'small' | 'medium' | 'large';
 
 export type VenueSurface = 'grass' | 'artificial' | 'clay' | 'hardcourt' | 'parquet' | 'ice' | 'sand';
 export type VenueSize = 'small' | 'medium' | 'large' | 'monumental';
@@ -54,6 +55,7 @@ export type Team = {
   crestPlacement: ElementPlacement;
   sponsorPlacement: VerticalPlacement;
   brandPlacement: ElementPlacement;
+  crestSize?: ElementSize;
   // Venue Configuration
   venueName: string;
   venueCapacity: number;

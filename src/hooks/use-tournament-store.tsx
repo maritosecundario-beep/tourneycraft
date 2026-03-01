@@ -59,6 +59,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
           crestPlacement: t.crestPlacement || 'left',
           sponsorPlacement: t.sponsorPlacement || 'middle',
           brandPlacement: t.brandPlacement || 'right',
+          crestSize: t.crestSize || 'medium',
           crestPrimary: t.crestPrimary || t.primaryColor || '#3b82f6',
           crestSecondary: t.crestSecondary || t.secondaryColor || '#ffffff',
           kitPrimary: t.kitPrimary || t.primaryColor || '#3b82f6',
