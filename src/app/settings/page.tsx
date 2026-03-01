@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Settings, Coins, MapPin, ListPlus, Palette, CheckCircle2, Plus, Trash2, Hash } from 'lucide-react';
+import { Settings, MapPin, ListPlus, Palette, CheckCircle2, Plus, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -80,7 +80,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 pb-32">
+    <div className="max-w-5xl mx-auto space-y-8 pb-32 px-4 md:px-0">
       <header>
         <h1 className="text-3xl md:text-4xl font-black flex items-center gap-3 text-foreground">
           <Settings className="text-primary w-8 h-8 md:w-10 md:h-10" /> AJUSTES GLOBALES
@@ -90,7 +90,7 @@ export default function SettingsPage() {
 
       <div className="grid gap-6 md:gap-8">
         {/* TEMAS Y ESTÉTICA */}
-        <Card className="border-none bg-card shadow-xl md:shadow-2xl overflow-hidden">
+        <Card className="border-none bg-card shadow-xl overflow-hidden">
           <div className="h-2 w-full bg-gradient-to-r from-primary via-accent to-yellow-500" />
           <CardHeader>
             <div className="flex items-center gap-4">
@@ -120,13 +120,6 @@ export default function SettingsPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="hidden md:flex p-6 bg-muted/30 rounded-2xl border items-center justify-center gap-4">
-               <div className="w-8 h-8 rounded-full bg-background border shadow-sm" />
-               <div className="w-8 h-8 rounded-full bg-primary shadow-sm" />
-               <div className="w-8 h-8 rounded-full bg-accent shadow-sm" />
-               <div className="w-8 h-8 rounded-full bg-muted shadow-sm" />
-               <p className="text-xs text-muted-foreground font-mono">Vista previa de paleta</p>
-            </div>
           </CardContent>
         </Card>
 
@@ -150,43 +143,37 @@ export default function SettingsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
               {positions.map((pos, index) => (
                 <div key={index} className="group flex items-center gap-4 p-3 md:p-4 bg-muted/20 hover:bg-muted/40 rounded-2xl border transition-all">
-                  <div 
-                    className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-[10px] md:text-xs font-black shadow-lg shrink-0"
-                    style={{ backgroundColor: posColors[pos] || PREDEFINED_COLORS[10], color: '#fff' }}
-                  >
-                    {pos.substring(0, 3).toUpperCase()}
-                  </div>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button 
+                        className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-[10px] md:text-xs font-black shadow-lg shrink-0 transition-transform hover:scale-110"
+                        style={{ backgroundColor: posColors[pos] || PREDEFINED_COLORS[10], color: '#fff' }}
+                      >
+                        {pos.substring(0, 3).toUpperCase()}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64 p-3 bg-card border-border">
+                      <div className="grid grid-cols-5 gap-2">
+                        {PREDEFINED_COLORS.map(color => (
+                          <button
+                            key={color}
+                            onClick={() => handleColorChange(pos, color)}
+                            className={cn(
+                              "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110",
+                              posColors[pos] === color ? "border-foreground" : "border-transparent"
+                            )}
+                            style={{ backgroundColor: color }}
+                          />
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                   <div className="flex-1 space-y-1">
                     <Input 
                       value={pos} 
                       onChange={(e) => updatePositionName(index, e.target.value)}
                       className="h-7 bg-transparent border-none font-bold text-base md:text-lg focus-visible:ring-0 p-0"
                     />
-                    <div className="flex items-center gap-2">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button 
-                            className="w-5 h-5 md:w-6 md:h-6 rounded-full border-2 border-white shadow-sm cursor-pointer"
-                            style={{ backgroundColor: posColors[pos] || PREDEFINED_COLORS[10] }}
-                          />
-                        </PopoverTrigger>
-                        <PopoverContent className="w-64 p-3 bg-card border-border">
-                          <div className="grid grid-cols-5 gap-2">
-                            {PREDEFINED_COLORS.map(color => (
-                              <button
-                                key={color}
-                                onClick={() => handleColorChange(pos, color)}
-                                className={cn(
-                                  "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110",
-                                  posColors[pos] === color ? "border-foreground" : "border-transparent"
-                                )}
-                                style={{ backgroundColor: color }}
-                              />
-                            ))}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
                   </div>
                   <Button 
                     variant="ghost" 
@@ -211,7 +198,7 @@ export default function SettingsPage() {
               </div>
               <div>
                 <CardTitle className="text-lg md:text-xl">Atributos</CardTitle>
-                <CardDescription className="text-xs md:text-sm">Estadísticas por párrafo.</CardDescription>
+                <CardDescription className="text-xs md:text-sm">Define las estadísticas por párrafo (uno por línea).</CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -219,7 +206,7 @@ export default function SettingsPage() {
             <Textarea 
               value={attributes} 
               onChange={(e) => setAttributes(e.target.value)} 
-              placeholder="Ej: Fuerza&#10;Resistencia..."
+              placeholder="Ej: Poder&#10;Velocidad..."
               className="min-h-[150px] md:min-h-[200px] text-base md:text-lg font-medium p-4 md:p-6 bg-muted/10"
             />
           </CardContent>

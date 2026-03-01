@@ -146,8 +146,8 @@ export default function TeamsPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8">
-      <header className="flex justify-between items-center">
+    <div className="max-w-7xl mx-auto space-y-8 pb-20">
+      <header className="flex justify-between items-center px-4 md:px-0">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Organizaciones y Equipos</h1>
           <p className="text-muted-foreground">Gestiona y personaliza tus entidades deportivas.</p>
@@ -314,8 +314,8 @@ export default function TeamsPage() {
         </Dialog>
       </header>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
+      <div className="relative px-4 md:px-0">
+        <Search className="absolute left-7 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
         <Input 
           className="pl-10 bg-card border-none h-12 text-lg shadow-lg focus-visible:ring-primary" 
           placeholder="Filtrar equipos..." 
@@ -324,7 +324,7 @@ export default function TeamsPage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-4 md:px-0">
         {filteredTeams.map((team) => (
           <Card key={team.id} className="border-none bg-card hover:ring-2 hover:ring-primary/50 transition-all group overflow-hidden shadow-xl">
             <div className="h-32 relative overflow-hidden">

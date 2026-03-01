@@ -18,6 +18,7 @@ export function Navbar() {
   const { toast } = useToast();
 
   const handleLogin = async () => {
+    if (!auth) return;
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
@@ -28,6 +29,7 @@ export function Navbar() {
   };
 
   const handleLogout = async () => {
+    if (!auth) return;
     await signOut(auth);
     toast({ title: "Sesión cerrada", description: "Tus datos locales siguen disponibles." });
   };
@@ -108,14 +110,6 @@ export function Navbar() {
               )}
             </div>
           )}
-          
-          <div className="p-4 bg-muted/50 rounded-2xl">
-            <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold mb-1">Status</p>
-            <div className="flex items-center gap-2">
-              <div className={cn("w-2 h-2 rounded-full animate-pulse", user ? "bg-accent" : "bg-yellow-500")} />
-              <span className="text-sm font-medium">{user ? "Cloud Active" : "Local Mode"}</span>
-            </div>
-          </div>
         </div>
       </nav>
 

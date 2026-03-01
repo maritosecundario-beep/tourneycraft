@@ -11,7 +11,6 @@ export type Player = {
   position: string;
   attributes: PlayerAttribute[];
   teamId?: string;
-  visualCustomization?: string;
 };
 
 export type UniformStyle = 'solid' | 'stripes' | 'hoops' | 'halves' | 'gradient' | 'minimal';
@@ -24,7 +23,6 @@ export type Team = {
   name: string;
   abbreviation: string;
   rating: number; // 1-100
-  logoUrl?: string;
   emblemShape: EmblemShape;
   primaryColor: string;
   secondaryColor: string;
@@ -51,7 +49,6 @@ export type Match = {
   isSimulated: boolean;
   matchday: number;
   winnerId?: string;
-  isPrimary?: boolean;
 };
 
 export type Tournament = {
@@ -62,10 +59,6 @@ export type Tournament = {
   format: TournamentFormat;
   leagueType?: LeagueType;
   scoringRuleType: ScoringRuleType;
-  scoringRuleValueMin?: number;
-  scoringRuleValueMax?: number;
-  isDualLeague?: boolean;
-  controlledTeamId?: string;
   teams: string[]; // IDs
   matches: Match[];
   settingsLocked: boolean;
