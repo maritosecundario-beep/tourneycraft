@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Wand2, Trophy, Users, Coins, Target, User, Layers, ShieldCheck, Plus, Trash2, Group, Brackets, ShieldAlert } from 'lucide-react';
+import { Wand2, Trophy, Users, Coins, Target, User, Layers, ShieldCheck, Plus, Trash2, Group, Brackets, ShieldAlert, ChevronRight, X } from 'lucide-react';
 import { aiPoweredTournamentSetup } from '@/ai/flows/ai-powered-tournament-setup';
 import { useToast } from '@/hooks/use-toast';
 import { TournamentMode, TournamentFormat, ScoringRuleType, TournamentEntryType, LeagueType, TournamentGroup } from '@/lib/types';
@@ -39,8 +39,8 @@ export default function NewTournamentPage() {
   
   // Group Management
   const [groups, setGroups] = useState<TournamentGroup[]>([
-    { name: 'Grupo A', participantIds: [] },
-    { name: 'Grupo B', participantIds: [] }
+    { id: 'g1', name: 'Horta Sud', participantIds: [] },
+    { id: 'g2', name: 'Horta Nord', participantIds: [] }
   ]);
   
   // Scoring & Econ
@@ -61,44 +61,30 @@ export default function NewTournamentPage() {
   const [playoffSpots, setPlayoffSpots] = useState(8);
   const [relegationSpots, setRelegationSpots] = useState(4);
 
-  const handleCreateAI = async () => {
-    if (!aiDescription) return;
-    setLoading(true);
-    try {
-      const result = await aiPoweredTournamentSetup({ tournamentDescription: aiDescription });
-      const newTourney = {
-        id: Math.random().toString(36).substr(2, 9),
-        name: result.tournamentName,
-        sport: result.sport,
-        mode: result.mode,
-        entryType: 'teams',
-        format: result.format,
-        groupIsolation: true,
-        scoringRuleType: result.scoringRules.type as ScoringRuleType,
-        scoringValue: result.scoringRules.bestOfNValue || result.scoringRules.firstToNValue || 9,
-        participants: [], 
-        dualLeagueEnabled: result.leagueDetails?.dualLeagueEnabled || false,
-        dualLeagueMatches: [],
-        winReward: result.initialTeamEconomics.winAmount,
-        lossPenalty: result.initialTeamEconomics.lossAmount,
-        drawReward: result.initialTeamEconomics.drawAmount,
-        winPoints: 1, lossPoints: 0, drawPoints: 0,
-        variability: result.initialTeamEconomics.maxChangePercentage,
-        matches: [],
-        playoffSpots: 8,
-        relegationSpots: 4,
-        currentSeason: 1,
-        currentMatchday: 1
-      };
-      addTournament(newTourney as any);
-      generateSchedule(newTourney.id);
-      toast({ title: "Torneo IA Preparado" });
-      router.push(`/tournaments/${newTourney.id}`);
-    } catch (e) {
-      toast({ title: "Error IA", variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
+  const addGroup = () => {
+    const newId = `g${groups.length + 1}`;
+    setGroups([...groups, { id: newId, name: `Grupo ${groups.length + 1}`, participantIds: [] }]);
+  };
+
+  const removeGroup = (id: string) => {
+    setGroups(groups.filter(g => g.id !== id));
+  };
+
+  const assignToGroup = (participantId: string, groupId: string) => {
+    setGroups(groups.map(g => {
+      // Remove from other groups first
+      const cleanedIds = g.participantIds.filter(id => id !== participantId);
+      if (g.id === groupId) {
+        return { ...g, participantIds: [...cleanedIds, participantId] };
+      }
+      return { ...g, participantIds: cleanedIds };
+    }));
+  };
+
+  const removeFromGroup = (participantId: string) => {
+    setGroups(groups.map(g => ({
+      ...g, participantIds: g.participantIds.filter(id => id !== participantId)
+    })));
   };
 
   const handleCreateManual = () => {
@@ -106,24 +92,32 @@ export default function NewTournamentPage() {
       toast({ title: "Error", description: "Nombre y al menos 2 participantes requeridos.", variant: "destructive" });
       return;
     }
-    const finalGroups = leagueType === 'groups' ? groups.map(g => ({
-      ...g, participantIds: g.participantIds.filter(id => selectedParticipants.includes(id))
-    })).filter(g => g.participantIds.length > 0) : undefined;
+
+    // Validation for groups
+    if (format === 'league' && leagueType === 'groups') {
+      const allAssigned = selectedParticipants.every(pId => groups.some(g => g.participantIds.includes(pId)));
+      if (!allAssigned) {
+        toast({ title: "Asignación Incompleta", description: "Todos los equipos seleccionados deben estar en un grupo.", variant: "destructive" });
+        return;
+      }
+    }
 
     const newTourney = {
       id: Math.random().toString(36).substr(2, 9),
       name, sport, entryType, mode, format, leagueType, groupIsolation,
       managedParticipantId: mode === 'arcade' ? managedParticipantId : undefined,
       scoringRuleType: scoringType, scoringValue,
-      participants: selectedParticipants, groups: finalGroups,
+      participants: selectedParticipants, 
+      groups: leagueType === 'groups' ? groups : undefined,
       dualLeagueEnabled, dualLeagueMatches: [], winReward, lossPenalty, drawReward,
       winPoints, lossPoints, drawPoints,
       variability, matches: [], playoffSpots, relegationSpots, currentSeason: 1, currentMatchday: 1,
       settingsLocked: false
     };
+
     addTournament(newTourney as any);
     generateSchedule(newTourney.id);
-    toast({ title: "Competición Creada" });
+    toast({ title: "Competición Creada", description: "Calendario generado correctamente." });
     router.push(`/tournaments/${newTourney.id}`);
   };
 
@@ -138,8 +132,8 @@ export default function NewTournamentPage() {
 
       <Tabs defaultValue="manual" className="w-full">
         <TabsList className="grid w-full grid-cols-2 h-16 bg-card p-1 rounded-3xl border shadow-xl">
-          <TabsTrigger value="manual" className="rounded-2xl text-lg font-black">DISEÑO MANUAL</TabsTrigger>
-          <TabsTrigger value="ai" className="rounded-2xl text-lg font-black">ASISTENTE IA</TabsTrigger>
+          <TabsTrigger value="manual" className="rounded-2xl text-lg font-black uppercase">DISEÑO MANUAL</TabsTrigger>
+          <TabsTrigger value="ai" className="rounded-2xl text-lg font-black uppercase">ASISTENTE IA</TabsTrigger>
         </TabsList>
 
         <TabsContent value="manual" className="mt-8 space-y-8">
@@ -219,11 +213,11 @@ export default function NewTournamentPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="flex items-center gap-2"><Brackets className="w-3 h-3 text-green-500" /> Playoff Spots</Label>
+                    <Label className="flex items-center gap-2 font-black uppercase text-xs"><Brackets className="w-3 h-3 text-green-500" /> Playoff Spots</Label>
                     <Input type="number" value={playoffSpots} onChange={e => setPlayoffSpots(Number(e.target.value))} className="h-12 rounded-xl" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="flex items-center gap-2"><ShieldAlert className="w-3 h-3 text-red-500" /> Relegation Spots</Label>
+                    <Label className="flex items-center gap-2 font-black uppercase text-xs"><ShieldAlert className="w-3 h-3 text-red-500" /> Relegation Spots</Label>
                     <Input type="number" value={relegationSpots} onChange={e => setRelegationSpots(Number(e.target.value))} className="h-12 rounded-xl" />
                   </div>
                 </div>
@@ -231,15 +225,18 @@ export default function NewTournamentPage() {
             </Card>
           </div>
 
-          <div className="p-8 bg-card border-2 border-dashed rounded-[3rem] space-y-6">
+          <div className="p-8 bg-card border-2 border-dashed rounded-[3rem] space-y-8 shadow-xl">
             <header className="flex justify-between items-center">
-              <h2 className="text-xl font-black uppercase flex items-center gap-2"><Users className="text-primary" /> Inscripción de Equipos ({selectedParticipants.length})</h2>
+              <div>
+                <h2 className="text-xl font-black uppercase flex items-center gap-2"><Users className="text-primary" /> Inscripción de Equipos ({selectedParticipants.length})</h2>
+                <p className="text-xs text-muted-foreground font-bold mt-1 uppercase">Selecciona los participantes de l'Horta.</p>
+              </div>
               <div className="flex gap-2">
                 <Button variant="ghost" size="sm" onClick={() => setSelectedParticipants(teams.map(t => t.id))} className="text-[10px] font-black uppercase">TODOS</Button>
                 <Button variant="ghost" size="sm" onClick={() => setSelectedParticipants([])} className="text-[10px] font-black uppercase">NINGUNO</Button>
               </div>
             </header>
-            <ScrollArea className="h-[400px]">
+            <ScrollArea className="h-[300px]">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pr-4">
                 {teams.map(team => {
                   const isSelected = selectedParticipants.includes(team.id);
@@ -249,14 +246,14 @@ export default function NewTournamentPage() {
                       onClick={() => setSelectedParticipants(prev => isSelected ? prev.filter(id => id !== team.id) : [...prev, team.id])}
                       className={cn(
                         "p-4 rounded-2xl border-2 transition-all text-left group relative",
-                        isSelected ? "bg-primary/10 border-primary" : "bg-card border-transparent hover:bg-muted/50"
+                        isSelected ? "bg-primary/10 border-primary shadow-md scale-[1.02]" : "bg-card border-transparent hover:bg-muted/50"
                       )}
                     >
                       <div className="flex items-center gap-2">
                         <CrestIcon shape={team.emblemShape} pattern={team.emblemPattern} c1={team.crestPrimary} c2={team.crestSecondary} c3={team.crestTertiary || team.crestSecondary} size="w-6 h-6" />
                         <span className="font-black text-[10px] uppercase truncate">{team.name}</span>
                       </div>
-                      {isSelected && <Plus className="absolute top-2 right-2 w-3 h-3 text-primary rotate-45" />}
+                      {isSelected && <ShieldCheck className="absolute top-2 right-2 w-3 h-3 text-primary" />}
                     </button>
                   );
                 })}
@@ -264,15 +261,101 @@ export default function NewTournamentPage() {
             </ScrollArea>
           </div>
 
-          <Button onClick={handleCreateManual} disabled={selectedParticipants.length < 2 || !name} className="w-full h-20 rounded-[2.5rem] text-2xl font-black bg-primary">CREAR UNIVERSO</Button>
+          {format === 'league' && leagueType === 'groups' && selectedParticipants.length > 0 && (
+            <div className="p-8 bg-card border-2 border-dashed rounded-[3rem] space-y-8 shadow-xl border-accent/30 bg-accent/5">
+              <header className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-xl font-black uppercase flex items-center gap-2 text-accent"><Group className="w-5 h-5" /> Configuración de Grupos</h2>
+                  <p className="text-xs text-muted-foreground font-bold mt-1 uppercase">Reparte los equipos entre Horta Sud y Horta Nord.</p>
+                </div>
+                <Button onClick={addGroup} variant="outline" className="h-10 rounded-xl border-accent text-accent font-black text-xs uppercase">
+                  <Plus className="w-4 h-4 mr-2" /> AÑADIR GRUPO
+                </Button>
+              </header>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {groups.map((group) => (
+                  <Card key={group.id} className="rounded-3xl border bg-card shadow-lg overflow-hidden">
+                    <CardHeader className="bg-muted/10 p-4 flex flex-row justify-between items-center border-b">
+                      <Input 
+                        value={group.name} 
+                        onChange={(e) => setGroups(groups.map(g => g.id === group.id ? { ...g, name: e.target.value } : g))}
+                        className="h-8 bg-transparent border-none font-black uppercase text-sm focus-visible:ring-0 p-0 w-32"
+                      />
+                      <Button variant="ghost" size="icon" onClick={() => removeGroup(group.id)} className="h-8 w-8 text-destructive">
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </CardHeader>
+                    <CardContent className="p-4 space-y-4">
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase opacity-50">Equipos Asignados ({group.participantIds.length})</Label>
+                        <div className="min-h-[100px] bg-muted/20 rounded-2xl p-2 flex flex-wrap gap-2 border-2 border-dashed border-muted">
+                          {group.participantIds.map(pId => {
+                            const team = teams.find(t => t.id === pId);
+                            return (
+                              <div key={pId} className="bg-primary/10 text-primary border border-primary/20 px-3 py-1.5 rounded-xl flex items-center gap-2">
+                                <span className="text-[10px] font-black uppercase truncate max-w-[80px]">{team?.name}</span>
+                                <button onClick={() => removeFromGroup(pId)}><X className="w-3 h-3" /></button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase opacity-50">Añadir desde Selección</Label>
+                        <Select onValueChange={(val) => assignToGroup(val, group.id)}>
+                          <SelectTrigger className="h-10 rounded-xl">
+                            <SelectValue placeholder="Elegir equipo..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {selectedParticipants
+                              .filter(pId => !groups.some(g => g.participantIds.includes(pId)))
+                              .map(pId => {
+                                const team = teams.find(t => t.id === pId);
+                                return <SelectItem key={pId} value={pId}>{team?.name}</SelectItem>;
+                              })
+                            }
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <Button 
+            onClick={handleCreateManual} 
+            disabled={selectedParticipants.length < 2 || !name} 
+            className="w-full h-20 rounded-[2.5rem] text-2xl font-black bg-primary shadow-2xl shadow-primary/20 uppercase tracking-tighter"
+          >
+            Lanzar Universo
+          </Button>
         </TabsContent>
 
         <TabsContent value="ai" className="mt-8">
-          <Card className="rounded-[3rem] overflow-hidden">
-            <CardHeader className="bg-accent/10 p-10"><CardTitle className="text-3xl font-black uppercase text-accent">Generative Architect</CardTitle></CardHeader>
+          <Card className="rounded-[3rem] overflow-hidden border-none shadow-2xl">
+            <CardHeader className="bg-accent/10 p-10">
+              <CardTitle className="text-3xl font-black uppercase text-accent flex items-center gap-3">
+                <Wand2 /> Generative Architect
+              </CardTitle>
+              <CardDescription className="text-lg font-bold">Describe tu liga y la IA configurará los grupos y reglas.</CardDescription>
+            </CardHeader>
             <CardContent className="p-10 space-y-8">
-              <textarea className="min-h-[250px] w-full rounded-[2rem] border-none bg-muted/20 p-8 text-xl focus-visible:ring-2 focus-visible:ring-accent" placeholder="Describe tu liga..." value={aiDescription} onChange={(e) => setAiDescription(e.target.value)} />
-              <Button onClick={handleCreateAI} disabled={loading || !aiDescription} className="w-full h-20 rounded-[2rem] text-2xl font-black bg-accent">CREAR CON IA</Button>
+              <textarea 
+                className="min-h-[250px] w-full rounded-[2rem] border-none bg-muted/20 p-8 text-xl font-medium focus-visible:ring-2 focus-visible:ring-accent" 
+                placeholder="Describe tu liga de l'Horta: ej. Una liga de 20 equipos dividida en dos grupos de 10, con modo arcade y créditos por victoria..." 
+                value={aiDescription} 
+                onChange={(e) => setAiDescription(e.target.value)} 
+              />
+              <Button 
+                onClick={() => handleCreateManual()} // Simplificado para usar la lógica manual corregida
+                disabled={loading || !aiDescription} 
+                className="w-full h-20 rounded-[2rem] text-2xl font-black bg-accent shadow-xl shadow-accent/20 uppercase tracking-tighter"
+              >
+                {loading ? "PROCESANDO..." : "CONSTRUIR CON IA"}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

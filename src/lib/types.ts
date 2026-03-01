@@ -89,6 +89,7 @@ export type Match = {
 };
 
 export type TournamentGroup = {
+  id: string;
   name: string;
   participantIds: string[];
 };

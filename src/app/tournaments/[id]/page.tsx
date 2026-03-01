@@ -3,13 +3,13 @@
 import { useTournamentStore } from '@/hooks/use-tournament-store';
 import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Trophy, Calendar, Users, Play, ShieldAlert, ShoppingBag, Layers, Target, ChevronRight, UserCircle2, Star, Sword, Zap, Info, Coins, LayoutGrid, Sparkles, RefreshCw, Brackets } from 'lucide-react';
+import { Trophy, Calendar, Users, Play, ShieldAlert, ShoppingBag, Layers, Target, ChevronRight, UserCircle2, Star, Sword, Zap, Info, Coins, LayoutGrid, Sparkles, RefreshCw, Brackets, Group } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useMemo, useState } from 'react';
-import { Team, Player, Match } from '@/lib/types';
+import { Team, Player, Match, TournamentGroup } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
@@ -40,32 +40,42 @@ export default function TournamentDetailPage() {
     return tournament.matches.length > 0 && tournament.matches.every(m => m.isSimulated);
   }, [tournament]);
 
-  const participants = useMemo(() => {
+  const getStandingsForParticipants = (participantIds: string[]) => {
     if (!tournament) return [];
-    if (tournament.entryType === 'teams') return teams.filter(t => tournament.participants.includes(t.id));
-    return players.filter(p => tournament.participants.includes(p.id));
-  }, [teams, players, tournament]);
-
-  const standings = useMemo(() => {
-    if (!tournament) return [];
-    return participants.map(item => {
-      let played = 0, won = 0, lost = 0, gf = 0, ga = 0, pts = 0;
+    return participantIds.map(pId => {
+      const item = teams.find(t => t.id === pId) || players.find(p => p.id === pId);
+      if (!item) return null;
+      
+      let played = 0, won = 0, lost = 0, draw = 0, gf = 0, ga = 0, pts = 0;
       tournament.matches.forEach(m => {
         if (!m.isSimulated || m.homeScore === undefined) return;
-        if (m.homeId === item.id || m.awayId === item.id) {
+        if (m.homeId === pId || m.awayId === pId) {
           played++;
-          const isHome = m.homeId === item.id;
+          const isHome = m.homeId === pId;
           const myScore = isHome ? m.homeScore : m.awayScore;
           const opScore = isHome ? m.awayScore : m.homeScore;
           gf += myScore; ga += opScore;
           if (myScore > opScore) { won++; pts += tournament.winPoints; }
           else if (myScore < opScore) { lost++; pts += tournament.lossPoints; }
-          else pts += tournament.drawPoints;
+          else { draw++; pts += tournament.drawPoints; }
         }
       });
-      return { ...item, played, won, lost, gf, ga, gd: gf - ga, pts };
-    }).sort((a, b) => b.pts - a.pts || b.gd - a.gd);
-  }, [tournament, participants]);
+      return { ...item, played, won, lost, draw, gf, ga, gd: gf - ga, pts };
+    })
+    .filter((x): x is any => x !== null)
+    .sort((a, b) => b.pts - a.pts || b.gd - a.gd);
+  };
+
+  const tournamentStandings = useMemo(() => {
+    if (!tournament) return [];
+    if (tournament.leagueType === 'groups' && tournament.groups) {
+      return tournament.groups.map(g => ({
+        name: g.name,
+        data: getStandingsForParticipants(g.participantIds)
+      }));
+    }
+    return [{ name: "Clasificación General", data: getStandingsForParticipants(tournament.participants) }];
+  }, [tournament, teams, players]);
 
   const currentMatchdayMatches = useMemo(() => {
     if (!tournament) return [];
@@ -77,7 +87,7 @@ export default function TournamentDetailPage() {
     return currentMatchdayMatches.find(m => m.homeId === tournament.managedParticipantId || m.awayId === tournament.managedParticipantId);
   }, [tournament, currentMatchdayMatches]);
 
-  const simulateMatchLogic = (m: Match, isDual: boolean = false) => {
+  const simulateMatchLogic = (m: Match) => {
     let hScore = 0, aScore = 0;
     const rule = tournament?.scoringRuleType;
     const val = tournament?.scoringValue || 9;
@@ -102,33 +112,12 @@ export default function TournamentDetailPage() {
   };
 
   const handleSimulateSingleMatch = (matchId: string, isDual: boolean = false) => {
-    const m = (isDual ? tournament?.dualLeagueMatches : tournament?.matches)?.find(x => x.id === matchId);
+    const targetMatches = isDual ? tournament?.dualLeagueMatches : tournament?.matches;
+    const m = targetMatches?.find(x => x.id === matchId);
     if (!m || m.isSimulated || !tournament) return;
-    const { hScore, aScore, hPlayerId, aPlayerId } = simulateMatchLogic(m, isDual);
+    const { hScore, aScore, hPlayerId, aPlayerId } = simulateMatchLogic(m);
     resolveMatch(tournament.id, m.id, hScore, aScore, isDual, hPlayerId, aPlayerId);
     toast({ title: "Partido Simulado" });
-  };
-
-  const playArcadeMatch = () => {
-    if (!selectedMatch || !selectedPlayerId || !tournament) return;
-    const { hScore, aScore, hPlayerId, aPlayerId } = simulateMatchLogic(selectedMatch);
-    
-    const isHome = selectedMatch.homeId === tournament.managedParticipantId;
-    const userHPlayer = isHome ? selectedPlayerId : hPlayerId;
-    const userAPlayer = !isHome ? selectedPlayerId : aPlayerId;
-
-    resolveMatch(tournament.id, selectedMatch.id, hScore, aScore, false, userHPlayer, userAPlayer);
-    
-    if (tournament.dualLeagueEnabled) {
-      const mirrorMatch = tournament.dualLeagueMatches.find(m => m.matchday === tournament.currentMatchday && (m.homeId === selectedMatch.homeId || m.awayId === selectedMatch.homeId));
-      if (mirrorMatch) {
-        const { hScore: mh, aScore: ma, hPlayerId: hp, aPlayerId: ap } = simulateMatchLogic(mirrorMatch, true);
-        resolveMatch(tournament.id, mirrorMatch.id, mh, ma, true, hp, ap);
-      }
-    }
-
-    setIsPreviewOpen(false);
-    toast({ title: "¡Partido Finalizado!", description: `${hScore} - ${aScore}` });
   };
 
   const handleSimulateMatchday = () => {
@@ -146,7 +135,7 @@ export default function TournamentDetailPage() {
       if (tournament.dualLeagueEnabled) {
         const mirror = tournament.dualLeagueMatches.find(x => x.matchday === m.matchday && (x.homeId === m.homeId || x.awayId === m.homeId));
         if (mirror && !mirror.isSimulated) {
-          const { hScore: mh, aScore: ma, hPlayerId: hp, aPlayerId: ap } = simulateMatchLogic(mirror, true);
+          const { hScore: mh, aScore: ma, hPlayerId: hp, aPlayerId: ap } = simulateMatchLogic(mirror);
           resolveMatch(tournament.id, mirror.id, mh, ma, true, hp, ap);
         }
       }
@@ -162,14 +151,27 @@ export default function TournamentDetailPage() {
     toast({ title: "Jornada Finalizada", description: "El mercado se ha movido." });
   };
 
-  const opponentTeam = useMemo(() => {
-    if (!selectedMatch || !tournament) return null;
-    const opId = selectedMatch.homeId === tournament.managedParticipantId ? selectedMatch.awayId : selectedMatch.homeId;
-    const team = teams.find(t => t.id === opId);
-    const pos = standings.findIndex(s => s.id === opId) + 1;
-    const bestP = players.filter(p => p.teamId === opId).sort((a,b) => b.monetaryValue - a.monetaryValue)[0];
-    return { ...team, pos, bestP };
-  }, [selectedMatch, tournament, teams, players, standings]);
+  const playArcadeMatch = () => {
+    if (!selectedMatch || !selectedPlayerId || !tournament) return;
+    const { hScore, aScore, hPlayerId, aPlayerId } = simulateMatchLogic(selectedMatch);
+    
+    const isHome = selectedMatch.homeId === tournament.managedParticipantId;
+    const userHPlayer = isHome ? selectedPlayerId : hPlayerId;
+    const userAPlayer = !isHome ? selectedPlayerId : aPlayerId;
+
+    resolveMatch(tournament.id, selectedMatch.id, hScore, aScore, false, userHPlayer, userAPlayer);
+    
+    if (tournament.dualLeagueEnabled) {
+      const mirrorMatch = tournament.dualLeagueMatches.find(m => m.matchday === tournament.currentMatchday && (m.homeId === selectedMatch.homeId || m.awayId === selectedMatch.homeId));
+      if (mirrorMatch) {
+        const { hScore: mh, aScore: ma, hPlayerId: hp, aPlayerId: ap } = simulateMatchLogic(mirrorMatch);
+        resolveMatch(tournament.id, mirrorMatch.id, mh, ma, true, hp, ap);
+      }
+    }
+
+    setIsPreviewOpen(false);
+    toast({ title: "¡Partido Finalizado!", description: `${hScore} - ${aScore}` });
+  };
 
   if (!tournament) return <div className="p-20 text-center font-black">TORNEO NO ENCONTRADO</div>;
 
@@ -221,49 +223,54 @@ export default function TournamentDetailPage() {
         </TabsList>
 
         <TabsContent value="table" className="space-y-8">
-          <Card className="border-none bg-card shadow-2xl rounded-[3rem] overflow-hidden">
-            <CardHeader className="bg-muted/10 border-b p-8"><CardTitle className="text-xl font-black uppercase">Tabla de Posiciones</CardTitle></CardHeader>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader className="bg-muted/5">
-                    <TableRow className="border-b"><TableHead className="w-12 text-center font-black">#</TableHead><TableHead className="font-black">Club</TableHead><TableHead className="text-center font-black">P</TableHead><TableHead className="text-center font-black">DIF</TableHead><TableHead className="text-center font-black">CR</TableHead><TableHead className="text-center font-black text-primary">PTS</TableHead></TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {standings.map((item, idx) => {
-                      const isPlayoff = idx < (tournament.playoffSpots || 0);
-                      const isRelegation = idx >= (standings.length - (tournament.relegationSpots || 0));
-                      return (
-                        <TableRow 
-                          key={item.id} 
-                          className={cn(
-                            "h-16 cursor-pointer hover:bg-primary/5 transition-colors",
-                            tournament.managedParticipantId === item.id && "bg-primary/5 border-l-4 border-l-primary",
-                            isPlayoff && "bg-green-500/5",
-                            isRelegation && "bg-red-500/5"
-                          )} 
-                          onClick={() => setViewTeamId(item.id)}
-                        >
-                          <TableCell className="text-center">
-                            <div className="flex flex-col items-center">
-                              <span className="font-black text-lg leading-none">{idx + 1}</span>
-                              {isPlayoff && <span className="text-[8px] font-black text-green-500 uppercase mt-1">PO</span>}
-                              {isRelegation && <span className="text-[8px] font-black text-red-500 uppercase mt-1">DE</span>}
-                            </div>
-                          </TableCell>
-                          <TableCell><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center font-black text-[10px]">{('abbreviation' in item) ? item.abbreviation : 'IA'}</div><span className="font-bold">{item.name}</span></div></TableCell>
-                          <TableCell className="text-center font-bold">{item.played}</TableCell>
-                          <TableCell className={cn("text-center font-bold", item.gd >= 0 ? "text-green-500" : "text-destructive")}>{item.gd > 0 ? `+${item.gd}` : item.gd}</TableCell>
-                          <TableCell className="text-center font-bold text-accent">{('budget' in item) ? item.budget : '-'}</TableCell>
-                          <TableCell className="text-center font-black text-xl text-primary">{item.pts}</TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
+          {tournamentStandings.map((group, gIdx) => (
+            <Card key={gIdx} className="border-none bg-card shadow-2xl rounded-[3rem] overflow-hidden mb-8">
+              <CardHeader className="bg-muted/10 border-b p-8 flex flex-row items-center gap-3">
+                <Group className="text-primary w-6 h-6" />
+                <CardTitle className="text-xl font-black uppercase">{group.name}</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader className="bg-muted/5">
+                      <TableRow className="border-b"><TableHead className="w-12 text-center font-black">#</TableHead><TableHead className="font-black">Club</TableHead><TableHead className="text-center font-black">P</TableHead><TableHead className="text-center font-black">DIF</TableHead><TableHead className="text-center font-black">CR</TableHead><TableHead className="text-center font-black text-primary">PTS</TableHead></TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {group.data.map((item, idx) => {
+                        const isPlayoff = idx < (tournament.playoffSpots || 0);
+                        const isRelegation = idx >= (group.data.length - (tournament.relegationSpots || 0));
+                        return (
+                          <TableRow 
+                            key={item.id} 
+                            className={cn(
+                              "h-16 cursor-pointer hover:bg-primary/5 transition-colors",
+                              tournament.managedParticipantId === item.id && "bg-primary/5 border-l-4 border-l-primary",
+                              isPlayoff && "bg-green-500/5",
+                              isRelegation && "bg-red-500/5"
+                            )} 
+                            onClick={() => setViewTeamId(item.id)}
+                          >
+                            <TableCell className="text-center">
+                              <div className="flex flex-col items-center">
+                                <span className="font-black text-lg leading-none">{idx + 1}</span>
+                                {isPlayoff && <span className="text-[8px] font-black text-green-500 uppercase mt-1">PO</span>}
+                                {isRelegation && <span className="text-[8px] font-black text-red-500 uppercase mt-1">DE</span>}
+                              </div>
+                            </TableCell>
+                            <TableCell><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center font-black text-[10px]">{('abbreviation' in item) ? item.abbreviation : 'IA'}</div><span className="font-bold">{item.name}</span></div></TableCell>
+                            <TableCell className="text-center font-bold">{item.played}</TableCell>
+                            <TableCell className={cn("text-center font-bold", item.gd >= 0 ? "text-green-500" : "text-destructive")}>{item.gd > 0 ? `+${item.gd}` : item.gd}</TableCell>
+                            <TableCell className="text-center font-bold text-accent">{('budget' in item) ? item.budget : '-'}</TableCell>
+                            <TableCell className="text-center font-black text-xl text-primary">{item.pts}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </TabsContent>
 
         <TabsContent value="calendar" className="space-y-8">
@@ -362,28 +369,29 @@ export default function TournamentDetailPage() {
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <DialogContent className="max-w-2xl rounded-[3rem] border-none shadow-2xl p-0 overflow-hidden">
           <DialogHeader className="hidden"><DialogTitle>Preview Match</DialogTitle></DialogHeader>
-          {opponentTeam && (
+          {arcadeMatch && (
             <div className="flex flex-col">
               <div className="bg-primary p-10 text-white flex items-center gap-8">
-                <CrestIcon shape={opponentTeam.emblemShape!} pattern={opponentTeam.emblemPattern!} c1={opponentTeam.crestPrimary!} c2={opponentTeam.crestSecondary!} c3={opponentTeam.crestTertiary || opponentTeam.crestSecondary!} size="w-24 h-24" />
-                <div>
-                  <h2 className="text-4xl font-black uppercase tracking-tighter">vs {opponentTeam.name}</h2>
-                  <p className="text-white/80 font-bold uppercase tracking-widest flex items-center gap-2 mt-2"><Target className="w-4 h-4" /> Posición: {opponentTeam.pos}º en tabla</p>
-                </div>
+                {(() => {
+                  const opId = arcadeMatch.homeId === tournament.managedParticipantId ? arcadeMatch.awayId : arcadeMatch.homeId;
+                  const opponent = teams.find(t => t.id === opId);
+                  const opStandings = tournamentStandings.flatMap(s => s.data).find(s => s.id === opId);
+                  const opBestP = players.filter(p => p.teamId === opId).sort((a,b) => b.monetaryValue - a.monetaryValue)[0];
+                  
+                  return (
+                    <>
+                      <CrestIcon shape={opponent?.emblemShape!} pattern={opponent?.emblemPattern!} c1={opponent?.crestPrimary!} c2={opponent?.crestSecondary!} c3={opponent?.crestTertiary || opponent?.crestSecondary!} size="w-24 h-24" />
+                      <div>
+                        <h2 className="text-4xl font-black uppercase tracking-tighter">vs {opponent?.name}</h2>
+                        <p className="text-white/80 font-bold uppercase tracking-widest flex items-center gap-2 mt-2"><Target className="w-4 h-4" /> Posición: {tournamentStandings.flatMap(s => s.data).indexOf(opStandings) + 1}º en tabla</p>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
               <div className="p-10 space-y-8">
                 <section className="space-y-4">
-                  <h3 className="font-black text-xs uppercase text-muted-foreground tracking-widest border-b pb-2">Jugador Rival a Seguir</h3>
-                  <div className="p-6 bg-muted/20 rounded-3xl border flex items-center justify-between">
-                    <div>
-                      <p className="text-xl font-black uppercase">{opponentTeam.bestP?.name}</p>
-                      <p className="text-xs font-bold text-primary uppercase">{opponentTeam.bestP?.position} • #{opponentTeam.bestP?.jerseyNumber}</p>
-                    </div>
-                    <div className="text-right"><p className="text-xs font-bold opacity-50 uppercase">Valor</p><p className="text-2xl font-black text-accent">{opponentTeam.bestP?.monetaryValue} CR</p></div>
-                  </div>
-                </section>
-                <section className="space-y-4">
-                  <h3 className="font-black text-xs uppercase text-muted-foreground tracking-widest border-b pb-2">Selecciona tu Líder para este encuentro</h3>
+                  <h3 className="font-black text-xs uppercase text-muted-foreground tracking-widest border-b pb-2">Líder del Escuadrón</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {players.filter(p => p.teamId === tournament.managedParticipantId && p.suspensionMatchdays === 0).map(p => (
                       <button key={p.id} onClick={() => setSelectedPlayerId(p.id)} className={cn("p-4 rounded-2xl border-2 transition-all flex flex-col items-center text-center gap-1", selectedPlayerId === p.id ? "bg-primary/10 border-primary shadow-lg scale-105" : "bg-card border-transparent hover:bg-muted/50")}>

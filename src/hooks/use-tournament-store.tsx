@@ -97,7 +97,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       const dualSchedule: Match[] = [];
       let matchIdCounter = 1;
 
-      const createMatchesForList = (participants: string[], groupName?: string) => {
+      const createMatchesForList = (participants: string[], groupPrefix: string = "") => {
         const n = participants.length;
         if (n < 2) return;
         const rounds = n % 2 === 0 ? n - 1 : n;
@@ -111,25 +111,27 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
             const home = tempParticipants[i];
             const away = tempParticipants[tempParticipants.length - 1 - i];
             if (home !== 'BYE' && away !== 'BYE') {
-              const mId = `${t.id}-m-${matchIdCounter++}`;
+              const mId = `${t.id}${groupPrefix}-m-${matchIdCounter++}`;
               schedule.push({ id: mId, homeId: home, awayId: away, matchday, isSimulated: false });
               if (t.dualLeagueEnabled) {
                 dualSchedule.push({ id: `dual-${mId}`, homeId: away, awayId: home, matchday, isSimulated: false });
               }
             }
           }
+          // Rotate for round robin
           tempParticipants.splice(1, 0, tempParticipants.pop()!);
         }
       };
 
       if (t.format === 'league') {
-        if (t.leagueType === 'groups' && t.groupIsolation && t.groups) {
-          t.groups.forEach(group => createMatchesForList(group.participantIds, group.name));
+        if (t.leagueType === 'groups' && t.groups && t.groups.length > 0) {
+          t.groups.forEach((group, idx) => {
+            createMatchesForList(group.participantIds, `-g${idx}`);
+          });
         } else {
           createMatchesForList(t.participants);
         }
       } else if (t.format === 'knockout') {
-        // Implementación básica de bracket
         const participants = [...t.participants];
         let round = 1;
         while (participants.length > 1) {
