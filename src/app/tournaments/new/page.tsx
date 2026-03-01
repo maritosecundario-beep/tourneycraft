@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Wand2, Trophy, Users, Coins, Target, User, Layers, ShieldCheck, Plus, Trash2, Group } from 'lucide-react';
+import { Wand2, Trophy, Users, Coins, Target, User, Layers, ShieldCheck, Plus, Trash2, Group, Brackets, ShieldAlert } from 'lucide-react';
 import { aiPoweredTournamentSetup } from '@/ai/flows/ai-powered-tournament-setup';
 import { useToast } from '@/hooks/use-toast';
 import { TournamentMode, TournamentFormat, ScoringRuleType, TournamentEntryType, LeagueType, TournamentGroup } from '@/lib/types';
@@ -45,8 +45,6 @@ export default function NewTournamentPage() {
   // Scoring & Econ
   const [scoringType, setScoringType] = useState<ScoringRuleType>('bestOfN');
   const [scoringValue, setScoringValue] = useState(9);
-  const [nToNRangeMin, setNToNRangeMin] = useState(80);
-  const [nToNRangeMax, setNToNRangeMax] = useState(150);
   
   // Economic Values
   const [winReward, setWinReward] = useState(10);
@@ -125,24 +123,6 @@ export default function NewTournamentPage() {
     router.push(`/tournaments/${newTourney.id}`);
   };
 
-  const toggleParticipant = (id: string) => {
-    setSelectedParticipants(prev => {
-      if (prev.includes(id)) {
-        setGroups(gPrev => gPrev.map(g => ({ ...g, participantIds: g.participantIds.filter(pId => pId !== id) })));
-        return prev.filter(pId => pId !== id);
-      } else {
-        if (leagueType === 'groups' && groups.length > 0) {
-          setGroups(gPrev => {
-            const newGroups = [...gPrev];
-            newGroups[0].participantIds.push(id);
-            return newGroups;
-          });
-        }
-        return [...prev, id];
-      }
-    });
-  };
-
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-32">
       <header>
@@ -176,19 +156,16 @@ export default function NewTournamentPage() {
                     </Select>
                   </div>
                 </div>
-                {mode === 'arcade' && (
-                  <div className="space-y-4 pt-4 border-t">
-                    <Label className="text-accent font-black">Tu Equipo</Label>
-                    <Select value={managedParticipantId} onValueChange={setManagedParticipantId}>
-                      <SelectTrigger className="h-12 rounded-xl border-accent"><SelectValue placeholder="Elegir..." /></SelectTrigger>
-                      <SelectContent>{teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
-                    </Select>
-                    <div className="flex items-center justify-between p-4 bg-accent/5 rounded-2xl border border-accent/20">
-                      <div className="flex items-center gap-3"><Layers className="text-accent" /><p className="text-xs font-black uppercase">Liga Dual Paralela</p></div>
-                      <Switch checked={dualLeagueEnabled} onCheckedChange={setDualLeagueEnabled} />
-                    </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2"><Brackets className="w-3 h-3 text-green-500" /> Playoff Spots</Label>
+                    <Input type="number" value={playoffSpots} onChange={e => setPlayoffSpots(Number(e.target.value))} className="h-12 rounded-xl" />
                   </div>
-                )}
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2"><ShieldAlert className="w-3 h-3 text-red-500" /> Relegation Spots</Label>
+                    <Input type="number" value={relegationSpots} onChange={e => setRelegationSpots(Number(e.target.value))} className="h-12 rounded-xl" />
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
@@ -202,13 +179,47 @@ export default function NewTournamentPage() {
                 </div>
                 <div className="p-6 bg-accent/5 rounded-3xl border space-y-4">
                   <Label className="text-xs font-black uppercase text-accent flex items-center gap-2"><Coins className="w-4 h-4" /> Economía (CR)</Label>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-1"><Label className="text-[10px]">Win (+)</Label><Input type="number" value={winReward} onChange={e => setWinReward(Number(e.target.value))} /></div>
                     <div className="space-y-1"><Label className="text-[10px]">Loss (-)</Label><Input type="number" value={lossPenalty} onChange={e => setLossPenalty(Number(e.target.value))} /></div>
+                    <div className="space-y-1"><Label className="text-[10px]">Draw</Label><Input type="number" value={drawReward} onChange={e => setDrawReward(Number(e.target.value))} /></div>
                   </div>
                 </div>
               </CardContent>
             </Card>
+          </div>
+
+          <div className="p-8 bg-card border-2 border-dashed rounded-[3rem] space-y-6">
+            <header className="flex justify-between items-center">
+              <h2 className="text-xl font-black uppercase flex items-center gap-2"><Users className="text-primary" /> Inscripción de Equipos ({selectedParticipants.length})</h2>
+              <div className="flex gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setSelectedParticipants(teams.map(t => t.id))} className="text-[10px] font-black uppercase">TODOS</Button>
+                <Button variant="ghost" size="sm" onClick={() => setSelectedParticipants([])} className="text-[10px] font-black uppercase">NINGUNO</Button>
+              </div>
+            </header>
+            <ScrollArea className="h-[400px]">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pr-4">
+                {teams.map(team => {
+                  const isSelected = selectedParticipants.includes(team.id);
+                  return (
+                    <button 
+                      key={team.id} 
+                      onClick={() => setSelectedParticipants(prev => isSelected ? prev.filter(id => id !== team.id) : [...prev, team.id])}
+                      className={cn(
+                        "p-4 rounded-2xl border-2 transition-all text-left group relative",
+                        isSelected ? "bg-primary/10 border-primary" : "bg-card border-transparent hover:bg-muted/50"
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <CrestIcon shape={team.emblemShape} pattern={team.emblemPattern} c1={team.crestPrimary} c2={team.crestSecondary} c3={team.crestTertiary || team.crestSecondary} size="w-6 h-6" />
+                        <span className="font-black text-[10px] uppercase truncate">{team.name}</span>
+                      </div>
+                      {isSelected && <Plus className="absolute top-2 right-2 w-3 h-3 text-primary rotate-45" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </ScrollArea>
           </div>
 
           <Button onClick={handleCreateManual} disabled={selectedParticipants.length < 2 || !name} className="w-full h-20 rounded-[2.5rem] text-2xl font-black bg-primary">CREAR UNIVERSO</Button>

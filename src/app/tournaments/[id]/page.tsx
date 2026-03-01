@@ -3,7 +3,7 @@
 import { useTournamentStore } from '@/hooks/use-tournament-store';
 import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Trophy, Calendar, Users, Play, ShieldAlert, ShoppingBag, Layers, Target, ChevronRight, UserCircle2, Star, Sword, Zap, Info, Coins, LayoutGrid, Sparkles } from 'lucide-react';
+import { Trophy, Calendar, Users, Play, ShieldAlert, ShoppingBag, Layers, Target, ChevronRight, UserCircle2, Star, Sword, Zap, Info, Coins, LayoutGrid, Sparkles, RefreshCw, Brackets } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -21,7 +21,7 @@ import { CrestIcon } from '@/components/ui/crest-icon';
 
 export default function TournamentDetailPage() {
   const { id } = useParams();
-  const { tournaments, teams, players, updateTournament, settings, applySanction, transferPlayer, resolveMatch, generateSchedule, triggerMarketMoves } = useTournamentStore();
+  const { tournaments, teams, players, updateTournament, settings, applySanction, transferPlayer, resolveMatch, generateSchedule, triggerMarketMoves, advanceSeason, createKnockoutFromStandings } = useTournamentStore();
   const { toast } = useToast();
   
   const [sanctionTargetId, setSanctionTargetId] = useState('');
@@ -34,6 +34,11 @@ export default function TournamentDetailPage() {
   const [viewingTeamId, setViewTeamId] = useState<string | null>(null);
 
   const tournament = tournaments.find(t => t.id === id);
+
+  const isSeasonOver = useMemo(() => {
+    if (!tournament) return false;
+    return tournament.matches.length > 0 && tournament.matches.every(m => m.isSimulated);
+  }, [tournament]);
 
   const participants = useMemo(() => {
     if (!tournament) return [];
@@ -86,7 +91,6 @@ export default function TournamentDetailPage() {
     const hPlayers = players.filter(p => p.teamId === m.homeId).sort((a, b) => b.monetaryValue - a.monetaryValue);
     const aPlayers = players.filter(p => p.teamId === m.awayId).sort((a, b) => b.monetaryValue - a.monetaryValue);
     
-    // AI Team player selection logic (70% best player in main)
     const getSelection = (pList: Player[]) => {
       if (Math.random() < 0.7) return pList[0]?.id;
       return pList[1]?.id || pList[0]?.id;
@@ -107,14 +111,12 @@ export default function TournamentDetailPage() {
     if (!selectedMatch || !selectedPlayerId || !tournament) return;
     const { hScore, aScore, hPlayerId, aPlayerId } = simulateMatchLogic(selectedMatch);
     
-    // In Arcade, user selectedPlayerId plays in main league
     const isHome = selectedMatch.homeId === tournament.managedParticipantId;
     const userHPlayer = isHome ? selectedPlayerId : hPlayerId;
     const userAPlayer = !isHome ? selectedPlayerId : aPlayerId;
 
     resolveMatch(tournament.id, selectedMatch.id, hScore, aScore, false, userHPlayer, userAPlayer);
     
-    // Resolve mirror in dual league
     if (tournament.dualLeagueEnabled) {
       const mirrorMatch = tournament.dualLeagueMatches.find(m => m.matchday === tournament.currentMatchday && (m.homeId === selectedMatch.homeId || m.awayId === selectedMatch.homeId));
       if (mirrorMatch) {
@@ -149,7 +151,12 @@ export default function TournamentDetailPage() {
     });
 
     triggerMarketMoves(tournament.id);
-    updateTournament({ ...tournament, currentMatchday: tournament.currentMatchday + 1 });
+    const nextMatchday = tournament.currentMatchday + 1;
+    const maxMatchday = tournament.matches.length > 0 ? Math.max(...tournament.matches.map(m => m.matchday)) : 0;
+    
+    if (nextMatchday <= maxMatchday) {
+      updateTournament({ ...tournament, currentMatchday: nextMatchday });
+    }
     toast({ title: "Jornada Finalizada", description: "El mercado se ha movido." });
   };
 
@@ -169,10 +176,38 @@ export default function TournamentDetailPage() {
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 px-2 md:px-0">
         <div className="flex items-center gap-6">
           <div className="w-20 h-20 bg-primary rounded-[2rem] flex items-center justify-center shadow-2xl shrink-0"><Trophy className="text-white w-10 h-10" /></div>
-          <div><h1 className="text-4xl font-black uppercase tracking-tighter truncate">{tournament.name}</h1><p className="text-muted-foreground font-bold uppercase text-xs tracking-widest mt-1">{tournament.sport} • JORNADA {tournament.currentMatchday}</p></div>
+          <div><h1 className="text-4xl font-black uppercase tracking-tighter truncate">{tournament.name}</h1><p className="text-muted-foreground font-bold uppercase text-xs tracking-widest mt-1">{tournament.sport} • SEASON {tournament.currentSeason} • JORNADA {tournament.currentMatchday}</p></div>
         </div>
-        <Button onClick={handleSimulateMatchday} size="lg" className="h-16 rounded-2xl px-10 font-black shadow-xl shadow-primary/20"><Play className="w-5 h-5 mr-3 fill-current" /> SIGUIENTE JORNADA</Button>
+        {!isSeasonOver && (
+          <Button onClick={handleSimulateMatchday} size="lg" className="h-16 rounded-2xl px-10 font-black shadow-xl shadow-primary/20"><Play className="w-5 h-5 mr-3 fill-current" /> SIGUIENTE JORNADA</Button>
+        )}
       </header>
+
+      {isSeasonOver && (
+        <Card className="border-none bg-accent/10 border-2 border-accent/20 rounded-[3rem] p-8 animate-in fade-in zoom-in duration-500">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="text-center md:text-left">
+              <h2 className="text-3xl font-black uppercase text-accent mb-2">¡TEMPORADA FINALIZADA!</h2>
+              <p className="font-bold text-muted-foreground uppercase text-xs">El comisionado ha cerrado las actas. Es hora de decidir el futuro.</p>
+            </div>
+            <div className="flex flex-wrap gap-4 justify-center">
+              <Button onClick={() => advanceSeason(tournament.id)} size="lg" className="rounded-2xl h-14 font-black shadow-lg">
+                <RefreshCw className="w-4 h-4 mr-2" /> NUEVA TEMPORADA
+              </Button>
+              {tournament.format === 'league' && (
+                <>
+                  <Button onClick={() => createKnockoutFromStandings(tournament.id, 'playoff')} size="lg" variant="secondary" className="rounded-2xl h-14 font-black">
+                    <Brackets className="w-4 h-4 mr-2" /> LANZAR PLAYOFFS
+                  </Button>
+                  <Button onClick={() => createKnockoutFromStandings(tournament.id, 'relegation')} size="lg" variant="destructive" className="rounded-2xl h-14 font-black">
+                    <ShieldAlert className="w-4 h-4 mr-2" /> LANZAR DESCENSO
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
 
       <Tabs defaultValue="table" className="w-full px-2 md:px-0">
         <TabsList className="bg-muted/30 p-1 h-14 rounded-2xl border mb-6 flex overflow-x-auto scrollbar-hide">
@@ -193,16 +228,35 @@ export default function TournamentDetailPage() {
                     <TableRow className="border-b"><TableHead className="w-12 text-center font-black">#</TableHead><TableHead className="font-black">Club</TableHead><TableHead className="text-center font-black">P</TableHead><TableHead className="text-center font-black">DIF</TableHead><TableHead className="text-center font-black">CR</TableHead><TableHead className="text-center font-black text-primary">PTS</TableHead></TableRow>
                   </TableHeader>
                   <TableBody>
-                    {standings.map((item, idx) => (
-                      <TableRow key={item.id} className={cn("h-16 cursor-pointer hover:bg-primary/5", tournament.managedParticipantId === item.id && "bg-primary/5")} onClick={() => setViewTeamId(item.id)}>
-                        <TableCell className="text-center font-black text-lg">{idx + 1}</TableCell>
-                        <TableCell><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center font-black text-[10px]">{('abbreviation' in item) ? item.abbreviation : 'IA'}</div><span className="font-bold">{item.name}</span></div></TableCell>
-                        <TableCell className="text-center font-bold">{item.played}</TableCell>
-                        <TableCell className={cn("text-center font-bold", item.gd >= 0 ? "text-green-500" : "text-destructive")}>{item.gd > 0 ? `+${item.gd}` : item.gd}</TableCell>
-                        <TableCell className="text-center font-bold text-accent">{('budget' in item) ? item.budget : '-'}</TableCell>
-                        <TableCell className="text-center font-black text-xl text-primary">{item.pts}</TableCell>
-                      </TableRow>
-                    ))}
+                    {standings.map((item, idx) => {
+                      const isPlayoff = idx < tournament.playoffSpots;
+                      const isRelegation = idx >= (standings.length - tournament.relegationSpots);
+                      return (
+                        <TableRow 
+                          key={item.id} 
+                          className={cn(
+                            "h-16 cursor-pointer hover:bg-primary/5 transition-colors",
+                            tournament.managedParticipantId === item.id && "bg-primary/5 border-l-4 border-l-primary",
+                            isPlayoff && "bg-green-500/5",
+                            isRelegation && "bg-red-500/5"
+                          )} 
+                          onClick={() => setViewTeamId(item.id)}
+                        >
+                          <TableCell className="text-center">
+                            <div className="flex flex-col items-center">
+                              <span className="font-black text-lg leading-none">{idx + 1}</span>
+                              {isPlayoff && <span className="text-[8px] font-black text-green-500 uppercase mt-1">PO</span>}
+                              {isRelegation && <span className="text-[8px] font-black text-red-500 uppercase mt-1">DE</span>}
+                            </div>
+                          </TableCell>
+                          <TableCell><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center font-black text-[10px]">{('abbreviation' in item) ? item.abbreviation : 'IA'}</div><span className="font-bold">{item.name}</span></div></TableCell>
+                          <TableCell className="text-center font-bold">{item.played}</TableCell>
+                          <TableCell className={cn("text-center font-bold", item.gd >= 0 ? "text-green-500" : "text-destructive")}>{item.gd > 0 ? `+${item.gd}` : item.gd}</TableCell>
+                          <TableCell className="text-center font-bold text-accent">{('budget' in item) ? item.budget : '-'}</TableCell>
+                          <TableCell className="text-center font-black text-xl text-primary">{item.pts}</TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
@@ -299,6 +353,7 @@ export default function TournamentDetailPage() {
 
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <DialogContent className="max-w-2xl rounded-[3rem] border-none shadow-2xl p-0 overflow-hidden">
+          <DialogHeader className="hidden"><DialogTitle>Preview Match</DialogTitle></DialogHeader>
           {opponentTeam && (
             <div className="flex flex-col">
               <div className="bg-primary p-10 text-white flex items-center gap-8">
@@ -339,6 +394,7 @@ export default function TournamentDetailPage() {
 
       <Dialog open={!!viewingTeamId} onOpenChange={(o) => !o && setViewTeamId(null)}>
         <DialogContent className="max-w-3xl rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl">
+          <DialogHeader className="hidden"><DialogTitle>Team Info</DialogTitle></DialogHeader>
           {teams.find(t => t.id === viewingTeamId) && (
             <div className="flex flex-col h-[80vh]">
               <div className="p-8 bg-muted/10 border-b flex items-center gap-6">
