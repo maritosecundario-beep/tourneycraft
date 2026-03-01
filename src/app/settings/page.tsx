@@ -85,7 +85,7 @@ export default function SettingsPage() {
         <h1 className="text-3xl md:text-4xl font-black flex items-center gap-3 text-foreground">
           <Settings className="text-primary w-8 h-8 md:w-10 md:h-10" /> AJUSTES GLOBALES
         </h1>
-        <p className="text-muted-foreground text-base md:text-lg">Personaliza la base estructural y estética de tu simulador.</p>
+        <p className="text-muted-foreground text-sm md:text-lg">Personaliza la base estructural y estética de tu simulador.</p>
       </header>
 
       <div className="grid gap-6 md:gap-8">
@@ -94,7 +94,7 @@ export default function SettingsPage() {
           <div className="h-2 w-full bg-gradient-to-r from-primary via-accent to-yellow-500" />
           <CardHeader>
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-primary/10 flex items-center justify-center">
                 <Palette className="text-primary w-5 h-5 md:w-6 md:h-6" />
               </div>
               <div>
@@ -103,11 +103,11 @@ export default function SettingsPage() {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="grid md:grid-cols-2 gap-6 md:gap-8">
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
             <div className="space-y-4">
-              <Label>Tema Seleccionado</Label>
+              <Label className="text-xs md:text-sm font-black uppercase tracking-widest text-muted-foreground">Tema Seleccionado</Label>
               <Select value={theme} onValueChange={(v: any) => setTheme(v)}>
-                <SelectTrigger className="h-12 text-base md:text-lg">
+                <SelectTrigger className="h-12 text-base">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -127,7 +127,7 @@ export default function SettingsPage() {
         <Card className="border-none bg-card shadow-xl">
           <CardHeader className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-accent/10 flex items-center justify-center">
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-accent/10 flex items-center justify-center">
                 <MapPin className="text-accent w-5 h-5 md:w-6 md:h-6" />
               </div>
               <div>
@@ -135,24 +135,24 @@ export default function SettingsPage() {
                 <CardDescription className="text-xs md:text-sm">Identificación por rol.</CardDescription>
               </div>
             </div>
-            <Button onClick={addPosition} variant="outline" className="w-full md:w-auto border-accent text-accent">
+            <Button onClick={addPosition} variant="outline" className="w-full md:w-auto border-accent text-accent font-black h-12 rounded-xl">
               <Plus className="w-4 h-4 mr-2" /> Añadir Rol
             </Button>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
               {positions.map((pos, index) => (
-                <div key={index} className="group flex items-center gap-4 p-3 md:p-4 bg-muted/20 hover:bg-muted/40 rounded-2xl border transition-all">
+                <div key={index} className="group flex items-center gap-3 md:gap-4 p-3 md:p-4 bg-muted/20 hover:bg-muted/40 rounded-2xl border transition-all">
                   <Popover>
                     <PopoverTrigger asChild>
                       <button 
-                        className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-[10px] md:text-xs font-black shadow-lg shrink-0 transition-transform hover:scale-110"
+                        className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-[10px] md:text-xs font-black shadow-lg shrink-0 transition-transform hover:scale-110 active:scale-90"
                         style={{ backgroundColor: posColors[pos] || PREDEFINED_COLORS[10], color: '#fff' }}
                       >
                         {pos.substring(0, 3).toUpperCase()}
                       </button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-64 p-3 bg-card border-border">
+                    <PopoverContent className="w-[80vw] sm:w-64 p-3 bg-card border-border shadow-2xl rounded-2xl">
                       <div className="grid grid-cols-5 gap-2">
                         {PREDEFINED_COLORS.map(color => (
                           <button
@@ -172,13 +172,13 @@ export default function SettingsPage() {
                     <Input 
                       value={pos} 
                       onChange={(e) => updatePositionName(index, e.target.value)}
-                      className="h-7 bg-transparent border-none font-bold text-base md:text-lg focus-visible:ring-0 p-0"
+                      className="h-8 bg-transparent border-none font-bold text-base md:text-lg focus-visible:ring-0 p-0"
                     />
                   </div>
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="md:opacity-0 md:group-hover:opacity-100 text-destructive"
+                    className="text-destructive h-8 w-8"
                     onClick={() => removePosition(index)}
                   >
                     <Trash2 className="w-4 h-4" />
@@ -193,7 +193,7 @@ export default function SettingsPage() {
         <Card className="border-none bg-card shadow-xl">
           <CardHeader>
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-primary/10 flex items-center justify-center">
                 <ListPlus className="text-primary w-5 h-5 md:w-6 md:h-6" />
               </div>
               <div>
@@ -207,7 +207,7 @@ export default function SettingsPage() {
               value={attributes} 
               onChange={(e) => setAttributes(e.target.value)} 
               placeholder="Ej: Poder&#10;Velocidad..."
-              className="min-h-[150px] md:min-h-[200px] text-base md:text-lg font-medium p-4 md:p-6 bg-muted/10"
+              className="min-h-[150px] md:min-h-[200px] text-base md:text-lg font-medium p-4 md:p-6 bg-muted/10 rounded-2xl"
             />
           </CardContent>
         </Card>

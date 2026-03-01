@@ -404,7 +404,7 @@ export default function TeamsPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 pb-32 md:pb-20">
-      <header className="flex justify-between items-center px-4 md:px-0">
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 px-4 md:px-0">
         <div>
           <h1 className="text-3xl md:text-5xl font-black tracking-tighter text-foreground uppercase flex items-center gap-3">
              Identity Builder <Sparkles className="text-accent w-8 h-8" />
@@ -416,57 +416,56 @@ export default function TeamsPage() {
           if (!open) setEditingTeam(null);
         }}>
           <DialogTrigger asChild>
-            <Button className="shadow-2xl shadow-primary/40 bg-primary hover:bg-primary/90 text-primary-foreground h-14 px-10 font-black rounded-2xl transition-all hover:scale-105 active:scale-95">
+            <Button className="w-full md:w-auto shadow-2xl shadow-primary/40 bg-primary hover:bg-primary/90 text-primary-foreground h-14 px-10 font-black rounded-2xl transition-all hover:scale-105 active:scale-95">
               <Plus className="w-6 h-6 mr-2" /> FUNDAR CLUB
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[1000px] bg-card border-none shadow-2xl p-0 overflow-hidden max-h-[95vh] overflow-y-auto rounded-3xl">
-            <div className="p-10 bg-muted/20 border-b flex flex-row items-center justify-between gap-6">
+          <DialogContent className="w-[95vw] sm:max-w-[1000px] bg-card border-none shadow-2xl p-0 overflow-hidden max-h-[95vh] rounded-3xl">
+            <div className="p-6 md:p-10 bg-muted/20 border-b flex flex-col md:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-4">
-                <div className="p-4 bg-primary rounded-2xl shadow-lg">
-                  <Shirt className="text-primary-foreground w-10 h-10" />
+                <div className="p-3 bg-primary rounded-xl shadow-lg shrink-0">
+                  <Shirt className="text-primary-foreground w-6 h-6 md:w-8 md:h-8" />
                 </div>
                 <div>
-                  <DialogTitle className="text-4xl font-black tracking-tight flex items-center gap-3">
+                  <DialogTitle className="text-xl md:text-3xl font-black tracking-tight">
                     {editingTeam ? 'REDISENAR CLUB' : 'STUDIO DE BRANDING'}
                   </DialogTitle>
-                  <CardDescription className="text-lg">Configuración de identidad visual, marca técnica y sede.</CardDescription>
                 </div>
               </div>
             </div>
-            <Tabs defaultValue="branding" className="w-full">
-              <TabsList className="w-full grid grid-cols-3 rounded-none bg-muted/10 h-16 border-b">
-                <TabsTrigger value="general" className="rounded-none font-black text-sm uppercase tracking-widest">Base Estratégica</TabsTrigger>
-                <TabsTrigger value="branding" className="rounded-none font-black text-sm uppercase tracking-widest">Identidad Visual</TabsTrigger>
-                <TabsTrigger value="venue" className="rounded-none font-black text-sm uppercase tracking-widest">Sede Central</TabsTrigger>
+            <Tabs defaultValue="branding" className="w-full flex flex-col h-[calc(95vh-150px)]">
+              <TabsList className="w-full grid grid-cols-3 rounded-none bg-muted/10 h-12 md:h-16 border-b shrink-0">
+                <TabsTrigger value="general" className="rounded-none font-black text-[10px] md:text-sm uppercase tracking-widest">Base</TabsTrigger>
+                <TabsTrigger value="branding" className="rounded-none font-black text-[10px] md:text-sm uppercase tracking-widest">Identidad</TabsTrigger>
+                <TabsTrigger value="venue" className="rounded-none font-black text-[10px] md:text-sm uppercase tracking-widest">Sede</TabsTrigger>
               </TabsList>
               
-              <div className="p-8 md:p-12">
-                <TabsContent value="general" className="space-y-10 mt-0">
-                  <div className="grid gap-8 md:grid-cols-2">
-                    <div className="grid gap-3">
-                      <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Nombre de la Entidad</Label>
-                      <Input className="h-16 text-2xl font-black bg-muted/10 rounded-2xl border-2 focus:border-primary transition-all" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej: Real Titans SC" />
+              <div className="flex-1 overflow-y-auto p-4 md:p-12 custom-scrollbar">
+                <TabsContent value="general" className="space-y-6 md:space-y-10 mt-0">
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <div className="grid gap-2 md:gap-3">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nombre de la Entidad</Label>
+                      <Input className="h-12 md:h-16 text-lg md:text-2xl font-black bg-muted/10 rounded-xl md:rounded-2xl" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej: Real Titans SC" />
                     </div>
-                    <div className="grid gap-3">
-                      <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Siglas (3 Caracteres)</Label>
-                      <Input className="h-16 text-3xl font-black text-center uppercase bg-muted/10 rounded-2xl border-2 focus:border-primary" maxLength={3} value={abbreviation} onChange={(e) => setAbbreviation(e.target.value)} placeholder="TIT" />
+                    <div className="grid gap-2 md:gap-3">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Siglas (3 Caracteres)</Label>
+                      <Input className="h-12 md:h-16 text-xl md:text-3xl font-black text-center uppercase bg-muted/10 rounded-xl md:rounded-2xl" maxLength={3} value={abbreviation} onChange={(e) => setAbbreviation(e.target.value)} placeholder="TIT" />
                     </div>
                   </div>
-                  <div className="space-y-6 bg-muted/5 p-8 rounded-3xl border">
+                  <div className="space-y-4 md:space-y-6 bg-muted/5 p-6 md:p-8 rounded-2xl md:rounded-3xl border">
                     <div className="flex justify-between items-center">
-                      <Label className="text-xs font-black uppercase text-muted-foreground tracking-widest">Potencial de Rating</Label>
-                      <span className="px-4 py-1.5 bg-primary text-primary-foreground text-xl font-black rounded-xl shadow-lg">{rating}</span>
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Potencial de Rating</Label>
+                      <span className="px-3 py-1 bg-primary text-primary-foreground text-lg font-black rounded-lg shadow-lg">{rating}</span>
                     </div>
                     <Slider value={[rating]} onValueChange={(vals) => setRating(vals[0])} max={100} min={1} className="py-4" />
                   </div>
                 </TabsContent>
 
-                <TabsContent value="branding" className="space-y-12 mt-0">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-16 items-start">
+                <TabsContent value="branding" className="space-y-8 md:space-y-12 mt-0">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-16 items-start">
                     {/* Real-time Preview Area */}
-                    <div className="space-y-8 bg-gradient-to-br from-muted/10 to-muted/20 p-10 rounded-[3rem] flex flex-col items-center border-4 border-dashed border-muted/30 relative shadow-inner">
-                      <div className="w-full max-w-[300px] h-[350px] transition-all hover:scale-105 duration-700">
+                    <div className="space-y-6 bg-gradient-to-br from-muted/10 to-muted/20 p-6 md:p-10 rounded-3xl md:rounded-[3rem] flex flex-col items-center border-2 md:border-4 border-dashed border-muted/30 relative shadow-inner order-1 md:order-1">
+                      <div className="w-full max-w-[200px] md:max-w-[300px] h-[250px] md:h-[350px]">
                         <JerseySVG 
                           primary={color1} 
                           secondary={color2} 
@@ -477,20 +476,20 @@ export default function TeamsPage() {
                           sponsor={sponsor} 
                         />
                       </div>
-                      <div className="flex items-center gap-8 mt-6 p-6 bg-card rounded-[2rem] shadow-2xl border w-full justify-center transform hover:translate-y-[-5px] transition-transform">
-                        <CrestIcon shape={emblemShape} c1={color1} c2={color2} c3={color3 || color1} c4={color4} size="w-20 h-20" />
-                        <div className="h-16 w-px bg-border" />
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="w-8 h-8 rounded-full border-2 shadow-sm" style={{ backgroundColor: color1 }} />
-                          <div className="w-8 h-8 rounded-full border-2 shadow-sm" style={{ backgroundColor: color2 }} />
-                          {color3 && <div className="w-8 h-8 rounded-full border-2 shadow-sm" style={{ backgroundColor: color3 }} />}
-                          {color4 && <div className="w-8 h-8 rounded-full border-2 shadow-sm" style={{ backgroundColor: color4 }} />}
+                      <div className="flex items-center gap-4 md:gap-8 p-4 md:p-6 bg-card rounded-2xl md:rounded-[2rem] shadow-xl border w-full justify-center">
+                        <CrestIcon shape={emblemShape} c1={color1} c2={color2} c3={color3 || color1} c4={color4} size="w-12 h-12 md:w-20 md:h-20" />
+                        <div className="h-12 md:h-16 w-px bg-border" />
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="w-6 h-6 md:w-8 md:h-8 rounded-full border shadow-sm" style={{ backgroundColor: color1 }} />
+                          <div className="w-6 h-6 md:w-8 md:h-8 rounded-full border shadow-sm" style={{ backgroundColor: color2 }} />
+                          {color3 && <div className="w-6 h-6 md:w-8 md:h-8 rounded-full border shadow-sm" style={{ backgroundColor: color3 }} />}
+                          {color4 && <div className="w-6 h-6 md:w-8 md:h-8 rounded-full border shadow-sm" style={{ backgroundColor: color4 }} />}
                         </div>
                       </div>
                     </div>
 
                     {/* Controls Area */}
-                    <div className="space-y-8 max-h-[600px] overflow-y-auto pr-6 custom-scrollbar pb-10">
+                    <div className="space-y-8 order-2 md:order-2">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                         <ColorPicker label="Base (P)" value={color1} onChange={setColor1} />
                         <ColorPicker label="Diseño (S)" value={color2} onChange={setColor2} />
@@ -498,25 +497,25 @@ export default function TeamsPage() {
                         <ColorPicker label="Logos (A)" value={color4} onChange={setColor4} onClear={() => setColor4(undefined)} />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-6">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-tighter">Marca Técnica</Label>
-                          <Input value={brand} className="bg-muted/10 h-12 font-bold rounded-xl" onChange={(e) => setBrand(e.target.value)} />
+                          <Input value={brand} className="bg-muted/10 h-10 md:h-12 font-bold rounded-xl" onChange={(e) => setBrand(e.target.value)} />
                         </div>
                         <div className="space-y-2">
                           <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-tighter">Patrocinador</Label>
-                          <Input value={sponsor} className="bg-muted/10 h-12 font-bold rounded-xl" onChange={(e) => setSponsor(e.target.value)} />
+                          <Input value={sponsor} className="bg-muted/10 h-10 md:h-12 font-bold rounded-xl" onChange={(e) => setSponsor(e.target.value)} />
                         </div>
                       </div>
 
                       <div className="space-y-6">
-                        <div className="grid gap-3">
+                        <div className="grid gap-2">
                           <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Patrón de Equipación</Label>
                           <Select value={uniformStyle} onValueChange={(v: any) => setUniformStyle(v)}>
-                            <SelectTrigger className="h-14 font-black text-base bg-muted/10 rounded-xl border-2">
+                            <SelectTrigger className="h-12 md:h-14 font-black text-sm md:text-base bg-muted/10 rounded-xl border-2">
                               <SelectValue />
                             </SelectTrigger>
-                            <SelectContent className="max-h-[300px]">
+                            <SelectContent>
                               <SelectItem value="solid" className="font-bold">Sólido Clásico</SelectItem>
                               <SelectItem value="stripes" className="font-bold">Rayas Verticales</SelectItem>
                               <SelectItem value="hoops" className="font-bold">Aros Horizontales</SelectItem>
@@ -538,13 +537,13 @@ export default function TeamsPage() {
                             </SelectContent>
                           </Select>
                         </div>
-                        <div className="grid gap-3">
+                        <div className="grid gap-2">
                           <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Forma del Emblema</Label>
                           <Select value={emblemShape} onValueChange={(v: any) => setEmblemShape(v)}>
-                            <SelectTrigger className="h-14 font-black text-base bg-muted/10 rounded-xl border-2">
+                            <SelectTrigger className="h-12 md:h-14 font-black text-sm md:text-base bg-muted/10 rounded-xl border-2">
                               <SelectValue />
                             </SelectTrigger>
-                            <SelectContent className="max-h-[300px]">
+                            <SelectContent>
                               <SelectItem value="shield" className="font-bold">Escudo Tradicional</SelectItem>
                               <SelectItem value="circle" className="font-bold">Circular Moderno</SelectItem>
                               <SelectItem value="square" className="font-bold">Cuadrado Robusto</SelectItem>
@@ -567,22 +566,22 @@ export default function TeamsPage() {
                   </div>
                 </TabsContent>
 
-                <TabsContent value="venue" className="space-y-10 mt-0">
-                  <div className="grid gap-8 md:grid-cols-2">
-                    <div className="grid gap-3">
-                      <Label className="text-xs font-black uppercase text-muted-foreground tracking-widest">Nombre de la Sede</Label>
-                      <Input className="h-16 text-xl font-black bg-muted/10 rounded-2xl border-2" value={venueName} onChange={(e) => setVenueName(e.target.value)} placeholder="Ej: Coliseo de los Sueños" />
+                <TabsContent value="venue" className="space-y-6 md:space-y-10 mt-0">
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <div className="grid gap-2">
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Nombre de la Sede</Label>
+                      <Input className="h-12 md:h-16 text-lg md:text-xl font-black bg-muted/10 rounded-xl md:rounded-2xl border-2" value={venueName} onChange={(e) => setVenueName(e.target.value)} placeholder="Ej: Coliseo de los Sueños" />
                     </div>
-                    <div className="grid gap-3">
-                      <Label className="text-xs font-black uppercase text-muted-foreground tracking-widest">Capacidad de Aforo</Label>
-                      <Input className="h-16 text-xl font-black bg-muted/10 rounded-2xl border-2" type="number" value={venueCapacity} onChange={(e) => setVenueCapacity(Number(e.target.value))} />
+                    <div className="grid gap-2">
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Capacidad de Aforo</Label>
+                      <Input className="h-12 md:h-16 text-lg md:text-xl font-black bg-muted/10 rounded-xl md:rounded-2xl border-2" type="number" value={venueCapacity} onChange={(e) => setVenueCapacity(Number(e.target.value))} />
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-                    <div className="grid gap-3">
-                      <Label className="text-xs font-black uppercase text-muted-foreground tracking-widest">Superficie de Juego</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8">
+                    <div className="grid gap-2">
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Superficie de Juego</Label>
                       <Select value={venueSurface} onValueChange={(v: any) => setVenueSurface(v)}>
-                        <SelectTrigger className="h-16 font-black text-lg bg-muted/10 rounded-2xl border-2"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-12 md:h-16 font-black text-sm md:text-lg bg-muted/10 rounded-xl md:rounded-2xl border-2"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="grass" className="font-bold">Césped Natural</SelectItem>
                           <SelectItem value="artificial" className="font-bold">Hierba Artificial</SelectItem>
@@ -594,10 +593,10 @@ export default function TeamsPage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="grid gap-3">
-                      <Label className="text-xs font-black uppercase text-muted-foreground tracking-widest">Magnitud del Recinto</Label>
+                    <div className="grid gap-2">
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Magnitud del Recinto</Label>
                       <Select value={venueSize} onValueChange={(v: any) => setVenueSize(v)}>
-                        <SelectTrigger className="h-16 font-black text-lg bg-muted/10 rounded-2xl border-2"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-12 md:h-16 font-black text-sm md:text-lg bg-muted/10 rounded-xl md:rounded-2xl border-2"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="small" className="font-bold">Local / Comunitario</SelectItem>
                           <SelectItem value="medium" className="font-bold">Estándar Regional</SelectItem>
@@ -610,9 +609,9 @@ export default function TeamsPage() {
                 </TabsContent>
               </div>
             </Tabs>
-            <div className="p-10 bg-muted/20 border-t flex flex-col md:flex-row justify-end gap-6">
-              <Button variant="ghost" className="font-black text-muted-foreground h-14 px-8 rounded-2xl" onClick={() => setIsDialogOpen(false)}>DESCARTAR</Button>
-              <Button onClick={handleSaveTeam} className="px-16 h-16 bg-primary text-primary-foreground font-black text-lg shadow-2xl rounded-2xl hover:scale-105 transition-transform active:scale-95">
+            <div className="p-6 md:p-10 bg-muted/20 border-t flex flex-col md:flex-row justify-end gap-3 md:gap-6 shrink-0">
+              <Button variant="ghost" className="font-black text-muted-foreground h-12 md:h-14 px-8 rounded-xl md:rounded-2xl order-2 md:order-1" onClick={() => setIsDialogOpen(false)}>DESCARTAR</Button>
+              <Button onClick={handleSaveTeam} className="w-full md:w-auto px-12 md:px-16 h-14 md:h-16 bg-primary text-primary-foreground font-black text-base md:text-lg shadow-2xl rounded-xl md:rounded-2xl hover:scale-105 transition-transform active:scale-95 order-1 md:order-2">
                 {editingTeam ? 'GUARDAR CAMBIOS' : 'FUNDAR CLUB'}
               </Button>
             </div>
@@ -623,69 +622,69 @@ export default function TeamsPage() {
       <div className="relative px-4 md:px-0">
         <Search className="absolute left-8 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
         <Input 
-          className="pl-14 bg-card border-none h-16 text-xl shadow-2xl rounded-[1.5rem] focus:ring-2 focus:ring-primary/20 transition-all" 
+          className="pl-14 bg-card border-none h-14 md:h-16 text-lg md:text-xl shadow-2xl rounded-2xl md:rounded-[1.5rem] focus:ring-2 focus:ring-primary/20 transition-all" 
           placeholder="Buscar club por nombre o siglas..." 
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 px-4 md:px-0">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-10 px-4 md:px-0">
         {filteredTeams.map((team) => (
-          <Card key={team.id} className="border-none bg-card transition-all group overflow-hidden shadow-2xl border-t-8 rounded-[2.5rem] hover:translate-y-[-8px] hover:shadow-primary/10" style={{ borderTopColor: team.primaryColor }}>
-            <div className="p-10 flex gap-8">
-              <div className="w-32 h-32 shrink-0 flex items-center justify-center bg-muted/20 rounded-[2.5rem] relative shadow-inner border border-muted/30">
+          <Card key={team.id} className="border-none bg-card transition-all group overflow-hidden shadow-2xl border-t-8 rounded-[2rem] md:rounded-[2.5rem] hover:translate-y-[-4px] md:hover:translate-y-[-8px] hover:shadow-primary/10" style={{ borderTopColor: team.primaryColor }}>
+            <div className="p-6 md:p-10 flex gap-4 md:gap-8">
+              <div className="w-20 h-20 md:w-32 md:h-32 shrink-0 flex items-center justify-center bg-muted/20 rounded-2xl md:rounded-[2.5rem] relative shadow-inner border border-muted/30">
                 <CrestIcon 
                   shape={team.emblemShape} 
                   c1={team.primaryColor} 
                   c2={team.secondaryColor} 
                   c3={team.tertiaryColor || team.primaryColor} 
                   c4={team.accentColor}
-                  size="w-20 h-20" 
+                  size="w-12 h-12 md:w-20 md:h-20" 
                 />
-                <div className="absolute -bottom-3 -right-3 bg-primary text-primary-foreground text-xs font-black px-4 py-1.5 rounded-full border-4 border-card shadow-lg">
+                <div className="absolute -bottom-2 -right-2 bg-primary text-primary-foreground text-[10px] font-black px-2 md:px-4 py-1 rounded-full border-2 md:border-4 border-card shadow-lg">
                   {team.abbreviation}
                 </div>
               </div>
               <div className="flex-1 min-w-0 flex flex-col justify-center">
-                <h3 className="text-3xl font-black truncate tracking-tighter uppercase leading-none mb-2">{team.name}</h3>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-black flex items-center gap-1.5">
-                  <span className="text-primary">{team.brand || 'Elite'}</span> Kits • {team.sponsor || 'Official Sponsor'}
+                <h3 className="text-xl md:text-3xl font-black truncate tracking-tighter uppercase leading-none mb-1 md:mb-2">{team.name}</h3>
+                <p className="text-[8px] md:text-[10px] text-muted-foreground uppercase tracking-widest font-black flex items-center gap-1.5">
+                  <span className="text-primary">{team.brand || 'Elite'}</span> • {team.sponsor || 'Official'}
                 </p>
-                <div className="flex items-center gap-2 mt-5 bg-primary/10 w-fit px-4 py-2 rounded-2xl border border-primary/20">
-                  <Star className="w-4 h-4 text-yellow-500 fill-current" />
-                  <span className="text-base font-black text-primary">{team.rating} OVR</span>
+                <div className="flex items-center gap-1.5 md:gap-2 mt-3 md:mt-5 bg-primary/10 w-fit px-3 md:px-4 py-1 md:py-2 rounded-xl border border-primary/20">
+                  <Star className="w-3 h-3 md:w-4 md:h-4 text-yellow-500 fill-current" />
+                  <span className="text-xs md:text-base font-black text-primary">{team.rating} OVR</span>
                 </div>
               </div>
             </div>
             
-            <div className="px-10 pb-10 pt-2 space-y-8">
-              <div className="flex gap-4">
-                <div className="flex-1 bg-muted/30 p-5 rounded-3xl border border-muted/40 shadow-sm">
-                  <span className="text-[10px] uppercase font-black text-muted-foreground block mb-2 tracking-widest">Sede Central</span>
-                  <span className="text-sm font-black flex items-center gap-2 truncate text-foreground">
-                    <Landmark className="w-4 h-4 text-accent" /> {team.venueName}
+            <div className="px-6 md:px-10 pb-6 md:pb-10 pt-2 space-y-6 md:space-y-8">
+              <div className="flex gap-3 md:gap-4">
+                <div className="flex-1 bg-muted/30 p-3 md:p-5 rounded-2xl md:rounded-3xl border border-muted/40 shadow-sm">
+                  <span className="text-[8px] md:text-[10px] uppercase font-black text-muted-foreground block mb-1 md:mb-2 tracking-widest">Sede</span>
+                  <span className="text-[10px] md:text-sm font-black flex items-center gap-2 truncate text-foreground">
+                    <Landmark className="w-3 h-3 md:w-4 md:h-4 text-accent" /> {team.venueName}
                   </span>
                 </div>
-                <div className="w-28 bg-muted/30 p-5 rounded-3xl border border-muted/40 flex flex-col items-center justify-center shadow-sm">
-                  <span className="text-[10px] uppercase font-black text-muted-foreground block mb-2">Paleta</span>
-                  <div className="flex gap-1.5">
-                    <div className="w-3.5 h-3.5 rounded-full border border-black/10" style={{ backgroundColor: team.primaryColor }} />
-                    <div className="w-3.5 h-3.5 rounded-full border border-black/10" style={{ backgroundColor: team.secondaryColor }} />
-                    {team.tertiaryColor && <div className="w-3.5 h-3.5 rounded-full border border-black/10" style={{ backgroundColor: team.tertiaryColor }} />}
+                <div className="w-20 md:w-28 bg-muted/30 p-3 md:p-5 rounded-2xl md:rounded-3xl border border-muted/40 flex flex-col items-center justify-center shadow-sm">
+                  <span className="text-[8px] md:text-[10px] uppercase font-black text-muted-foreground block mb-1 md:mb-2">Paleta</span>
+                  <div className="flex gap-1">
+                    <div className="w-2.5 h-2.5 md:w-3.5 md:h-3.5 rounded-full border border-black/10" style={{ backgroundColor: team.primaryColor }} />
+                    <div className="w-2.5 h-2.5 md:w-3.5 md:h-3.5 rounded-full border border-black/10" style={{ backgroundColor: team.secondaryColor }} />
+                    {team.tertiaryColor && <div className="w-2.5 h-2.5 md:w-3.5 md:h-3.5 rounded-full border border-black/10" style={{ backgroundColor: team.tertiaryColor }} />}
                   </div>
                 </div>
               </div>
               
-              <div className="flex gap-4">
-                <Button className="flex-1 bg-secondary text-secondary-foreground h-14 rounded-2xl font-black text-sm uppercase tracking-widest transition-all hover:bg-secondary/80" onClick={() => {
+              <div className="flex gap-3 md:gap-4">
+                <Button className="flex-1 bg-secondary text-secondary-foreground h-12 md:h-14 rounded-xl md:rounded-2xl font-black text-[10px] md:text-sm uppercase tracking-widest transition-all hover:bg-secondary/80" onClick={() => {
                   setEditingTeam(team);
                   setIsDialogOpen(true);
                 }}>
-                  <Pencil className="w-4 h-4 mr-2" /> REDISEÑAR
+                  <Pencil className="w-3 h-3 md:w-4 md:h-4 mr-2" /> REDISEÑAR
                 </Button>
-                <Button variant="destructive" size="icon" className="w-14 h-14 rounded-2xl shadow-lg hover:rotate-6 transition-transform" onClick={() => deleteTeam(team.id)}>
-                  <Trash2 className="w-6 h-6" />
+                <Button variant="destructive" size="icon" className="w-12 h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl shadow-lg hover:rotate-6 transition-transform" onClick={() => deleteTeam(team.id)}>
+                  <Trash2 className="w-5 h-5 md:w-6 md:h-6" />
                 </Button>
               </div>
             </div>
