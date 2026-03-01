@@ -61,7 +61,9 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
           venueName: t.venueName || 'Arena Principal',
           venueCapacity: t.venueCapacity || 5000,
           venueSurface: t.venueSurface || 'hardcourt',
-          venueSize: t.venueSize || 'medium'
+          venueSize: t.venueSize || 'medium',
+          brand: t.brand || 'Classic',
+          sponsor: t.sponsor || ''
         }));
         
         setTeams(migratedTeams);

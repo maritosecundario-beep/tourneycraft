@@ -13,8 +13,8 @@ export type Player = {
   teamId?: string;
 };
 
-export type UniformStyle = 'solid' | 'stripes' | 'hoops' | 'halves' | 'gradient' | 'minimal';
-export type EmblemShape = 'shield' | 'circle' | 'square' | 'modern' | 'diamond';
+export type UniformStyle = 'solid' | 'stripes' | 'hoops' | 'halves' | 'gradient' | 'minimal' | 'clash';
+export type EmblemShape = 'shield' | 'circle' | 'square' | 'modern' | 'diamond' | 'vintage';
 export type VenueSurface = 'grass' | 'artificial' | 'clay' | 'hardcourt' | 'parquet' | 'ice' | 'sand';
 export type VenueSize = 'small' | 'medium' | 'large' | 'monumental';
 
@@ -31,6 +31,8 @@ export type Team = {
   venueCapacity: number;
   venueSurface: VenueSurface;
   venueSize: VenueSize;
+  brand?: string;
+  sponsor?: string;
   players: Player[];
 };
 
