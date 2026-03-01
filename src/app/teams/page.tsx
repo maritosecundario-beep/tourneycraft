@@ -12,13 +12,128 @@ import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { EmblemShape, EmblemPattern, VenueSurface, VenueSize, Team, Player } from '@/lib/types';
+import { EmblemShape, EmblemPattern, VenueSurface, VenueSize, Team, Player, UniformStyle, ElementPlacement, VerticalPlacement, ElementSize } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { PREDEFINED_COLORS } from '@/lib/colors';
 import { Textarea } from '@/components/ui/textarea';
 import { CrestIcon } from '@/components/ui/crest-icon';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+
+// Hyper-Realistic Jersey SVG Visualizer 4.0 (Shared with players page)
+const PlayerJerseySVG = ({ 
+  primary, secondary, tertiary, accent, style, brand, sponsor, 
+  crestPlacement, sponsorPlacement, brandPlacement, crestSize = 'medium'
+}: { 
+  primary: string, secondary: string, tertiary: string, accent: string, style: UniformStyle, 
+  brand?: string, sponsor?: string, crestPlacement: ElementPlacement, 
+  sponsorPlacement: VerticalPlacement, brandPlacement: ElementPlacement, crestSize?: ElementSize
+}) => {
+  const getCrestPos = () => {
+    if (crestPlacement === 'left') return { x: 65, y: 70 };
+    if (crestPlacement === 'center') return { x: 100, y: 70 };
+    return { x: 135, y: 70 };
+  };
+
+  const getSponsorPos = () => {
+    if (sponsorPlacement === 'top') return { x: 100, y: 105 };
+    if (sponsorPlacement === 'middle') return { x: 100, y: 140 };
+    return { x: 100, y: 175 };
+  };
+
+  const getBrandPos = () => {
+    if (brandPlacement === 'left') return { x: 65, y: 55 };
+    if (brandPlacement === 'center') return { x: 100, y: 45 };
+    return { x: 135, y: 55 };
+  };
+
+  const getCrestScale = () => {
+    if (crestSize === 'small') return 0.6;
+    if (crestSize === 'large') return 1.4;
+    return 1;
+  };
+
+  return (
+    <svg viewBox="0 0 200 240" className="w-full h-full drop-shadow-2xl">
+      <defs>
+        <clipPath id="jerseyClip">
+          <path d="M40 40 L60 20 L140 20 L160 40 L180 60 L180 100 L160 100 L160 220 L150 225 L50 225 L40 220 L40 100 L20 100 L20 60 Z" />
+        </clipPath>
+        <linearGradient id="clothHighlight" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="white" stopOpacity="0.2" />
+          <stop offset="50%" stopColor="white" stopOpacity="0" />
+          <stop offset="100%" stopColor="black" stopOpacity="0.2" />
+        </linearGradient>
+        <pattern id="pat_stripes" width="40" height="240" patternUnits="userSpaceOnUse"><rect width="20" height="240" fill={secondary} /></pattern>
+        <pattern id="pat_hoops" width="200" height="40" patternUnits="userSpaceOnUse"><rect width="200" height="20" fill={secondary} /></pattern>
+        <pattern id="pat_checks" width="40" height="40" patternUnits="userSpaceOnUse">
+          <rect width="20" height="20" fill={secondary} />
+          <rect x="20" y="20" width="20" height="20" fill={secondary} />
+        </pattern>
+        <pattern id="pat_pinstripes" width="10" height="240" patternUnits="userSpaceOnUse"><rect width="1" height="240" fill={secondary} /></pattern>
+      </defs>
+
+      {/* Main Body */}
+      <path d="M40 40 L60 20 L140 20 L160 40 L180 60 L180 100 L160 100 L160 220 L150 225 L50 225 L40 220 L40 100 L20 100 L20 60 Z" fill={primary} />
+      
+      {/* Patterns */}
+      <g clipPath="url(#jerseyClip)">
+        {style === 'stripes' && <rect width="200" height="240" fill="url(#pat_stripes)" />}
+        {style === 'hoops' && <rect width="200" height="240" fill="url(#pat_hoops)" />}
+        {style === 'checks' && <rect width="200" height="240" fill="url(#pat_checks)" />}
+        {style === 'pinstripes' && <rect width="200" height="240" fill="url(#pat_pinstripes)" />}
+        {style === 'halves' && <rect x="100" width="100" height="240" fill={secondary} />}
+        {style === 'sash' && <path d="M40 20 L200 180 L200 240 L0 80 Z" fill={secondary} />}
+      </g>
+
+      {/* Trims */}
+      <path d="M60 20 L100 35 L140 20 L120 20 L100 30 L80 20 Z" fill={tertiary} />
+      <rect x="20" y="85" width="20" height="15" fill={tertiary} transform="rotate(-45 20 85)" />
+      <rect x="160" y="100" width="20" height="15" fill={tertiary} transform="rotate(45 160 100)" />
+
+      {/* Realistic Volumetry Shadows */}
+      <path d="M40 40 L60 20 L140 20 L160 40 L180 60 L180 100 L160 100 L160 220 L150 225 L50 225 L40 220 L40 100 L20 100 L20 60 Z" fill="url(#clothHighlight)" opacity="0.4" />
+      <path d="M160 100 L180 100 L180 60 L160 40 Z" fill="black" opacity="0.1" /> {/* Shoulder shadow */}
+      <path d="M40 100 L20 100 L20 60 L40 40 Z" fill="black" opacity="0.1" /> {/* Shoulder shadow */}
+
+      {/* Branding Elements */}
+      <g opacity="0.95">
+        <text 
+          x={getBrandPos().x} 
+          y={getBrandPos().y} 
+          textAnchor="middle" 
+          fill={accent} 
+          fontSize="8" 
+          fontWeight="900" 
+          style={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}
+        >
+          {brand || ''}
+        </text>
+        
+        <circle 
+          cx={getCrestPos().x} 
+          cy={getCrestPos().y} 
+          r={9 * getCrestScale()} 
+          fill={accent} 
+          stroke={tertiary} 
+          strokeWidth="1.5" 
+        />
+        
+        <text 
+          x={getSponsorPos().x} 
+          y={getSponsorPos().y} 
+          textAnchor="middle" 
+          fill={accent} 
+          fontSize="16" 
+          fontWeight="900" 
+          style={{ textTransform: 'uppercase', letterSpacing: '1px' }}
+        >
+          {sponsor || ''}
+        </text>
+      </g>
+    </svg>
+  );
+};
 
 const ColorPicker = ({ label, value, onChange }: { label: string, value: string, onChange: (c: string) => void }) => (
   <div className="space-y-1.5">
@@ -67,11 +182,26 @@ export default function TeamsPage() {
   const [venueSurface, setVenueSurface] = useState<VenueSurface>('parquet');
   const [venueSize, setVenueSize] = useState<VenueSize>('medium');
 
-  // New Player State
+  // New Player State (Matches free agents creation)
   const [pName, setPName] = useState('');
+  const [pDesc, setPDesc] = useState('');
   const [pPos, setPPos] = useState(settings.positions[0] || 'FW');
   const [pVal, setPVal] = useState(10);
+  const [pNum, setPNum] = useState(10);
   const [pAttrs, setPAttrs] = useState<Record<string, number>>({});
+  
+  // Kit State for New Player
+  const [pKitStyle, setPKitStyle] = useState<UniformStyle>('solid');
+  const [pKitC1, setPKitC1] = useState(PREDEFINED_COLORS[24]);
+  const [pKitC2, setPKitC2] = useState(PREDEFINED_COLORS[35]);
+  const [pKitC3, setPKitC3] = useState(PREDEFINED_COLORS[34]);
+  const [pKitC4, setPKitC4] = useState(PREDEFINED_COLORS[35]);
+  const [pBrand, setPBrand] = useState('');
+  const [pSponsor, setPSponsor] = useState('');
+  const [pCrestPos, setPCrestPos] = useState<ElementPlacement>('left');
+  const [pSponsorPos, setPSponsorPos] = useState<VerticalPlacement>('middle');
+  const [pBrandPos, setPBrandPos] = useState<ElementPlacement>('right');
+  const [pCrestSize, setPCrestSize] = useState<ElementSize>('medium');
 
   useEffect(() => {
     if (editingTeam) {
@@ -101,8 +231,16 @@ export default function TeamsPage() {
       const initialAttrs: Record<string, number> = {};
       settings.attributeNames.forEach(attr => initialAttrs[attr] = 50);
       setPAttrs(initialAttrs);
+      
+      const targetTeam = teams.find(t => t.id === playerTargetTeamId);
+      if (targetTeam) {
+        setPKitC1(targetTeam.crestPrimary);
+        setPKitC2(targetTeam.crestSecondary);
+        setPKitC3(targetTeam.crestTertiary || targetTeam.crestSecondary);
+        setPKitC4(targetTeam.crestAccent || targetTeam.crestSecondary);
+      }
     }
-  }, [isPlayerDialogOpen, settings.attributeNames]);
+  }, [isPlayerDialogOpen, settings.attributeNames, playerTargetTeamId, teams]);
 
   const resetForm = () => {
     setName(''); setDescription(''); setAbbreviation(''); setRating(50); setBudget(50);
@@ -144,23 +282,30 @@ export default function TeamsPage() {
     const newPlayer: Player = {
       id: Math.random().toString(36).substr(2, 9),
       name: pName,
+      description: pDesc,
       monetaryValue: pVal,
-      jerseyNumber: Math.floor(Math.random() * 99) + 1,
+      jerseyNumber: pNum,
       position: pPos,
       teamId: playerTargetTeamId,
       suspensionMatchdays: 0,
       attributes: Object.entries(pAttrs).map(([name, value]) => ({ name, value })),
-      uniformStyle: 'solid',
-      kitPrimary: teams.find(t => t.id === playerTargetTeamId)?.crestPrimary || PREDEFINED_COLORS[24],
-      kitSecondary: teams.find(t => t.id === playerTargetTeamId)?.crestSecondary || PREDEFINED_COLORS[35],
-      crestPlacement: 'left',
-      sponsorPlacement: 'middle',
-      brandPlacement: 'right'
+      uniformStyle: pKitStyle,
+      kitPrimary: pKitC1,
+      kitSecondary: pKitC2,
+      kitTertiary: pKitC3,
+      kitAccent: pKitC4,
+      brand: pBrand,
+      sponsor: pSponsor,
+      crestPlacement: pCrestPos,
+      sponsorPlacement: pSponsorPos,
+      brandPlacement: pBrandPos,
+      crestSize: pCrestSize
     };
     addPlayer(newPlayer);
     toast({ title: "Jugador Reclutado", description: `${pName} se ha unido al club.` });
     setIsPlayerDialogOpen(false);
-    setPName('');
+    // Reset player form
+    setPName(''); setPDesc(''); setPVal(10); setPNum(10); setPBrand(''); setPSponsor('');
   };
 
   const filteredTeams = teams.filter(t => 
@@ -346,36 +491,42 @@ export default function TeamsPage() {
         ))}
       </div>
 
+      {/* Recruitment Dialog - Full experience like free agents page */}
       <Dialog open={isPlayerDialogOpen} onOpenChange={setIsPlayerDialogOpen}>
-        <DialogContent className="rounded-[2.5rem] max-w-2xl p-0 overflow-hidden border-none shadow-2xl">
+        <DialogContent className="rounded-[2.5rem] max-w-[900px] p-0 overflow-hidden border-none shadow-2xl">
           <div className="p-6 bg-muted/20 border-b">
             <DialogTitle className="font-black uppercase flex items-center gap-2">
-              <UserCircle2 className="text-primary" /> Reclutamiento Directo
+              <UserCircle2 className="text-primary" /> Reclutamiento de Élite para {teams.find(t => t.id === playerTargetTeamId)?.name}
             </DialogTitle>
           </div>
-          <Tabs defaultValue="base" className="w-full flex flex-col h-[60vh]">
-            <TabsList className="grid grid-cols-2 rounded-none h-12 bg-card p-1 border-b">
-              <TabsTrigger value="base" className="rounded-xl">Datos Base</TabsTrigger>
-              <TabsTrigger value="stats" className="rounded-xl">Atributos</TabsTrigger>
+          <Tabs defaultValue="base" className="w-full flex flex-col h-[80vh]">
+            <TabsList className="grid grid-cols-3 rounded-none h-14 bg-card p-1 border-b">
+              <TabsTrigger value="base" className="rounded-xl">Bio</TabsTrigger>
+              <TabsTrigger value="stats" className="rounded-xl">Estadísticas</TabsTrigger>
+              <TabsTrigger value="brand" className="rounded-xl">Marca Personal</TabsTrigger>
             </TabsList>
             
-            <div className="flex-1 overflow-y-auto p-6">
-              <TabsContent value="base" className="space-y-4 mt-0">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2 col-span-2">
-                    <Label>Nombre Completo</Label>
-                    <Input value={pName} onChange={e => setPName(e.target.value)} className="h-12 rounded-xl" />
-                  </div>
+            <div className="flex-1 overflow-y-auto p-6 scrollbar-hide">
+              <TabsContent value="base" className="space-y-6 mt-0">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2"><Label>Nombre Completo</Label><Input value={pName} onChange={e => setPName(e.target.value)} className="h-12 rounded-xl" /></div>
                   <div className="space-y-2">
-                    <Label>Posición</Label>
+                    <Label>Posición Predilecta</Label>
                     <Select value={pPos} onValueChange={setPPos}>
                       <SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
                       <SelectContent>{settings.positions.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Valor ({settings.currency})</Label>
-                    <Input type="number" value={pVal} onChange={e => setPVal(Number(e.target.value))} className="h-12 rounded-xl" />
+                  <div className="space-y-2"><Label>Valor ({settings.currency})</Label><Input type="number" value={pVal} onChange={e => setPVal(Number(e.target.value))} className="h-12 rounded-xl" /></div>
+                  <div className="space-y-2"><Label>Dorsal</Label><Input type="number" value={pNum} onChange={e => setPNum(Number(e.target.value))} className="h-12 rounded-xl" /></div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>Biografía / Descripción del Jugador</Label>
+                    <Textarea 
+                      value={pDesc} 
+                      onChange={e => setPDesc(e.target.value)} 
+                      placeholder="Historia, logros, estilo de juego..." 
+                      className="min-h-[120px] rounded-xl" 
+                    />
                   </div>
                 </div>
               </TabsContent>
@@ -395,6 +546,56 @@ export default function TeamsPage() {
                       />
                     </div>
                   ))}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="brand" className="space-y-8 mt-0">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
+                  <div className="aspect-square bg-muted/20 rounded-3xl flex items-center justify-center p-8 border-2 border-dashed border-accent/30 shadow-inner">
+                    <div className="w-full max-w-[240px]">
+                      <PlayerJerseySVG 
+                        primary={pKitC1} secondary={pKitC2} tertiary={pKitC3} accent={pKitC4} 
+                        style={pKitStyle} brand={pBrand} sponsor={pSponsor}
+                        crestPlacement={pCrestPos} sponsorPlacement={pSponsorPos} 
+                        brandPlacement={pBrandPos} crestSize={pCrestSize}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-8 pb-10">
+                    <div className="space-y-4">
+                      <h4 className="text-sm font-black uppercase text-accent border-b pb-2">Identidad Visual</h4>
+                      <div className="space-y-2">
+                        <Label>Estilo de Jersey</Label>
+                        <Select value={pKitStyle} onValueChange={(v: any) => setPKitStyle(v)}>
+                          <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="solid">Liso</SelectItem>
+                            <SelectItem value="stripes">Rayas</SelectItem>
+                            <SelectItem value="hoops">Aros</SelectItem>
+                            <SelectItem value="checks">Cuadros</SelectItem>
+                            <SelectItem value="pinstripes">Rayas Finas</SelectItem>
+                            <SelectItem value="halves">Mitades</SelectItem>
+                            <SelectItem value="sash">Banda Diagonal</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <ColorPicker label="Primario" value={pKitC1} onChange={setPKitC1} />
+                        <ColorPicker label="Secundario" value={pKitC2} onChange={setPKitC2} />
+                        <ColorPicker label="Detalles" value={pKitC3} onChange={setPKitC3} />
+                        <ColorPicker label="Acento" value={pKitC4} onChange={setPKitC4} />
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <h4 className="text-sm font-black uppercase text-accent border-b pb-2">Patrocinios</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2"><Label>Marca Técnica</Label><Input value={pBrand} onChange={e => setPBrand(e.target.value)} /></div>
+                        <div className="space-y-2"><Label>Sponsor Principal</Label><Input value={pSponsor} onChange={e => setPSponsor(e.target.value)} /></div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </TabsContent>
             </div>
