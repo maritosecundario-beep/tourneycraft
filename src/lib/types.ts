@@ -108,6 +108,8 @@ export type Tournament = {
   nToNRangeMax?: number;
   participants: string[]; // IDs de equipos o jugadores
   matches: Match[];
+  dualLeagueEnabled: boolean;
+  dualLeagueMatches: Match[];
   settingsLocked: boolean;
   // Economía de Torneo
   winReward: number;

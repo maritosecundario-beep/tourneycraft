@@ -10,10 +10,11 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Wand2, Trophy, Settings2, Users, ArrowDownToLine, ArrowUpToLine, Coins, Target, User } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Wand2, Trophy, Settings2, Users, ArrowDownToLine, ArrowUpToLine, Coins, Target, User, Layers } from 'lucide-react';
 import { aiPoweredTournamentSetup } from '@/ai/flows/ai-powered-tournament-setup';
 import { useToast } from '@/hooks/use-toast';
-import { TournamentMode, TournamentFormat, ScoringRuleType, TournamentEntryType, LeagueType } from '@/lib/types';
+import { TournamentMode, TournamentFormat, ScoringRuleType, TournamentEntryType, LeagueType, Match } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 export default function NewTournamentPage() {
@@ -31,10 +32,11 @@ export default function NewTournamentPage() {
   const [format, setFormat] = useState<TournamentFormat>('league');
   const [leagueType, setLeagueType] = useState<LeagueType>('single-table');
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
+  const [dualLeagueEnabled, setDualLeagueEnabled] = useState(false);
   
   // Scoring & Econ
   const [scoringType, setScoringType] = useState<ScoringRuleType>('nToNRange');
-  const [scoringValue, setScoringValue] = useState(3); // Para Best of N o First to N
+  const [scoringValue, setScoringValue] = useState(3);
   const [nToNRangeMin, setNToNRangeMin] = useState(80);
   const [nToNRangeMax, setNToNRangeMax] = useState(150);
   const [winReward, setWinReward] = useState(100);
@@ -44,6 +46,23 @@ export default function NewTournamentPage() {
   
   const [playoffSpots, setPlayoffSpots] = useState(4);
   const [relegationSpots, setRelegationSpots] = useState(2);
+
+  const generateDualLeagueMatches = (participants: string[]): Match[] => {
+    const matches: Match[] = [];
+    let matchId = 1;
+    for (let i = 0; i < participants.length; i++) {
+      for (let j = i + 1; j < participants.length; j++) {
+        matches.push({
+          id: `dual-${matchId++}`,
+          homeId: participants[i],
+          awayId: participants[j],
+          isSimulated: false,
+          matchday: Math.floor(matchId / 2) + 1
+        });
+      }
+    }
+    return matches;
+  };
 
   const handleCreateAI = async () => {
     if (!aiDescription) return;
@@ -63,6 +82,8 @@ export default function NewTournamentPage() {
         nToNRangeMin: result.scoringRules.nToNRangeMin,
         nToNRangeMax: result.scoringRules.nToNRangeMax,
         participants: [], 
+        dualLeagueEnabled: result.leagueDetails?.dualLeagueEnabled || false,
+        dualLeagueMatches: [],
         settingsLocked: !result.allowAdjustmentsAfterCreation,
         winReward: result.initialTeamEconomics.winAmount,
         lossPenalty: result.initialTeamEconomics.lossAmount,
@@ -90,6 +111,8 @@ export default function NewTournamentPage() {
       return;
     }
 
+    const dualMatches = dualLeagueEnabled ? generateDualLeagueMatches(selectedParticipants) : [];
+
     const newTourney = {
       id: Math.random().toString(36).substr(2, 9),
       name,
@@ -103,6 +126,8 @@ export default function NewTournamentPage() {
       nToNRangeMin: scoringType === 'nToNRange' ? nToNRangeMin : undefined,
       nToNRangeMax: scoringType === 'nToNRange' ? nToNRangeMax : undefined,
       participants: selectedParticipants,
+      dualLeagueEnabled,
+      dualLeagueMatches: dualMatches,
       settingsLocked: false,
       winReward,
       lossPenalty,
@@ -194,17 +219,16 @@ export default function NewTournamentPage() {
                   </div>
                 </div>
 
-                {format === 'league' && (
-                  <div className="space-y-2">
-                    <Label>Tipo de Liga</Label>
-                    <Select value={leagueType} onValueChange={(v: any) => setLeagueType(v)}>
-                      <SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="single-table">Tabla Única</SelectItem>
-                        <SelectItem value="groups">Grupos Regionales</SelectItem>
-                        <SelectItem value="conferences">Conferencias (Aisladas)</SelectItem>
-                      </SelectContent>
-                    </Select>
+                {mode === 'arcade' && (
+                  <div className="flex items-center justify-between p-4 bg-accent/5 rounded-2xl border border-accent/20">
+                    <div className="flex items-center gap-3">
+                      <Layers className="text-accent" />
+                      <div>
+                        <p className="text-sm font-black uppercase">Liga Dual Paralela</p>
+                        <p className="text-[10px] text-muted-foreground">Simular liga de reservas/B-teams</p>
+                      </div>
+                    </div>
+                    <Switch checked={dualLeagueEnabled} onCheckedChange={setDualLeagueEnabled} />
                   </div>
                 )}
               </CardContent>
@@ -303,11 +327,6 @@ export default function NewTournamentPage() {
                   </Button>
                 ))}
               </div>
-              {selectedParticipants.length < 2 && (
-                <div className="mt-8 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl text-yellow-600 text-xs font-bold text-center">
-                  Necesitas al menos 2 participantes para iniciar la competición.
-                </div>
-              )}
             </CardContent>
           </Card>
 
@@ -331,7 +350,7 @@ export default function NewTournamentPage() {
             <CardContent className="p-10 space-y-8">
               <textarea 
                 className="flex min-h-[250px] w-full rounded-[2rem] border-none bg-muted/20 p-8 text-xl ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent transition-all"
-                placeholder="Ej: Una liga de 16 equipos dividida en dos grupos. Rango de puntos de 80 a 150. Victoria da 5000 créditos. Los 4 últimos bajan..."
+                placeholder="Ej: Una liga de 16 equipos dividida en dos grupos. Rango de puntos de 80 a 150. Victoria da 5000 créditos. Activa liga dual..."
                 value={aiDescription}
                 onChange={(e) => setAiDescription(e.target.value)}
               />

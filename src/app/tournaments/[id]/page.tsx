@@ -4,7 +4,7 @@
 import { useTournamentStore } from '@/hooks/use-tournament-store';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Trophy, Calendar, Users, ArrowUpToLine, ArrowDownToLine, Play, CheckCircle2, RefreshCw, Coins, Target, AlertTriangle, ShieldAlert, ShoppingBag } from 'lucide-react';
+import { Trophy, Calendar, Users, ArrowUpToLine, ArrowDownToLine, Play, CheckCircle2, RefreshCw, Coins, Target, AlertTriangle, ShieldAlert, ShoppingBag, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -30,6 +30,7 @@ export default function TournamentDetailPage() {
   
   const tournament = tournaments.find(t => t.id === id);
   const [sanctionTargetId, setSanctionTargetId] = useState('');
+  const [sanctionType, setSanctionType] = useState<'club' | 'player'>('club');
   const [sanctionValue, setSanctionValue] = useState(1000);
 
   const participants = useMemo(() => {
@@ -41,12 +42,14 @@ export default function TournamentDetailPage() {
     }
   }, [teams, players, tournament]);
 
-  const calculateStandings = (list: (Team | Player)[]) => {
+  const calculateStandings = (list: (Team | Player)[], isDual: boolean = false) => {
     if (!tournament) return [];
+    const matchesToUse = isDual ? tournament.dualLeagueMatches : tournament.matches;
+    
     const stats = list.map(item => {
       let played = 0, won = 0, drawn = 0, lost = 0, gf = 0, ga = 0, pts = 0;
       
-      tournament.matches.forEach(m => {
+      matchesToUse.forEach(m => {
         if (!m.isSimulated || m.homeScore === undefined || m.awayScore === undefined) return;
         
         if (m.homeId === item.id) {
@@ -83,21 +86,34 @@ export default function TournamentDetailPage() {
     return [{ name: 'Clasificación General', standings: calculateStandings(participants) }];
   }, [tournament, participants]);
 
+  const dualStandings = useMemo(() => {
+    if (!tournament || !tournament.dualLeagueEnabled) return [];
+    return [{ name: 'Liga Dual (Reservas)', standings: calculateStandings(participants, true) }];
+  }, [tournament, participants]);
+
   if (!tournament) return <div className="p-20 text-center font-black">TOURNAMENT NOT FOUND</div>;
 
-  const simulateMatch = (match: Match) => {
+  const simulateMatch = (match: Match, isDual: boolean = false) => {
     let h = 0, a = 0;
     const rule = tournament.scoringRuleType;
     const val = tournament.scoringValue || 3;
     let incident = "";
 
+    // Adjust team rating based on suspensions if it's the main league
+    let homeSuspensionPenalty = 0;
+    let awaySuspensionPenalty = 0;
+
+    if (!isDual) {
+      const homePlayers = players.filter(p => p.teamId === match.homeId);
+      const awayPlayers = players.filter(p => p.teamId === match.awayId);
+      homeSuspensionPenalty = homePlayers.filter(p => p.suspensionMatchdays > 0).length * 10;
+      awaySuspensionPenalty = awayPlayers.filter(p => p.suspensionMatchdays > 0).length * 10;
+    }
+
     if (rule === 'bestOfN') {
-      h = Math.floor(Math.random() * (val + 1));
-      a = val - h;
-      if (h === a && val % 2 !== 0) {
-        h > 0 ? h-- : h++;
-        a = val - h;
-      }
+      const totalPoints = val;
+      h = Math.floor(Math.random() * (totalPoints + 1));
+      a = totalPoints - h;
     } else if (rule === 'firstToN') {
       h = Math.random() > 0.5 ? val : Math.floor(Math.random() * val);
       a = h === val ? Math.floor(Math.random() * val) : val;
@@ -112,7 +128,11 @@ export default function TournamentDetailPage() {
       a = Math.floor(Math.random() * 5);
     }
 
-    if (Math.random() < 0.05) {
+    // Apply suspension penalties to scores
+    if (homeSuspensionPenalty > 0) h = Math.max(0, h - Math.floor(h * (homeSuspensionPenalty / 100)));
+    if (awaySuspensionPenalty > 0) a = Math.max(0, a - Math.floor(a * (awaySuspensionPenalty / 100)));
+
+    if (!isDual && Math.random() < 0.05) {
       const side = Math.random() > 0.5 ? 'home' : 'away';
       const targetId = side === 'home' ? match.homeId : match.awayId;
       const amount = Math.floor(Math.random() * 5000) + 1000;
@@ -125,7 +145,15 @@ export default function TournamentDetailPage() {
 
   const handleSimulateAll = () => {
     const updatedMatches = tournament.matches.map(m => m.isSimulated ? m : simulateMatch(m));
-    updateTournament({ ...tournament, matches: updatedMatches });
+    const updatedDualMatches = tournament.dualLeagueEnabled 
+      ? tournament.dualLeagueMatches.map(m => m.isSimulated ? m : simulateMatch(m, true))
+      : [];
+    
+    updateTournament({ 
+      ...tournament, 
+      matches: updatedMatches,
+      dualLeagueMatches: updatedDualMatches
+    });
     toast({ title: "Temporada Procesada", description: "Todos los resultados y sanciones se han registrado." });
   };
 
@@ -154,8 +182,11 @@ export default function TournamentDetailPage() {
       </header>
 
       <Tabs defaultValue="table" className="w-full">
-        <TabsList className="bg-muted/30 p-1 h-14 rounded-2xl border mb-6">
+        <TabsList className="bg-muted/30 p-1 h-14 rounded-2xl border mb-6 flex overflow-x-auto scrollbar-hide">
           <TabsTrigger value="table" className="rounded-xl font-black uppercase text-xs">Clasificación</TabsTrigger>
+          {tournament.dualLeagueEnabled && (
+            <TabsTrigger value="dual" className="rounded-xl font-black uppercase text-xs">Liga Dual</TabsTrigger>
+          )}
           <TabsTrigger value="market" className="rounded-xl font-black uppercase text-xs">Mercado</TabsTrigger>
           <TabsTrigger value="discipline" className="rounded-xl font-black uppercase text-xs">Disciplina</TabsTrigger>
         </TabsList>
@@ -211,14 +242,55 @@ export default function TournamentDetailPage() {
                 {tournament.scoringRuleType === 'nToNRange' && (
                   <div className="flex justify-between py-2 border-b"><span className="text-muted-foreground uppercase text-[10px]">Suma Total</span><span className="text-accent">{tournament.nToNRangeMin} - {tournament.nToNRangeMax}</span></div>
                 )}
-                {tournament.scoringRuleType === 'bestOfN' && (
-                  <div className="flex justify-between py-2 border-b"><span className="text-muted-foreground uppercase text-[10px]">Suma Total</span><span>{tournament.scoringValue}</span></div>
-                )}
                 <div className="flex justify-between py-2 border-b"><span className="text-muted-foreground uppercase text-[10px]">Victoria</span><span className="text-primary">+{tournament.winReward} {settings.currency}</span></div>
               </div>
             </Card>
           </div>
         </TabsContent>
+
+        {tournament.dualLeagueEnabled && (
+          <TabsContent value="dual" className="space-y-8">
+            {dualStandings.map((group, gIdx) => (
+              <Card key={gIdx} className="border-none bg-card shadow-2xl rounded-[3rem] overflow-hidden">
+                <CardHeader className="bg-accent/10 border-b p-8">
+                  <div className="flex items-center gap-3">
+                    <Layers className="text-accent" />
+                    <CardTitle className="text-xl font-black uppercase">{group.name}</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader className="bg-muted/5">
+                      <TableRow className="hover:bg-transparent border-b">
+                        <TableHead className="w-16 text-center font-black">#</TableHead>
+                        <TableHead className="font-black uppercase">Equipo (Reservas)</TableHead>
+                        <TableHead className="text-center font-black">P</TableHead>
+                        <TableHead className="text-center font-black text-accent">PTS</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {group.standings.map((item, idx) => (
+                        <TableRow key={item.id} className="h-16">
+                          <TableCell className="text-center font-black text-lg">{idx + 1}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center font-black text-[10px]">
+                                {'abbreviation' in item ? item.abbreviation : item.name.substring(0,2).toUpperCase()}
+                              </div>
+                              <span className="font-bold">{item.name}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center font-bold">{item.played}</TableCell>
+                          <TableCell className="text-center font-black text-xl text-accent">{item.pts}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            ))}
+          </TabsContent>
+        )}
 
         <TabsContent value="market" className="space-y-8">
           <Card className="border-none bg-card shadow-2xl rounded-[3rem] p-8">
@@ -275,44 +347,63 @@ export default function TournamentDetailPage() {
               <header className="mb-6"><h2 className="text-xl font-black uppercase flex items-center gap-3 text-destructive"><ShieldAlert /> Aplicar Sanción</h2></header>
               <div className="space-y-6">
                 <div className="space-y-2">
-                  <Label>Objetivo de Sanción</Label>
-                  <Select onValueChange={setSanctionTargetId}>
-                    <SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Elegir objetivo..." /></SelectTrigger>
+                  <Label>Tipo de Sanción</Label>
+                  <Select value={sanctionType} onValueChange={(v: any) => setSanctionType(v)}>
+                    <SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {teams.filter(t => tournament.participants.includes(t.id)).map(t => <SelectItem key={t.id} value={t.id}>[Club] {t.name}</SelectItem>)}
-                      {players.filter(p => p.teamId && tournament.participants.includes(p.teamId)).map(p => <SelectItem key={p.id} value={p.id}>[Jugador] {p.name}</SelectItem>)}
+                      <SelectItem value="club">Multa a Club (Dinero)</SelectItem>
+                      <SelectItem value="player">Suspensión a Jugador (Jornadas)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Cuantía (Créditos / Jornadas)</Label>
+                  <Label>{sanctionType === 'club' ? 'Club Objetivo' : 'Jugador Objetivo'}</Label>
+                  <Select onValueChange={setSanctionTargetId}>
+                    <SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                    <SelectContent>
+                      {sanctionType === 'club' ? (
+                        teams.filter(t => tournament.participants.includes(t.id)).map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)
+                      ) : (
+                        players.filter(p => p.teamId && tournament.participants.includes(p.teamId)).map(p => <SelectItem key={p.id} value={p.id}>{p.name} ({teams.find(t => t.id === p.teamId)?.abbreviation})</SelectItem>)
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{sanctionType === 'club' ? `Cantidad (${settings.currency})` : 'Jornadas de Suspensión'}</Label>
                   <Input type="number" value={sanctionValue} onChange={e => setSanctionValue(Number(e.target.value))} className="h-12 rounded-xl" />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <Button variant="destructive" className="h-12 rounded-xl font-black" onClick={() => {
+                <Button 
+                  variant="destructive" 
+                  className="w-full h-12 rounded-xl font-black" 
+                  onClick={() => {
                     if(!sanctionTargetId) return;
-                    applySanction(sanctionTargetId, 'team-budget', sanctionValue);
-                    toast({ title: "Multa Aplicada", description: `Se han retirado ${sanctionValue} créditos.` });
-                  }}>MULTA ECON.</Button>
-                  <Button variant="outline" className="h-12 rounded-xl font-black border-destructive text-destructive" onClick={() => {
-                    if(!sanctionTargetId) return;
-                    applySanction(sanctionTargetId, 'player-suspension', sanctionValue);
-                    toast({ title: "Suspensión Confirmada", description: `Sancionado por ${sanctionValue} jornadas.` });
-                  }}>SUSPENDER</Button>
-                </div>
+                    applySanction(sanctionTargetId, sanctionType === 'club' ? 'team-budget' : 'player-suspension', sanctionValue);
+                    toast({ 
+                      title: sanctionType === 'club' ? "Multa Aplicada" : "Suspensión Confirmada", 
+                      description: sanctionType === 'club' ? `Deducidos ${sanctionValue} créditos.` : `Sancionado por ${sanctionValue} jornadas.`
+                    });
+                  }}
+                >
+                  CONFIRMAR SANCIÓN
+                </Button>
               </div>
             </Card>
 
             <Card className="border-none bg-card shadow-2xl rounded-[3rem] p-8">
-              <header className="mb-6"><h2 className="text-xl font-black uppercase flex items-center gap-3"><AlertTriangle className="text-yellow-500" /> Registro Disciplinario</h2></header>
+              <header className="mb-6"><h2 className="text-xl font-black uppercase flex items-center gap-3"><AlertTriangle className="text-yellow-500" /> Jugadores Suspendidos</h2></header>
               <div className="space-y-3">
-                {tournament.matches.filter(m => m.incidentLog).slice(0, 8).map(m => (
-                  <div key={m.id} className="p-4 bg-destructive/10 rounded-2xl border border-destructive/20 text-[10px] font-black uppercase text-destructive flex items-center gap-2">
-                    <ShieldAlert className="w-3 h-3" /> {m.incidentLog}
+                {players.filter(p => p.suspensionMatchdays > 0 && p.teamId && tournament.participants.includes(p.teamId)).map(p => (
+                  <div key={p.id} className="p-4 bg-destructive/10 rounded-2xl border border-destructive/20 flex justify-between items-center">
+                    <div>
+                      <p className="font-black text-sm uppercase">{p.name}</p>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase">{teams.find(t => t.id === p.teamId)?.name}</p>
+                    </div>
+                    <Badge variant="destructive" className="font-black">{p.suspensionMatchdays} JORNADAS</Badge>
                   </div>
                 ))}
-                {tournament.matches.filter(m => m.incidentLog).length === 0 && (
-                  <p className="text-center py-12 text-muted-foreground font-bold italic">No hay incidentes esta temporada.</p>
+                {players.filter(p => p.suspensionMatchdays > 0 && p.teamId && tournament.participants.includes(p.teamId)).length === 0 && (
+                  <p className="text-center py-12 text-muted-foreground font-bold italic">Limpio de suspensiones.</p>
                 )}
               </div>
             </Card>

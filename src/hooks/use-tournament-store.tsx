@@ -40,7 +40,6 @@ const generateSeedData = () => {
     hortaData.settings.positions.forEach((pos, i) => {
       const pId = `${team.id}-p-${i}`;
       
-      // Biografías personalizadas basadas en posición y equipo
       let bio = "";
       if (pos === 'Sharpshooter') bio = `Francotirador de élite de ${teamNameNoId}. Posee un lanzamiento de seda capaz de romper cualquier defensa desde el perímetro.`;
       if (pos === 'Blitz') bio = `Motor incansable de ${teamNameNoId}. Destaca por su explosividad en el primer paso y su visión de juego panorámica.`;
@@ -73,7 +72,7 @@ const generateSeedData = () => {
   return { 
     teams: allTeams, 
     players: allPlayers, 
-    tournaments: hortaData.tournaments as Tournament[] 
+    tournaments: hortaData.tournaments.map(t => ({ ...t, dualLeagueEnabled: false, dualLeagueMatches: [] })) as Tournament[] 
   };
 };
 
@@ -168,7 +167,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
 
   const applySanction = useCallback((targetId: string, type: 'team-budget' | 'player-suspension', value: number) => {
     if (type === 'team-budget') {
-      setTeams(prev => prev.map(t => t.id === targetId ? { ...t, budget: t.budget - value } : t));
+      setTeams(prev => prev.map(t => t.id === targetId ? { ...t, budget: Math.max(0, t.budget - value) } : t));
     } else {
       setPlayers(prev => prev.map(p => p.id === targetId ? { ...p, suspensionMatchdays: p.suspensionMatchdays + value } : p));
     }
@@ -204,7 +203,11 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   const updatePlayer = useCallback((player: Player) => setPlayers(p => p.map(p2 => p2.id === player.id ? player : p2)), []);
   const deletePlayer = useCallback((id: string) => setPlayers(p => p.filter(p2 => p2.id !== id)), []);
   const addTournament = useCallback((t: Tournament) => setTournaments(p => [...p, t]), []);
-  const updateTournament = useCallback((t: Tournament) => setTournaments(p => p.map(t2 => t2.id === t.id ? t : t2)), []);
+  const updateTournament = useCallback((t: Tournament) => {
+    setTournaments(p => p.map(t2 => t2.id === t.id ? t : t2));
+    // Check if we need to reduce player suspensions if a matchday was simulated
+    setPlayers(prev => prev.map(p => p.suspensionMatchdays > 0 ? { ...p, suspensionMatchdays: p.suspensionMatchdays - 1 } : p));
+  }, []);
   const updateSettings = useCallback((s: Partial<GlobalSettings>) => setSettings(p => ({ ...p, ...s })), []);
 
   const value = useMemo(() => ({
