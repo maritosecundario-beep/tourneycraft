@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useState } from 'react';
 import { useTournamentStore } from '@/hooks/use-tournament-store';

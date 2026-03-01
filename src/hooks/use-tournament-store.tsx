@@ -1,5 +1,4 @@
-
-"use client";
+'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { Team, Player, Tournament, GlobalSettings } from '@/lib/types';

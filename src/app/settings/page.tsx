@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useTournamentStore } from '@/hooks/use-tournament-store';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
