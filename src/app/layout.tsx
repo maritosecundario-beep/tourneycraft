@@ -25,9 +25,9 @@ export default function RootLayout({
       <body className="font-body antialiased bg-background text-foreground min-h-screen">
         <FirebaseClientProvider>
           <TournamentProvider>
-            <div className="flex">
+            <div className="flex flex-col md:flex-row min-h-screen">
               <Navbar />
-              <main className="flex-1 ml-20 md:ml-64 p-4 md:p-8 min-h-screen">
+              <main className="flex-1 w-full md:ml-64 p-4 md:p-8 pb-24 md:pb-8 min-h-screen">
                 {children}
               </main>
             </div>

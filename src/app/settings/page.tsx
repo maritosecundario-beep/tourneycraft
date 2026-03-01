@@ -82,32 +82,32 @@ export default function SettingsPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-32">
       <header>
-        <h1 className="text-4xl font-black flex items-center gap-3 text-foreground">
-          <Settings className="text-primary w-10 h-10" /> AJUSTES GLOBALES
+        <h1 className="text-3xl md:text-4xl font-black flex items-center gap-3 text-foreground">
+          <Settings className="text-primary w-8 h-8 md:w-10 md:h-10" /> AJUSTES GLOBALES
         </h1>
-        <p className="text-muted-foreground text-lg">Personaliza la base estructural y estética de tu simulador.</p>
+        <p className="text-muted-foreground text-base md:text-lg">Personaliza la base estructural y estética de tu simulador.</p>
       </header>
 
-      <div className="grid gap-8">
+      <div className="grid gap-6 md:gap-8">
         {/* TEMAS Y ESTÉTICA */}
-        <Card className="border-none bg-card shadow-2xl overflow-hidden">
+        <Card className="border-none bg-card shadow-xl md:shadow-2xl overflow-hidden">
           <div className="h-2 w-full bg-gradient-to-r from-primary via-accent to-yellow-500" />
           <CardHeader>
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
-                <Palette className="text-primary w-6 h-6" />
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+                <Palette className="text-primary w-5 h-5 md:w-6 md:h-6" />
               </div>
               <div>
-                <CardTitle className="text-xl">Atmósfera Visual</CardTitle>
-                <CardDescription>Cambia el look & feel de toda la plataforma.</CardDescription>
+                <CardTitle className="text-lg md:text-xl">Atmósfera Visual</CardTitle>
+                <CardDescription className="text-xs md:text-sm">Look & feel de la plataforma.</CardDescription>
               </div>
             </div>
           </CardHeader>
-          <CardContent className="grid md:grid-cols-2 gap-8">
+          <CardContent className="grid md:grid-cols-2 gap-6 md:gap-8">
             <div className="space-y-4">
               <Label>Tema Seleccionado</Label>
               <Select value={theme} onValueChange={(v: any) => setTheme(v)}>
-                <SelectTrigger className="h-12 text-lg">
+                <SelectTrigger className="h-12 text-base md:text-lg">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -120,7 +120,7 @@ export default function SettingsPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="p-6 bg-muted/30 rounded-2xl border flex items-center justify-center gap-4">
+            <div className="hidden md:flex p-6 bg-muted/30 rounded-2xl border items-center justify-center gap-4">
                <div className="w-8 h-8 rounded-full bg-background border shadow-sm" />
                <div className="w-8 h-8 rounded-full bg-primary shadow-sm" />
                <div className="w-8 h-8 rounded-full bg-accent shadow-sm" />
@@ -130,69 +130,43 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* ECONOMÍA */}
-        <Card className="border-none bg-card shadow-xl">
-          <CardHeader>
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-yellow-500/10 flex items-center justify-center">
-                <Coins className="text-yellow-500 w-6 h-6" />
-              </div>
-              <div>
-                <CardTitle>Sistema Monetario</CardTitle>
-                <CardDescription>Define la moneda de cambio para fichajes y recompensas.</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-4 max-w-sm">
-              <Input 
-                value={currency} 
-                onChange={(e) => setCurrency(e.target.value)} 
-                className="h-12 text-lg font-bold"
-                placeholder="Ej. CR, Gold, $"
-              />
-              <span className="text-muted-foreground font-mono">Simbolo Activo</span>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* EDITOR DE POSICIONES */}
-        <Card className="border-none bg-card shadow-2xl">
-          <CardHeader className="flex flex-row items-center justify-between">
+        <Card className="border-none bg-card shadow-xl">
+          <CardHeader className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-accent/10 flex items-center justify-center">
-                <MapPin className="text-accent w-6 h-6" />
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-accent/10 flex items-center justify-center">
+                <MapPin className="text-accent w-5 h-5 md:w-6 md:h-6" />
               </div>
               <div>
-                <CardTitle>Definición de Roles</CardTitle>
-                <CardDescription>Gestiona las posiciones de los atletas y su código de color.</CardDescription>
+                <CardTitle className="text-lg md:text-xl">Roles y Colores</CardTitle>
+                <CardDescription className="text-xs md:text-sm">Identificación por rol.</CardDescription>
               </div>
             </div>
-            <Button onClick={addPosition} variant="outline" className="border-accent text-accent hover:bg-accent hover:text-white">
+            <Button onClick={addPosition} variant="outline" className="w-full md:w-auto border-accent text-accent">
               <Plus className="w-4 h-4 mr-2" /> Añadir Rol
             </Button>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
               {positions.map((pos, index) => (
-                <div key={index} className="group flex items-center gap-4 p-4 bg-muted/20 hover:bg-muted/40 rounded-2xl border transition-all">
+                <div key={index} className="group flex items-center gap-4 p-3 md:p-4 bg-muted/20 hover:bg-muted/40 rounded-2xl border transition-all">
                   <div 
-                    className="w-12 h-12 rounded-xl flex items-center justify-center text-xs font-black shadow-lg shrink-0"
+                    className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-[10px] md:text-xs font-black shadow-lg shrink-0"
                     style={{ backgroundColor: posColors[pos] || PREDEFINED_COLORS[10], color: '#fff' }}
                   >
                     {pos.substring(0, 3).toUpperCase()}
                   </div>
-                  <div className="flex-1 space-y-2">
+                  <div className="flex-1 space-y-1">
                     <Input 
                       value={pos} 
                       onChange={(e) => updatePositionName(index, e.target.value)}
-                      className="h-8 bg-transparent border-none font-bold text-lg focus-visible:ring-0 p-0"
+                      className="h-7 bg-transparent border-none font-bold text-base md:text-lg focus-visible:ring-0 p-0"
                     />
                     <div className="flex items-center gap-2">
                       <Popover>
                         <PopoverTrigger asChild>
                           <button 
-                            className="w-6 h-6 rounded-full border-2 border-white shadow-sm cursor-pointer"
+                            className="w-5 h-5 md:w-6 md:h-6 rounded-full border-2 border-white shadow-sm cursor-pointer"
                             style={{ backgroundColor: posColors[pos] || PREDEFINED_COLORS[10] }}
                           />
                         </PopoverTrigger>
@@ -212,13 +186,12 @@ export default function SettingsPage() {
                           </div>
                         </PopoverContent>
                       </Popover>
-                      <span className="text-[10px] uppercase font-bold text-muted-foreground">Elegir Color de Rol</span>
                     </div>
                   </div>
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="opacity-0 group-hover:opacity-100 text-destructive hover:bg-destructive/10"
+                    className="md:opacity-0 md:group-hover:opacity-100 text-destructive"
                     onClick={() => removePosition(index)}
                   >
                     <Trash2 className="w-4 h-4" />
@@ -233,35 +206,31 @@ export default function SettingsPage() {
         <Card className="border-none bg-card shadow-xl">
           <CardHeader>
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
-                <ListPlus className="text-primary w-6 h-6" />
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+                <ListPlus className="text-primary w-5 h-5 md:w-6 md:h-6" />
               </div>
               <div>
-                <CardTitle>Métricas y Atributos</CardTitle>
-                <CardDescription>Define las estadísticas que determinan la calidad del atleta.</CardDescription>
+                <CardTitle className="text-lg md:text-xl">Atributos</CardTitle>
+                <CardDescription className="text-xs md:text-sm">Estadísticas por párrafo.</CardDescription>
               </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="bg-accent/5 p-4 rounded-xl border border-accent/20 flex gap-3 mb-4">
-              <Hash className="text-accent shrink-0" />
-              <p className="text-sm text-foreground/80">Escribe un atributo por párrafo. Esto generará automáticamente los sliders en el creador de jugadores.</p>
-            </div>
             <Textarea 
               value={attributes} 
               onChange={(e) => setAttributes(e.target.value)} 
-              placeholder="Ej: Fuerza&#10;Resistencia&#10;Velocidad..."
-              className="min-h-[200px] text-lg font-medium p-6 bg-muted/10"
+              placeholder="Ej: Fuerza&#10;Resistencia..."
+              className="min-h-[150px] md:min-h-[200px] text-base md:text-lg font-medium p-4 md:p-6 bg-muted/10"
             />
           </CardContent>
         </Card>
       </div>
 
-      <div className="fixed bottom-10 right-10 flex justify-end">
+      <div className="fixed bottom-20 md:bottom-10 right-4 md:right-10 left-4 md:left-auto flex justify-end z-40">
         <Button 
           onClick={handleSave} 
           size="lg" 
-          className="shadow-2xl shadow-primary/40 px-10 h-16 text-xl font-black gap-3 rounded-2xl"
+          className="w-full md:w-auto shadow-2xl shadow-primary/40 h-14 md:h-16 text-lg md:text-xl font-black gap-3 rounded-2xl"
         >
           <CheckCircle2 className="w-6 h-6" /> GUARDAR UNIVERSO
         </Button>
