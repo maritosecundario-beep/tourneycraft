@@ -16,11 +16,16 @@ export type Player = {
 export type UniformStyle = 
   | 'solid' | 'stripes' | 'hoops' | 'halves' | 'gradient' | 'minimal' 
   | 'sash' | 'pinstripes' | 'checks' | 'quarters' | 'waves' | 'zigzag' 
-  | 'pixel' | 'honeycomb' | 'shoulders' | 'side-panels' | 'camouflage' | 'stars';
+  | 'pixel' | 'honeycomb' | 'shoulders' | 'side-panels' | 'camouflage' | 'stars'
+  | 'double-stripes' | 'fade-vertical' | 'asymmetric';
 
 export type EmblemShape = 
   | 'shield' | 'circle' | 'square' | 'modern' | 'diamond' | 'vintage' 
   | 'crown' | 'star' | 'hexagon' | 'oval' | 'triangle' | 'banner' | 'wings' | 'eagle' | 'lion';
+
+export type EmblemPattern = 'none' | 'vertical-split' | 'horizontal-split' | 'diagonal-split' | 'cross' | 'saltire' | 'quarters';
+export type ElementPlacement = 'left' | 'center' | 'right';
+export type VerticalPlacement = 'top' | 'middle' | 'bottom';
 
 export type VenueSurface = 'grass' | 'artificial' | 'clay' | 'hardcourt' | 'parquet' | 'ice' | 'sand';
 export type VenueSize = 'small' | 'medium' | 'large' | 'monumental';
@@ -32,10 +37,12 @@ export type Team = {
   rating: number; // 1-100
   // Crest Configuration
   emblemShape: EmblemShape;
+  emblemPattern: EmblemPattern;
   crestPrimary: string;
   crestSecondary: string;
   crestTertiary?: string;
   crestAccent?: string;
+  crestBorderWidth: 'none' | 'thin' | 'thick';
   // Kit Configuration
   kitPrimary: string;
   kitSecondary: string;
@@ -44,6 +51,9 @@ export type Team = {
   uniformStyle: UniformStyle;
   brand?: string;
   sponsor?: string;
+  crestPlacement: ElementPlacement;
+  sponsorPlacement: VerticalPlacement;
+  brandPlacement: ElementPlacement;
   // Venue Configuration
   venueName: string;
   venueCapacity: number;

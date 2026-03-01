@@ -54,6 +54,11 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         const parsed = JSON.parse(saved);
         const migratedTeams = (parsed.teams || []).map((t: any) => ({
           ...t,
+          emblemPattern: t.emblemPattern || 'none',
+          crestBorderWidth: t.crestBorderWidth || 'thin',
+          crestPlacement: t.crestPlacement || 'left',
+          sponsorPlacement: t.sponsorPlacement || 'middle',
+          brandPlacement: t.brandPlacement || 'right',
           crestPrimary: t.crestPrimary || t.primaryColor || '#3b82f6',
           crestSecondary: t.crestSecondary || t.secondaryColor || '#ffffff',
           kitPrimary: t.kitPrimary || t.primaryColor || '#3b82f6',
@@ -62,7 +67,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
           emblemShape: t.emblemShape || 'shield',
           venueName: t.venueName || 'Arena Principal',
           venueCapacity: t.venueCapacity || 5000,
-          venueSurface: t.venueSurface || 'hardcourt',
+          venueSurface: t.venueSurface || 'grass',
           venueSize: t.venueSize || 'medium',
           brand: t.brand || 'Classic',
           sponsor: t.sponsor || ''
