@@ -6,8 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { Search, Trash2, Pencil, Sparkles, Shield, Star, Coins, UserPlus, FileText, UserCircle2, Users } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Search, Trash2, Pencil, Sparkles, Shield, Star, Coins, UserPlus, LayoutGrid, Users, UserCircle2, Info, ChevronRight } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -17,6 +17,8 @@ import { cn } from '@/lib/utils';
 import { PREDEFINED_COLORS } from '@/lib/colors';
 import { Textarea } from '@/components/ui/textarea';
 import { CrestIcon } from '@/components/ui/crest-icon';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
 
 const ColorPicker = ({ label, value, onChange }: { label: string, value: string, onChange: (c: string) => void }) => (
   <div className="space-y-1.5">
@@ -45,6 +47,7 @@ export default function TeamsPage() {
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [isPlayerDialogOpen, setIsPlayerDialogOpen] = useState(false);
   const [playerTargetTeamId, setPlayerTargetTeamId] = useState<string | null>(null);
+  const [viewingRosterTeamId, setViewingRosterTeamId] = useState<string | null>(null);
   
   // Team Form State
   const [name, setName] = useState('');
@@ -68,6 +71,7 @@ export default function TeamsPage() {
   const [pName, setPName] = useState('');
   const [pPos, setPPos] = useState(settings.positions[0] || 'FW');
   const [pVal, setPVal] = useState(10);
+  const [pAttrs, setPAttrs] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (editingTeam) {
@@ -91,6 +95,14 @@ export default function TeamsPage() {
       resetForm();
     }
   }, [editingTeam]);
+
+  useEffect(() => {
+    if (isPlayerDialogOpen) {
+      const initialAttrs: Record<string, number> = {};
+      settings.attributeNames.forEach(attr => initialAttrs[attr] = 50);
+      setPAttrs(initialAttrs);
+    }
+  }, [isPlayerDialogOpen, settings.attributeNames]);
 
   const resetForm = () => {
     setName(''); setDescription(''); setAbbreviation(''); setRating(50); setBudget(50);
@@ -137,10 +149,10 @@ export default function TeamsPage() {
       position: pPos,
       teamId: playerTargetTeamId,
       suspensionMatchdays: 0,
-      attributes: settings.attributeNames.map(a => ({ name: a, value: 50 })),
+      attributes: Object.entries(pAttrs).map(([name, value]) => ({ name, value })),
       uniformStyle: 'solid',
-      kitPrimary: PREDEFINED_COLORS[24],
-      kitSecondary: PREDEFINED_COLORS[35],
+      kitPrimary: teams.find(t => t.id === playerTargetTeamId)?.crestPrimary || PREDEFINED_COLORS[24],
+      kitSecondary: teams.find(t => t.id === playerTargetTeamId)?.crestSecondary || PREDEFINED_COLORS[35],
       crestPlacement: 'left',
       sponsorPlacement: 'middle',
       brandPlacement: 'right'
@@ -155,6 +167,9 @@ export default function TeamsPage() {
     t.name.toLowerCase().includes(search.toLowerCase()) || 
     t.abbreviation.toLowerCase().includes(search.toLowerCase())
   );
+
+  const viewingRosterTeam = teams.find(t => t.id === viewingRosterTeamId);
+  const teamRoster = players.filter(p => p.teamId === viewingRosterTeamId);
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 pb-32">
@@ -291,6 +306,9 @@ export default function TeamsPage() {
                 <Button className="h-11 rounded-xl font-black shadow-lg" variant="default" onClick={() => { setPlayerTargetTeamId(team.id); setIsPlayerDialogOpen(true); }}>
                   <UserPlus className="w-4 h-4 mr-2" /> RECLUTAR
                 </Button>
+                <Button variant="outline" className="h-11 rounded-xl font-black border-primary text-primary" onClick={() => setViewingRosterTeamId(team.id)}>
+                  <LayoutGrid className="w-4 h-4 mr-2" /> PLANTILLA
+                </Button>
                 <Dialog>
                   <DialogTrigger asChild>
                     <Button variant="outline" className="h-11 rounded-xl font-black border-accent text-accent"><Users className="w-4 h-4 mr-2" /> TRASPASOS</Button>
@@ -329,20 +347,121 @@ export default function TeamsPage() {
       </div>
 
       <Dialog open={isPlayerDialogOpen} onOpenChange={setIsPlayerDialogOpen}>
-        <DialogContent className="rounded-[2rem] max-w-md">
-          <DialogHeader><DialogTitle className="font-black uppercase flex items-center gap-2"><UserCircle2 className="text-primary" /> Nuevo Agente para el Club</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2"><Label>Nombre Completo</Label><Input value={pName} onChange={e => setPName(e.target.value)} className="h-12 rounded-xl" /></div>
-            <div className="space-y-2">
-              <Label>Posición</Label>
-              <Select value={pPos} onValueChange={setPPos}>
-                <SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
-                <SelectContent>{settings.positions.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2"><Label>Valor ({settings.currency})</Label><Input type="number" value={pVal} onChange={e => setPVal(Number(e.target.value))} className="h-12 rounded-xl" /></div>
-            <Button onClick={handleCreatePlayer} disabled={!pName} className="w-full h-12 rounded-xl font-black shadow-lg shadow-primary/20">CONFIRMAR FICHAJE</Button>
+        <DialogContent className="rounded-[2.5rem] max-w-2xl p-0 overflow-hidden border-none shadow-2xl">
+          <div className="p-6 bg-muted/20 border-b">
+            <DialogTitle className="font-black uppercase flex items-center gap-2">
+              <UserCircle2 className="text-primary" /> Reclutamiento Directo
+            </DialogTitle>
           </div>
+          <Tabs defaultValue="base" className="w-full flex flex-col h-[60vh]">
+            <TabsList className="grid grid-cols-2 rounded-none h-12 bg-card p-1 border-b">
+              <TabsTrigger value="base" className="rounded-xl">Datos Base</TabsTrigger>
+              <TabsTrigger value="stats" className="rounded-xl">Atributos</TabsTrigger>
+            </TabsList>
+            
+            <div className="flex-1 overflow-y-auto p-6">
+              <TabsContent value="base" className="space-y-4 mt-0">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2 col-span-2">
+                    <Label>Nombre Completo</Label>
+                    <Input value={pName} onChange={e => setPName(e.target.value)} className="h-12 rounded-xl" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Posición</Label>
+                    <Select value={pPos} onValueChange={setPPos}>
+                      <SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
+                      <SelectContent>{settings.positions.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Valor ({settings.currency})</Label>
+                    <Input type="number" value={pVal} onChange={e => setPVal(Number(e.target.value))} className="h-12 rounded-xl" />
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="stats" className="space-y-6 mt-0">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {settings.attributeNames.map(attr => (
+                    <div key={attr} className="space-y-3 p-4 bg-muted/10 rounded-2xl border">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-primary">{attr}</span>
+                        <span className="text-lg font-black">{pAttrs[attr] || 50}</span>
+                      </div>
+                      <Slider 
+                        value={[pAttrs[attr] || 50]} 
+                        onValueChange={v => setPAttrs(prev => ({...prev, [attr]: v[0]}))} 
+                        max={100} min={1} 
+                      />
+                    </div>
+                  ))}
+                </div>
+              </TabsContent>
+            </div>
+
+            <div className="p-4 bg-muted/20 border-t flex justify-end gap-3">
+              <Button variant="ghost" onClick={() => setIsPlayerDialogOpen(false)} className="rounded-xl h-12 font-black px-8">CANCELAR</Button>
+              <Button onClick={handleCreatePlayer} disabled={!pName} className="rounded-xl h-12 font-black px-8 shadow-lg shadow-primary/20">CONFIRMAR FICHAJE</Button>
+            </div>
+          </Tabs>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!viewingRosterTeamId} onOpenChange={(o) => !o && setViewingRosterTeamId(null)}>
+        <DialogContent className="max-w-3xl p-0 overflow-hidden rounded-[2.5rem] border-none shadow-2xl">
+          {viewingRosterTeam && (
+            <div className="flex flex-col h-[85vh]">
+              <div className="p-8 bg-muted/10 border-b flex items-center gap-6">
+                <CrestIcon 
+                  shape={viewingRosterTeam.emblemShape} 
+                  pattern={viewingRosterTeam.emblemPattern} 
+                  c1={viewingRosterTeam.crestPrimary} 
+                  c2={viewingRosterTeam.crestSecondary} 
+                  c3={viewingRosterTeam.crestTertiary || viewingRosterTeam.crestSecondary} 
+                  size="w-20 h-20" 
+                />
+                <div className="flex-1">
+                  <DialogTitle className="text-3xl font-black uppercase tracking-tighter">Plantilla de {viewingRosterTeam.name}</DialogTitle>
+                  <p className="text-muted-foreground font-bold text-xs uppercase mt-1">Total: {teamRoster.length} Agentes • Presupuesto: {viewingRosterTeam.budget} {settings.currency}</p>
+                </div>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {teamRoster.length === 0 ? (
+                    <div className="col-span-full py-20 text-center bg-muted/10 rounded-3xl border-2 border-dashed">
+                      <Users className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                      <p className="font-bold text-muted-foreground">Sin jugadores asignados actualmente.</p>
+                    </div>
+                  ) : (
+                    teamRoster.map(player => (
+                      <div key={player.id} className="p-4 bg-card border rounded-2xl shadow-sm flex items-center justify-between hover:border-primary/50 transition-colors">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center font-black text-primary">#{player.jerseyNumber}</div>
+                          <div>
+                            <p className="font-black text-sm uppercase truncate max-w-[150px]">{player.name}</p>
+                            <Badge variant="secondary" className="text-[9px] h-4 mt-1 font-black">{player.position}</Badge>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-black text-xs text-accent">{player.monetaryValue} {settings.currency}</p>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => {
+                            if(confirm(`¿Despedir a ${player.name}?`)) deletePlayer(player.id);
+                          }}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+              
+              <div className="p-6 border-t bg-muted/5 flex justify-end">
+                <Button onClick={() => setViewingRosterTeamId(null)} className="rounded-xl font-black h-12 px-8">CERRAR PLANTILLA</Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
