@@ -3,7 +3,7 @@
 import { useTournamentStore } from '@/hooks/use-tournament-store';
 import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Trophy, Calendar, Users, Play, ShieldAlert, ShoppingBag, Layers, Target, ChevronRight, UserCircle2, Star, Sword, Zap, Info, Coins, LayoutGrid } from 'lucide-react';
+import { Trophy, Calendar, Users, Play, ShieldAlert, ShoppingBag, Layers, Target, ChevronRight, UserCircle2, Star, Sword, Zap, Info, Coins, LayoutGrid, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -14,20 +14,14 @@ import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CrestIcon } from '@/components/ui/crest-icon';
 
 export default function TournamentDetailPage() {
   const { id } = useParams();
-  const { tournaments, teams, players, updateTournament, settings, applySanction, transferPlayer, resolveMatch, generateSchedule } = useTournamentStore();
+  const { tournaments, teams, players, updateTournament, settings, applySanction, transferPlayer, resolveMatch, generateSchedule, triggerMarketMoves } = useTournamentStore();
   const { toast } = useToast();
   
   const [sanctionTargetId, setSanctionTargetId] = useState('');
@@ -43,12 +37,30 @@ export default function TournamentDetailPage() {
 
   const participants = useMemo(() => {
     if (!tournament) return [];
-    if (tournament.entryType === 'teams') {
-      return teams.filter(t => tournament.participants.includes(t.id));
-    } else {
-      return players.filter(p => tournament.participants.includes(p.id));
-    }
+    if (tournament.entryType === 'teams') return teams.filter(t => tournament.participants.includes(t.id));
+    return players.filter(p => tournament.participants.includes(p.id));
   }, [teams, players, tournament]);
+
+  const standings = useMemo(() => {
+    if (!tournament) return [];
+    return participants.map(item => {
+      let played = 0, won = 0, lost = 0, gf = 0, ga = 0, pts = 0;
+      tournament.matches.forEach(m => {
+        if (!m.isSimulated || m.homeScore === undefined) return;
+        if (m.homeId === item.id || m.awayId === item.id) {
+          played++;
+          const isHome = m.homeId === item.id;
+          const myScore = isHome ? m.homeScore : m.awayScore;
+          const opScore = isHome ? m.awayScore : m.homeScore;
+          gf += myScore; ga += opScore;
+          if (myScore > opScore) { won++; pts += tournament.winPoints || 1; }
+          else if (myScore < opScore) { lost++; pts += tournament.lossPoints || 0; }
+          else pts += tournament.drawPoints || 0;
+        }
+      });
+      return { ...item, played, won, lost, gf, ga, gd: gf - ga, pts };
+    }).sort((a, b) => b.pts - a.pts || b.gd - a.gd);
+  }, [tournament, participants]);
 
   const currentMatchdayMatches = useMemo(() => {
     if (!tournament) return [];
@@ -60,70 +72,10 @@ export default function TournamentDetailPage() {
     return currentMatchdayMatches.find(m => m.homeId === tournament.managedParticipantId || m.awayId === tournament.managedParticipantId);
   }, [tournament, currentMatchdayMatches]);
 
-  const calculateStandings = (list: (Team | Player)[], isDual: boolean = false) => {
-    if (!tournament) return [];
-    const matchesToUse = isDual ? tournament.dualLeagueMatches : tournament.matches;
-    
-    const stats = list.map(item => {
-      let played = 0, won = 0, lost = 0, gf = 0, ga = 0, pts = 0;
-      
-      matchesToUse.forEach(m => {
-        if (!m.isSimulated || m.homeScore === undefined || m.awayScore === undefined) return;
-        
-        if (m.homeId === item.id) {
-          played++;
-          gf += m.homeScore; ga += m.awayScore;
-          if (m.homeScore > m.awayScore) { won++; pts += 10; }
-          else lost++; 
-        } else if (m.awayId === item.id) {
-          played++;
-          gf += m.awayScore; ga += m.homeScore;
-          if (m.awayScore > m.homeScore) { won++; pts += 10; }
-          else lost++;
-        }
-      });
-
-      pts -= lost * 15;
-      
-      return { ...item, played, won, lost, gf, ga, gd: gf - ga, pts };
-    });
-    
-    return stats.sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
-  };
-
-  const groupedStandings = useMemo(() => {
-    if (!tournament) return [];
-    if (tournament.leagueType === 'groups' && tournament.groups) {
-      return tournament.groups.map(group => ({
-        name: group.name,
-        standings: calculateStandings(participants.filter(p => group.participantIds.includes(p.id)))
-      }));
-    }
-    return [{ name: 'Clasificación General', standings: calculateStandings(participants) }];
-  }, [tournament, participants]);
-
-  const viewingTeam = useMemo(() => {
-    if (!viewingTeamId) return null;
-    const team = teams.find(t => t.id === viewingTeamId);
-    if (!team) return null;
-    
-    let stats = null;
-    for (const group of groupedStandings) {
-      const s = group.standings.find(st => st.id === viewingTeamId);
-      if (s) { stats = s; break; }
-    }
-    
-    const teamPlayers = players.filter(p => p.teamId === viewingTeamId);
-    return { ...team, stats, teamPlayers };
-  }, [viewingTeamId, teams, players, groupedStandings]);
-
-  if (!tournament) return <div className="p-20 text-center font-black">TORNEO NO ENCONTRADO</div>;
-
   const simulateMatchLogic = (m: Match, isDual: boolean = false) => {
     let hScore = 0, aScore = 0;
-    const rule = tournament.scoringRuleType;
-    const val = tournament.scoringValue || 9;
-
+    const rule = tournament?.scoringRuleType;
+    const val = tournament?.scoringValue || 9;
     if (rule === 'bestOfN') {
       hScore = Math.floor(Math.random() * (val + 1));
       aScore = val - hScore;
@@ -131,22 +83,52 @@ export default function TournamentDetailPage() {
       hScore = Math.floor(Math.random() * 5);
       aScore = Math.floor(Math.random() * 5);
     }
-
-    const homePlayers = players.filter(p => p.teamId === m.homeId).sort((a, b) => b.monetaryValue - a.monetaryValue);
-    const awayPlayers = players.filter(p => p.teamId === m.awayId).sort((a, b) => b.monetaryValue - a.monetaryValue);
+    const hPlayers = players.filter(p => p.teamId === m.homeId).sort((a, b) => b.monetaryValue - a.monetaryValue);
+    const aPlayers = players.filter(p => p.teamId === m.awayId).sort((a, b) => b.monetaryValue - a.monetaryValue);
     
-    return { hScore, aScore, hPlayerId: homePlayers[0]?.id, aPlayerId: awayPlayers[0]?.id };
+    // AI Team player selection logic (70% best player in main)
+    const getSelection = (pList: Player[]) => {
+      if (Math.random() < 0.7) return pList[0]?.id;
+      return pList[1]?.id || pList[0]?.id;
+    };
+
+    return { hScore, aScore, hPlayerId: getSelection(hPlayers), aPlayerId: getSelection(aPlayers) };
   };
 
   const handleSimulateSingleMatch = (matchId: string, isDual: boolean = false) => {
-    const m = (isDual ? tournament.dualLeagueMatches : tournament.matches).find(x => x.id === matchId);
-    if (!m || m.isSimulated) return;
+    const m = (isDual ? tournament?.dualLeagueMatches : tournament?.matches)?.find(x => x.id === matchId);
+    if (!m || m.isSimulated || !tournament) return;
     const { hScore, aScore, hPlayerId, aPlayerId } = simulateMatchLogic(m, isDual);
     resolveMatch(tournament.id, m.id, hScore, aScore, isDual, hPlayerId, aPlayerId);
-    toast({ title: "Encuentro Finalizado", description: `Resultado: ${hScore} - ${aScore}` });
+    toast({ title: "Partido Simulado" });
+  };
+
+  const playArcadeMatch = () => {
+    if (!selectedMatch || !selectedPlayerId || !tournament) return;
+    const { hScore, aScore, hPlayerId, aPlayerId } = simulateMatchLogic(selectedMatch);
+    
+    // In Arcade, user selectedPlayerId plays in main league
+    const isHome = selectedMatch.homeId === tournament.managedParticipantId;
+    const userHPlayer = isHome ? selectedPlayerId : hPlayerId;
+    const userAPlayer = !isHome ? selectedPlayerId : aPlayerId;
+
+    resolveMatch(tournament.id, selectedMatch.id, hScore, aScore, false, userHPlayer, userAPlayer);
+    
+    // Resolve mirror in dual league
+    if (tournament.dualLeagueEnabled) {
+      const mirrorMatch = tournament.dualLeagueMatches.find(m => m.matchday === tournament.currentMatchday && (m.homeId === selectedMatch.homeId || m.awayId === selectedMatch.homeId));
+      if (mirrorMatch) {
+        const { hScore: mh, aScore: ma, hPlayerId: hp, aPlayerId: ap } = simulateMatchLogic(mirrorMatch, true);
+        resolveMatch(tournament.id, mirrorMatch.id, mh, ma, true, hp, ap);
+      }
+    }
+
+    setIsPreviewOpen(false);
+    toast({ title: "¡Partido Finalizado!", description: `${hScore} - ${aScore}` });
   };
 
   const handleSimulateMatchday = () => {
+    if (!tournament) return;
     if (tournament.mode === 'arcade' && arcadeMatch && !arcadeMatch.isSimulated) {
       setSelectedMatch(arcadeMatch);
       setIsPreviewOpen(true);
@@ -157,253 +139,220 @@ export default function TournamentDetailPage() {
       if (m.isSimulated) return;
       const { hScore, aScore, hPlayerId, aPlayerId } = simulateMatchLogic(m);
       resolveMatch(tournament.id, m.id, hScore, aScore, false, hPlayerId, aPlayerId);
+      if (tournament.dualLeagueEnabled) {
+        const mirror = tournament.dualLeagueMatches.find(x => x.matchday === m.matchday && x.homeId === m.awayId);
+        if (mirror) {
+          const { hScore: mh, aScore: ma, hPlayerId: hp, aPlayerId: ap } = simulateMatchLogic(mirror, true);
+          resolveMatch(tournament.id, mirror.id, mh, ma, true, hp, ap);
+        }
+      }
     });
 
+    triggerMarketMoves(tournament.id);
     updateTournament({ ...tournament, currentMatchday: tournament.currentMatchday + 1 });
-    toast({ title: "Jornada Finalizada" });
+    toast({ title: "Jornada Finalizada", description: "El mercado se ha movido." });
   };
 
+  const opponentTeam = useMemo(() => {
+    if (!selectedMatch || !tournament) return null;
+    const opId = selectedMatch.homeId === tournament.managedParticipantId ? selectedMatch.awayId : selectedMatch.homeId;
+    const team = teams.find(t => t.id === opId);
+    const pos = standings.findIndex(s => s.id === opId) + 1;
+    const bestP = players.filter(p => p.teamId === opId).sort((a,b) => b.monetaryValue - a.monetaryValue)[0];
+    return { ...team, pos, bestP };
+  }, [selectedMatch, tournament, teams, players, standings]);
+
+  if (!tournament) return <div className="p-20 text-center font-black">TORNEO NO ENCONTRADO</div>;
+
   return (
-    <div className="max-w-7xl mx-auto space-y-6 md:space-y-8 pb-32">
+    <div className="max-w-7xl mx-auto space-y-8 pb-32">
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 px-2 md:px-0">
-        <div className="flex items-center gap-4 md:gap-6">
-          <div className="w-14 h-14 md:w-20 md:h-20 bg-primary rounded-2xl md:rounded-[2rem] flex items-center justify-center shadow-2xl shrink-0">
-            <Trophy className="text-white w-6 h-6 md:w-10 md:h-10" />
-          </div>
-          <div className="overflow-hidden">
-            <h1 className="text-xl md:text-4xl font-black uppercase tracking-tighter truncate">{tournament.name}</h1>
-            <p className="text-muted-foreground font-bold uppercase text-[9px] md:text-xs tracking-widest mt-1">
-              {tournament.sport} • JORNADA {tournament.currentMatchday}
-            </p>
-          </div>
+        <div className="flex items-center gap-6">
+          <div className="w-20 h-20 bg-primary rounded-[2rem] flex items-center justify-center shadow-2xl shrink-0"><Trophy className="text-white w-10 h-10" /></div>
+          <div><h1 className="text-4xl font-black uppercase tracking-tighter truncate">{tournament.name}</h1><p className="text-muted-foreground font-bold uppercase text-xs tracking-widest mt-1">{tournament.sport} • JORNADA {tournament.currentMatchday}</p></div>
         </div>
-        <div className="w-full md:w-auto">
-          {tournament.matches.length === 0 ? (
-            <Button onClick={() => generateSchedule(tournament.id)} size="lg" className="w-full h-12 md:h-16 rounded-xl md:rounded-2xl px-6 md:px-10 font-black text-xs md:text-base">GENERAR CALENDARIO</Button>
-          ) : (
-            <Button onClick={handleSimulateMatchday} size="lg" className="w-full h-12 md:h-16 rounded-xl md:rounded-2xl px-6 md:px-10 font-black shadow-xl shadow-primary/20 text-xs md:text-base">
-              <Play className="w-4 h-4 md:w-5 md:h-5 mr-2 md:mr-3 fill-current" /> SIGUIENTE JORNADA
-            </Button>
-          )}
-        </div>
+        <Button onClick={handleSimulateMatchday} size="lg" className="h-16 rounded-2xl px-10 font-black shadow-xl shadow-primary/20"><Play className="w-5 h-5 mr-3 fill-current" /> SIGUIENTE JORNADA</Button>
       </header>
 
       <Tabs defaultValue="table" className="w-full px-2 md:px-0">
-        <TabsList className="bg-muted/30 p-1 h-12 md:h-14 rounded-xl md:rounded-2xl border mb-6 flex overflow-x-auto scrollbar-hide">
-          <TabsTrigger value="table" className="rounded-lg md:rounded-xl font-black uppercase text-[10px] md:text-xs px-4">Clasificación</TabsTrigger>
-          <TabsTrigger value="calendar" className="rounded-lg md:rounded-xl font-black uppercase text-[10px] md:text-xs px-4">Calendario</TabsTrigger>
-          <TabsTrigger value="market" className="rounded-lg md:rounded-xl font-black uppercase text-[10px] md:text-xs px-4">Mercado</TabsTrigger>
-          <TabsTrigger value="discipline" className="rounded-lg md:rounded-xl font-black uppercase text-[10px] md:text-xs px-4">Disciplina</TabsTrigger>
+        <TabsList className="bg-muted/30 p-1 h-14 rounded-2xl border mb-6 flex overflow-x-auto scrollbar-hide">
+          <TabsTrigger value="table" className="rounded-xl font-black uppercase text-xs px-6">Clasificación</TabsTrigger>
+          <TabsTrigger value="calendar" className="rounded-xl font-black uppercase text-xs px-6">Calendario</TabsTrigger>
+          {tournament.dualLeagueEnabled && <TabsTrigger value="dual" className="rounded-xl font-black uppercase text-xs px-6">Liga Dual</TabsTrigger>}
+          <TabsTrigger value="market" className="rounded-xl font-black uppercase text-xs px-6">Mercado</TabsTrigger>
+          <TabsTrigger value="discipline" className="rounded-xl font-black uppercase text-xs px-6">Disciplina</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="table" className="space-y-6 md:space-y-8">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
-            <div className="lg:col-span-2 space-y-6 md:space-y-8">
-              {groupedStandings.map((group, gIdx) => (
-                <Card key={gIdx} className="border-none bg-card shadow-2xl rounded-[1.5rem] md:rounded-[3rem] overflow-hidden">
-                  <CardHeader className="bg-muted/10 border-b p-4 md:p-8"><CardTitle className="text-lg md:text-xl font-black uppercase">{group.name}</CardTitle></CardHeader>
-                  <CardContent className="p-0">
-                    <div className="overflow-x-auto scrollbar-hide">
-                      <Table>
-                        <TableHeader className="bg-muted/5">
-                          <TableRow className="hover:bg-transparent border-b">
-                            <TableHead className="w-10 md:w-12 text-center font-black">#</TableHead>
-                            <TableHead className="font-black uppercase text-[10px] md:text-xs">Participante</TableHead>
-                            <TableHead className="text-center font-black text-[10px] md:text-xs">P</TableHead>
-                            <TableHead className="text-center font-black text-[10px] md:text-xs">DIF</TableHead>
-                            <TableHead className="text-center font-black text-[10px] md:text-xs">CR</TableHead>
-                            <TableHead className="text-center font-black text-primary text-[10px] md:text-xs">PTS</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {group.standings.map((item, idx) => (
-                            <TableRow key={item.id} className={cn("h-14 md:h-16 cursor-pointer hover:bg-primary/5 transition-colors", tournament.managedParticipantId === item.id && "bg-primary/5")} onClick={() => setViewTeamId(item.id)}>
-                              <TableCell className="text-center font-black text-sm md:text-lg">{idx + 1}</TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-2 md:gap-3">
-                                  <div className="w-6 h-6 md:w-8 md:h-8 rounded-lg bg-muted flex items-center justify-center font-black text-[8px] md:text-[10px]">
-                                    {'abbreviation' in item ? item.abbreviation : item.name.substring(0,2).toUpperCase()}
-                                  </div>
-                                  <span className={cn("font-bold truncate max-w-[80px] md:max-w-[120px] text-xs md:text-base", tournament.managedParticipantId === item.id && "text-primary")}>{item.name}</span>
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-center font-bold text-xs md:text-base">{item.played}</TableCell>
-                              <TableCell className={cn("text-center font-bold text-xs md:text-base", item.gd >= 0 ? "text-green-500" : "text-destructive")}>{item.gd > 0 ? `+${item.gd}` : item.gd}</TableCell>
-                              <TableCell className="text-center font-bold text-accent text-xs md:text-base">{'budget' in item ? item.budget : '-'}</TableCell>
-                              <TableCell className="text-center font-black text-base md:text-xl text-primary">{item.pts}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            <div className="space-y-6">
-              <Card className="border-none bg-card shadow-2xl rounded-[1.5rem] md:rounded-[3rem] p-6 md:p-8">
-                <CardTitle className="text-base md:text-lg font-black uppercase mb-4 md:mb-6 flex items-center gap-2"><Target className="w-4 h-4 md:w-5 md:h-5 text-primary" /> Reglas de l'Horta</CardTitle>
-                <div className="space-y-3 md:space-y-4 text-xs md:text-sm font-bold">
-                  <div className="flex justify-between py-2 border-b"><span className="text-muted-foreground uppercase text-[9px] md:text-[10px]">Lógica</span><span className="uppercase">{tournament.scoringRuleType} {tournament.scoringValue}</span></div>
-                  <div className="flex justify-between py-2 border-b"><span className="text-muted-foreground uppercase text-[9px] md:text-[10px]">Victoria</span><span className="text-green-500">+10 PTS</span></div>
-                  <div className="flex justify-between py-2 border-b"><span className="text-muted-foreground uppercase text-[9px] md:text-[10px]">Derrota</span><span className="text-destructive">-15 PTS</span></div>
-                </div>
-              </Card>
-            </div>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="calendar" className="space-y-6 md:space-y-8">
-          <Card className="border-none bg-card shadow-2xl rounded-[1.5rem] md:rounded-[3rem] overflow-hidden">
+        <TabsContent value="table" className="space-y-8">
+          <Card className="border-none bg-card shadow-2xl rounded-[3rem] overflow-hidden">
+            <CardHeader className="bg-muted/10 border-b p-8"><CardTitle className="text-xl font-black uppercase">Tabla de Posiciones</CardTitle></CardHeader>
             <CardContent className="p-0">
-              <ScrollArea className="h-[60vh] md:h-[700px]">
-                <div className="divide-y divide-muted/10">
-                  {Array.from({ length: Math.max(...tournament.matches.map(m => m.matchday), 0) }).map((_, i) => {
-                    const matchday = i + 1;
-                    const matches = tournament.matches.filter(m => m.matchday === matchday);
-                    return (
-                      <div key={matchday} className="p-4 md:p-8">
-                        <header className="flex justify-between items-center mb-4 md:mb-8">
-                          <h3 className="text-[10px] md:text-sm font-black uppercase text-accent flex items-center gap-2 tracking-widest"><Calendar className="w-3 h-3 md:w-4 md:h-4" /> JORNADA {matchday}</h3>
-                          {matchday === tournament.currentMatchday && <Badge className="bg-accent font-black text-[8px] md:text-xs">ACTUAL</Badge>}
-                        </header>
-                        <div className="space-y-3 md:space-y-4 max-w-2xl mx-auto">
-                          {matches.map(m => {
-                            const homeTeam = teams.find(t => t.id === m.homeId);
-                            const awayTeam = teams.find(t => t.id === m.awayId);
-                            if (!homeTeam || !awayTeam) return null;
-                            return (
-                              <div key={m.id} className={cn("grid grid-cols-[1fr_auto_1fr_auto] items-center gap-3 md:gap-6 p-3 md:p-6 rounded-2xl md:rounded-3xl border transition-all", m.isSimulated ? "bg-muted/5 opacity-60" : "bg-card shadow-lg hover:border-primary/30")}>
-                                <div className="flex flex-col items-center gap-1 md:gap-2 overflow-hidden">
-                                  <CrestIcon shape={homeTeam.emblemShape} pattern={homeTeam.emblemPattern} c1={homeTeam.crestPrimary} c2={homeTeam.crestSecondary} c3={homeTeam.crestTertiary || homeTeam.crestSecondary} size="w-8 h-8 md:w-12 md:h-12" />
-                                  <span className="font-black text-xs md:text-lg truncate">{homeTeam.abbreviation}</span>
-                                </div>
-                                <div className="flex items-center gap-1 md:gap-3 px-2 md:px-6">
-                                  <div className="w-8 h-8 md:w-12 md:h-12 flex items-center justify-center rounded-lg md:rounded-xl font-black text-sm md:text-xl border-2">{m.homeScore ?? '-'}</div>
-                                  <span className="font-black opacity-30 text-base md:text-2xl">:</span>
-                                  <div className="w-8 h-8 md:w-12 md:h-12 flex items-center justify-center rounded-lg md:rounded-xl font-black text-sm md:text-xl border-2">{m.awayScore ?? '-'}</div>
-                                </div>
-                                <div className="flex flex-col items-center gap-1 md:gap-2 overflow-hidden">
-                                  <CrestIcon shape={awayTeam.emblemShape} pattern={awayTeam.emblemPattern} c1={awayTeam.crestPrimary} c2={awayTeam.crestSecondary} c3={awayTeam.crestTertiary || awayTeam.crestSecondary} size="w-8 h-8 md:w-12 md:h-12" />
-                                  <span className="font-black text-xs md:text-lg truncate">{awayTeam.abbreviation}</span>
-                                </div>
-                                <div className="pl-2 md:pl-4 border-l border-muted/20">
-                                  {!m.isSimulated && <Button size="icon" variant="ghost" className="text-primary h-8 w-8 md:h-10 md:w-10" onClick={() => handleSimulateSingleMatch(m.id)}><Zap className="w-4 h-4 md:w-5 md:h-5 fill-current" /></Button>}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </ScrollArea>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-muted/5">
+                    <TableRow className="border-b"><TableHead className="w-12 text-center font-black">#</TableHead><TableHead className="font-black">Club</TableHead><TableHead className="text-center font-black">P</TableHead><TableHead className="text-center font-black">DIF</TableHead><TableHead className="text-center font-black">CR</TableHead><TableHead className="text-center font-black text-primary">PTS</TableHead></TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {standings.map((item, idx) => (
+                      <TableRow key={item.id} className={cn("h-16 cursor-pointer hover:bg-primary/5", tournament.managedParticipantId === item.id && "bg-primary/5")} onClick={() => setViewTeamId(item.id)}>
+                        <TableCell className="text-center font-black text-lg">{idx + 1}</TableCell>
+                        <TableCell><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center font-black text-[10px]">{('abbreviation' in item) ? item.abbreviation : 'IA'}</div><span className="font-bold">{item.name}</span></div></TableCell>
+                        <TableCell className="text-center font-bold">{item.played}</TableCell>
+                        <TableCell className={cn("text-center font-bold", item.gd >= 0 ? "text-green-500" : "text-destructive")}>{item.gd > 0 ? `+${item.gd}` : item.gd}</TableCell>
+                        <TableCell className="text-center font-bold text-accent">{('budget' in item) ? item.budget : '-'}</TableCell>
+                        <TableCell className="text-center font-black text-xl text-primary">{item.pts}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="market" className="space-y-6 md:space-y-8">
-          <Card className="border-none bg-card shadow-2xl rounded-[1.5rem] md:rounded-[3rem] p-4 md:p-8">
-            <header className="mb-6 md:mb-8"><h2 className="text-xl md:text-2xl font-black uppercase flex items-center gap-3"><ShoppingBag className="text-accent" /> Mercado</h2></header>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+        <TabsContent value="calendar" className="space-y-8">
+          <ScrollArea className="h-[700px] border rounded-[3rem] bg-card p-8">
+            <div className="divide-y divide-muted/10 space-y-8">
+              {Array.from({ length: tournament.matches.length > 0 ? Math.max(...tournament.matches.map(m => m.matchday)) : 0 }).map((_, i) => (
+                <div key={i} className="pt-8 first:pt-0">
+                  <header className="flex justify-between items-center mb-6"><h3 className="font-black uppercase text-accent tracking-widest">JORNADA {i+1}</h3></header>
+                  <div className="space-y-4 max-w-2xl mx-auto">
+                    {tournament.matches.filter(m => m.matchday === i+1).map(m => {
+                      const h = teams.find(t => t.id === m.homeId);
+                      const a = teams.find(t => t.id === m.awayId);
+                      if(!h || !a) return null;
+                      return (
+                        <div key={m.id} className={cn("grid grid-cols-[1fr_auto_1fr_auto] items-center gap-6 p-6 rounded-[2rem] border shadow-lg", m.isSimulated && "opacity-60")}>
+                          <div className="flex flex-col items-center gap-2 overflow-hidden"><CrestIcon shape={h.emblemShape} pattern={h.emblemPattern} c1={h.crestPrimary} c2={h.crestSecondary} c3={h.crestTertiary || h.crestSecondary} size="w-12 h-12" /><span className="font-black text-lg">{h.abbreviation}</span></div>
+                          <div className="flex items-center gap-3 px-6"><div className="w-12 h-12 flex items-center justify-center rounded-xl font-black text-2xl border-2">{m.homeScore ?? '-'}</div><span className="font-black opacity-30 text-2xl">:</span><div className="w-12 h-12 flex items-center justify-center rounded-xl font-black text-2xl border-2">{m.awayScore ?? '-'}</div></div>
+                          <div className="flex flex-col items-center gap-2 overflow-hidden"><CrestIcon shape={a.emblemShape} pattern={a.emblemPattern} c1={a.crestPrimary} c2={a.crestSecondary} c3={a.crestTertiary || a.crestSecondary} size="w-12 h-12" /><span className="font-black text-lg">{a.abbreviation}</span></div>
+                          <div className="pl-4 border-l">{!m.isSimulated && <Button size="icon" variant="ghost" className="text-primary" onClick={() => handleSimulateSingleMatch(m.id)}><Zap className="w-5 h-5 fill-current" /></Button>}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </TabsContent>
+
+        <TabsContent value="dual" className="space-y-8">
+          <Card className="border-none bg-card shadow-2xl rounded-[3rem] p-8">
+            <header className="mb-8"><h2 className="text-2xl font-black uppercase flex items-center gap-3"><Layers className="text-accent" /> Liga de Reservas</h2></header>
+            <div className="grid gap-4">
+              {tournament.dualLeagueMatches.filter(m => m.matchday === tournament.currentMatchday).map(m => {
+                const h = teams.find(t => t.id === m.homeId);
+                const a = teams.find(t => t.id === m.awayId);
+                return (
+                  <div key={m.id} className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl border">
+                    <span className="font-black">{h?.abbreviation}</span>
+                    <div className="flex items-center gap-2 font-mono font-black text-xl"><span>{m.homeScore ?? '-'}</span><span>:</span><span>{m.awayScore ?? '-'}</span></div>
+                    <span className="font-black">{a?.abbreviation}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="market" className="space-y-8">
+          <Card className="border-none bg-card shadow-2xl rounded-[3rem] p-8">
+            <header className="mb-8"><h2 className="text-2xl font-black uppercase flex items-center gap-3"><ShoppingBag className="text-accent" /> Dinámica de Mercado</h2></header>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-4">
-                <h3 className="font-black text-[10px] md:text-xs uppercase text-muted-foreground tracking-widest border-b pb-2">Agentes Libres</h3>
-                <ScrollArea className="h-[300px]">
+                <h3 className="font-black text-xs uppercase text-muted-foreground border-b pb-2">Valores Actualizados</h3>
+                <ScrollArea className="h-[400px]">
                   <div className="grid gap-3 pr-2">
-                    {players.filter(p => !p.teamId).map(p => (
-                      <div key={p.id} className="flex items-center justify-between p-3 md:p-4 bg-muted/20 rounded-2xl border">
-                        <div className="overflow-hidden"><p className="font-black text-xs md:text-sm truncate">{p.name}</p><p className="text-[9px] md:text-[10px] font-bold text-accent">{p.monetaryValue.toLocaleString()} {settings.currency}</p></div>
-                        <Select onValueChange={(tId) => {
-                          const team = teams.find(t => t.id === tId);
-                          if (team && team.budget >= p.monetaryValue) { transferPlayer(p.id, tId); toast({ title: "Fichaje Confirmado" }); }
-                          else toast({ title: "Sin Fondos", variant: "destructive" });
-                        }}>
-                          <SelectTrigger className="w-24 md:w-32 h-8 md:h-9 rounded-xl font-black text-[9px] md:text-[10px]"><SelectValue placeholder="FICHAR" /></SelectTrigger>
-                          <SelectContent>{teams.filter(t => tournament.participants.includes(t.id)).map(t => <SelectItem key={t.id} value={t.id}>{t.name} ({t.budget})</SelectItem>)}</SelectContent>
-                        </Select>
+                    {players.filter(p => tournament.participants.includes(p.teamId || '') || !p.teamId).sort((a,b) => b.monetaryValue - a.monetaryValue).map(p => (
+                      <div key={p.id} className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl border">
+                        <div className="overflow-hidden"><p className="font-black truncate">{p.name}</p><p className="text-[10px] font-bold text-accent uppercase">{teams.find(t => t.id === p.teamId)?.name || 'Agente Libre'}</p></div>
+                        <span className="font-black text-sm">{p.monetaryValue} CR</span>
                       </div>
                     ))}
                   </div>
                 </ScrollArea>
               </div>
-              <div className="space-y-4">
-                <h3 className="font-black text-[10px] md:text-xs uppercase text-muted-foreground tracking-widest border-b pb-2">Economía de Clubs</h3>
-                <ScrollArea className="h-[300px]">
-                  <div className="grid gap-3 pr-2">
-                    {teams.filter(t => tournament.participants.includes(t.id)).map(t => (
-                      <div key={t.id} className="flex items-center justify-between p-3 md:p-4 bg-accent/5 rounded-2xl border border-accent/20">
-                        <div className="flex items-center gap-2 md:gap-3 overflow-hidden">
-                          <CrestIcon shape={t.emblemShape} pattern={t.emblemPattern} c1={t.crestPrimary} c2={t.crestSecondary} c3={t.crestTertiary || t.crestSecondary} size="w-5 h-5 md:w-6 md:h-6" />
-                          <span className="font-black text-xs md:text-sm truncate">{t.name}</span>
-                        </div>
-                        <span className="font-black text-[10px] md:text-sm text-accent whitespace-nowrap">{t.budget.toLocaleString()} {settings.currency}</span>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
+              <div className="p-6 bg-accent/5 rounded-3xl border border-accent/20 flex flex-col items-center justify-center text-center">
+                <Sparkles className="w-12 h-12 text-accent mb-4" />
+                <h4 className="text-xl font-black uppercase mb-2">Mercado Vivo</h4>
+                <p className="text-sm text-muted-foreground">Los valores fluctúan tras cada jornada según el rendimiento. La IA de los clubs realiza traspasos estratégicos automáticamente.</p>
               </div>
             </div>
           </Card>
         </TabsContent>
 
-        <TabsContent value="discipline" className="space-y-6 md:space-y-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-            <Card className="border-none bg-card shadow-2xl rounded-[1.5rem] md:rounded-[3rem] p-6 md:p-8">
-              <header className="mb-6"><h2 className="text-lg md:text-xl font-black uppercase flex items-center gap-3 text-destructive"><ShieldAlert /> Sanción</h2></header>
-              <div className="space-y-4 md:space-y-6">
-                <div className="space-y-2"><Label>Tipo</Label><Select value={sanctionType} onValueChange={(v: any) => setSanctionType(v)}><SelectTrigger className="h-10 md:h-12 rounded-xl"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="club">Multa (Club)</SelectItem><SelectItem value="player">Suspensión (Agente)</SelectItem></SelectContent></Select></div>
-                <div className="space-y-2"><Label>Objetivo</Label><Select onValueChange={setSanctionTargetId}><SelectTrigger className="h-10 md:h-12 rounded-xl"><SelectValue placeholder="Seleccionar..." /></SelectTrigger><SelectContent>{sanctionType === 'club' ? teams.filter(t => tournament.participants.includes(t.id)).map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>) : players.filter(p => p.teamId && tournament.participants.includes(p.teamId)).map(p => <SelectItem key={p.id} value={p.id}>{p.name} ({teams.find(t => t.id === p.teamId)?.abbreviation})</SelectItem>)}</SelectContent></Select></div>
-                <div className="space-y-2"><Label>Valor ({sanctionType === 'club' ? settings.currency : 'Jornadas'})</Label><Input type="number" value={sanctionValue} onChange={e => setSanctionValue(Number(e.target.value))} className="h-10 md:h-12 rounded-xl" /></div>
-                <Button variant="destructive" className="w-full h-10 md:h-12 rounded-xl font-black text-xs md:text-base" onClick={() => { if(!sanctionTargetId) return; applySanction(sanctionTargetId, sanctionType === 'club' ? 'team-budget' : 'player-suspension', sanctionValue); toast({ title: "Sanción Aplicada" }); }}>CONFIRMAR SANCIÓN</Button>
-              </div>
-            </Card>
-            <Card className="border-none bg-card shadow-2xl rounded-[1.5rem] md:rounded-[3rem] p-6 md:p-8">
-              <header className="mb-6"><h2 className="text-lg md:text-xl font-black uppercase flex items-center gap-3"><ChevronRight className="text-yellow-500" /> Suspendidos</h2></header>
-              <ScrollArea className="h-[300px]">
-                <div className="space-y-3 pr-2">
-                  {players.filter(p => p.suspensionMatchdays > 0 && p.teamId && tournament.participants.includes(p.teamId)).map(p => (
-                    <div key={p.id} className="p-3 md:p-4 bg-destructive/10 rounded-xl md:rounded-2xl border border-destructive/20 flex justify-between items-center">
-                      <div className="overflow-hidden">
-                        <p className="font-black text-xs md:text-sm uppercase truncate">{p.name}</p>
-                        <p className="text-[8px] md:text-[10px] font-bold text-muted-foreground uppercase truncate">{teams.find(t => t.id === p.teamId)?.name}</p>
-                      </div>
-                      <Badge variant="destructive" className="font-black text-[8px] md:text-xs whitespace-nowrap">{p.suspensionMatchdays} J.</Badge>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            </Card>
+        <TabsContent value="discipline" className="space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <Card className="rounded-[3rem] p-8 shadow-2xl"><h2 className="text-xl font-black uppercase text-destructive flex items-center gap-3 mb-6"><ShieldAlert /> Sanción</h2><div className="space-y-6">
+              <div className="space-y-2"><Label>Tipo</Label><Select value={sanctionType} onValueChange={(v: any) => setSanctionType(v)}><SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="club">Multa (Club)</SelectItem><SelectItem value="player">Suspensión (Agente)</SelectItem></SelectContent></Select></div>
+              <div className="space-y-2"><Label>Objetivo</Label><Select onValueChange={setSanctionTargetId}><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Elegir..." /></SelectTrigger><SelectContent>{sanctionType === 'club' ? teams.filter(t => tournament.participants.includes(t.id)).map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>) : players.filter(p => p.teamId && tournament.participants.includes(p.teamId)).map(p => <SelectItem key={p.id} value={p.id}>{p.name} ({teams.find(t => t.id === p.teamId)?.abbreviation})</SelectItem>)}</SelectContent></Select></div>
+              <div className="space-y-2"><Label>Valor</Label><Input type="number" value={sanctionValue} onChange={e => setSanctionValue(Number(e.target.value))} className="h-12 rounded-xl" /></div>
+              <Button variant="destructive" className="w-full h-12 rounded-xl font-black" onClick={() => { if(!sanctionTargetId) return; applySanction(sanctionTargetId, sanctionType === 'club' ? 'team-budget' : 'player-suspension', sanctionValue); toast({ title: "Sanción Aplicada" }); }}>CONFIRMAR</Button>
+            </div></Card>
+            <Card className="rounded-[3rem] p-8 shadow-2xl"><h2 className="text-xl font-black uppercase flex items-center gap-3 mb-6"><ChevronRight className="text-yellow-500" /> Sancionados</h2><ScrollArea className="h-[300px]"><div className="space-y-3">{players.filter(p => p.suspensionMatchdays > 0).map(p => (
+              <div key={p.id} className="p-4 bg-destructive/10 rounded-2xl border border-destructive/20 flex justify-between items-center"><div><p className="font-black uppercase">{p.name}</p><p className="text-[10px] font-bold opacity-50 uppercase">{teams.find(t => t.id === p.teamId)?.name}</p></div><Badge variant="destructive" className="font-black">{p.suspensionMatchdays} J.</Badge></div>
+            ))}</div></ScrollArea></Card>
           </div>
         </TabsContent>
       </Tabs>
 
-      <Dialog open={!!viewingTeamId} onOpenChange={(o) => !o && setViewTeamId(null)}>
-        <DialogContent className="max-w-[95vw] md:max-w-3xl p-0 overflow-hidden rounded-[1.5rem] md:rounded-[2.5rem] border-none shadow-2xl">
-          {viewingTeam && (
-            <div className="flex flex-col h-[85vh] md:h-[80vh]">
-              <div className="p-4 md:p-8 bg-muted/10 border-b flex items-center gap-4 md:gap-6">
-                <CrestIcon shape={viewingTeam.emblemShape} pattern={viewingTeam.emblemPattern} c1={viewingTeam.crestPrimary} c2={viewingTeam.crestSecondary} c3={viewingTeam.crestTertiary || viewingTeam.crestSecondary} size="w-12 h-12 md:w-20 md:h-20" />
-                <div className="flex-1 overflow-hidden">
-                  <DialogTitle className="text-xl md:text-3xl font-black uppercase tracking-tighter truncate">{viewingTeam.name} ({viewingTeam.abbreviation})</DialogTitle>
-                  <div className="flex items-center gap-2 md:gap-4 mt-1 md:mt-2">
-                    <span className="flex items-center gap-1 text-[10px] md:text-sm font-black text-accent"><Coins className="w-3 h-3 md:w-4 md:h-4" /> {viewingTeam.budget} {settings.currency}</span>
-                    <span className="flex items-center gap-1 text-[10px] md:text-sm font-black text-primary"><Star className="w-3 h-3 md:w-4 md:h-4 fill-current" /> {viewingTeam.rating}</span>
+      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+        <DialogContent className="max-w-2xl rounded-[3rem] border-none shadow-2xl p-0 overflow-hidden">
+          {opponentTeam && (
+            <div className="flex flex-col">
+              <div className="bg-primary p-10 text-white flex items-center gap-8">
+                <CrestIcon shape={opponentTeam.emblemShape!} pattern={opponentTeam.emblemPattern!} c1={opponentTeam.crestPrimary!} c2={opponentTeam.crestSecondary!} c3={opponentTeam.crestTertiary || opponentTeam.crestSecondary!} size="w-24 h-24" />
+                <div>
+                  <h2 className="text-4xl font-black uppercase tracking-tighter">vs {opponentTeam.name}</h2>
+                  <p className="text-white/80 font-bold uppercase tracking-widest flex items-center gap-2 mt-2"><Target className="w-4 h-4" /> Posición: {opponentTeam.pos}º en tabla</p>
+                </div>
+              </div>
+              <div className="p-10 space-y-8">
+                <section className="space-y-4">
+                  <h3 className="font-black text-xs uppercase text-muted-foreground tracking-widest border-b pb-2">Jugador Rival a Seguir</h3>
+                  <div className="p-6 bg-muted/20 rounded-3xl border flex items-center justify-between">
+                    <div>
+                      <p className="text-xl font-black uppercase">{opponentTeam.bestP?.name}</p>
+                      <p className="text-xs font-bold text-primary uppercase">{opponentTeam.bestP?.position} • #{opponentTeam.bestP?.jerseyNumber}</p>
+                    </div>
+                    <div className="text-right"><p className="text-xs font-bold opacity-50 uppercase">Valor</p><p className="text-2xl font-black text-accent">{opponentTeam.bestP?.monetaryValue} CR</p></div>
                   </div>
+                </section>
+                <section className="space-y-4">
+                  <h3 className="font-black text-xs uppercase text-muted-foreground tracking-widest border-b pb-2">Selecciona tu Líder para este encuentro</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {players.filter(p => p.teamId === tournament.managedParticipantId && p.suspensionMatchdays === 0).map(p => (
+                      <button key={p.id} onClick={() => setSelectedPlayerId(p.id)} className={cn("p-4 rounded-2xl border-2 transition-all flex flex-col items-center text-center gap-1", selectedPlayerId === p.id ? "bg-primary/10 border-primary shadow-lg scale-105" : "bg-card border-transparent hover:bg-muted/50")}>
+                        <p className="font-black text-[10px] uppercase truncate w-full">{p.name}</p>
+                        <p className="text-[10px] font-bold text-primary">{p.monetaryValue} CR</p>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+                <Button disabled={!selectedPlayerId} onClick={playArcadeMatch} className="w-full h-16 rounded-2xl text-xl font-black bg-primary shadow-xl shadow-primary/20"><Sword className="w-6 h-6 mr-3" /> SALTAR A LA PISTA</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!viewingTeamId} onOpenChange={(o) => !o && setViewTeamId(null)}>
+        <DialogContent className="max-w-3xl rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl">
+          {teams.find(t => t.id === viewingTeamId) && (
+            <div className="flex flex-col h-[80vh]">
+              <div className="p-8 bg-muted/10 border-b flex items-center gap-6">
+                <CrestIcon shape={teams.find(t => t.id === viewingTeamId)!.emblemShape} pattern={teams.find(t => t.id === viewingTeamId)!.emblemPattern} c1={teams.find(t => t.id === viewingTeamId)!.crestPrimary} c2={teams.find(t => t.id === viewingTeamId)!.crestSecondary} c3={teams.find(t => t.id === viewingTeamId)!.crestTertiary || teams.find(t => t.id === viewingTeamId)!.crestSecondary} size="w-20 h-20" />
+                <div className="flex-1 overflow-hidden">
+                  <DialogTitle className="text-3xl font-black uppercase tracking-tighter truncate">{teams.find(t => t.id === viewingTeamId)!.name}</DialogTitle>
+                  <div className="flex items-center gap-4 mt-2"><span className="flex items-center gap-1 text-sm font-black text-accent"><Coins className="w-4 h-4" /> {teams.find(t => t.id === viewingTeamId)!.budget} {settings.currency}</span><span className="flex items-center gap-1 text-sm font-black text-primary"><Star className="w-4 h-4 fill-current" /> {teams.find(t => t.id === viewingTeamId)!.rating}</span></div>
                 </div>
               </div>
-              <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 md:space-y-8 scrollbar-hide">
-                <section className="space-y-2 md:space-y-3"><h4 className="text-[9px] md:text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2"><Info className="w-3 h-3" /> Historia</h4><p className="text-xs md:text-sm leading-relaxed text-muted-foreground italic">"{viewingTeam.description || 'Sin descripción.'}"</p></section>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-                  <div className="bg-muted/20 p-3 md:p-4 rounded-xl md:rounded-2xl text-center"><p className="text-[8px] md:text-[9px] font-black uppercase opacity-50">Victorias</p><p className="text-xl md:text-2xl font-black text-green-500">{viewingTeam.stats?.won || 0}</p></div>
-                  <div className="bg-muted/20 p-3 md:p-4 rounded-xl md:rounded-2xl text-center"><p className="text-[8px] md:text-[9px] font-black uppercase opacity-50">Derrotas</p><p className="text-xl md:text-2xl font-black text-destructive">{viewingTeam.stats?.lost || 0}</p></div>
-                  <div className="bg-muted/20 p-3 md:p-4 rounded-xl md:rounded-2xl text-center"><p className="text-[8px] md:text-[9px] font-black uppercase opacity-50">GF / GA</p><p className="text-base md:text-lg font-black">{viewingTeam.stats?.gf || 0} / {viewingTeam.stats?.ga || 0}</p></div>
-                  <div className="bg-muted/20 p-3 md:p-4 rounded-xl md:rounded-2xl text-center"><p className="text-[8px] md:text-[9px] font-black uppercase opacity-50">Diferencia</p><p className="text-xl md:text-2xl font-black text-primary">{viewingTeam.stats?.gd || 0}</p></div>
-                </div>
-                <section className="space-y-3 md:space-y-4"><h4 className="text-[9px] md:text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2"><LayoutGrid className="w-3 h-3" /> Plantilla</h4><div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3">{viewingTeam.teamPlayers.map(p => (<div key={p.id} className="flex items-center justify-between p-2 md:p-3 bg-muted/10 rounded-xl border"><div><p className="font-bold text-xs md:text-sm truncate">{p.name}</p><p className="text-[8px] md:text-[9px] font-black uppercase opacity-50">{p.position} • #{p.jerseyNumber}</p></div><Badge variant="outline" className="font-black text-[8px] md:text-[9px]">{p.monetaryValue} CR</Badge></div>))}</div></section>
+              <div className="flex-1 overflow-y-auto p-8 space-y-8 scrollbar-hide">
+                <section className="space-y-3"><h4 className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2"><Info className="w-3 h-3" /> Historia</h4><p className="text-sm italic">"{teams.find(t => t.id === viewingTeamId)!.description || 'Sin descripción.'}"</p></section>
+                <section className="space-y-4"><h4 className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2"><LayoutGrid className="w-3 h-3" /> Plantilla Actual</h4><div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{players.filter(p => p.teamId === viewingTeamId).map(p => (<div key={p.id} className="flex items-center justify-between p-3 bg-muted/10 rounded-xl border"><div><p className="font-bold text-sm truncate">{p.name}</p><p className="text-[9px] font-black uppercase opacity-50">{p.position} • #{p.jerseyNumber}</p></div><Badge variant="outline" className="font-black text-[9px]">{p.monetaryValue} CR</Badge></div>))}</div></section>
               </div>
-              <div className="p-4 md:p-6 border-t bg-muted/5 flex justify-end"><Button onClick={() => setViewTeamId(null)} className="rounded-xl font-black h-10 md:h-12 px-6 md:px-8 text-xs md:text-sm">CERRAR INFORME</Button></div>
+              <div className="p-6 border-t bg-muted/5 flex justify-end"><Button onClick={() => setViewTeamId(null)} className="rounded-xl font-black h-12 px-8">CERRAR INFORME</Button></div>
             </div>
           )}
         </DialogContent>

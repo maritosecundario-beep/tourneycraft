@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
@@ -27,77 +26,10 @@ interface TournamentContextType {
   importData: (data: { teams?: Team[], players?: Player[], tournaments?: Tournament[], settings?: GlobalSettings }, merge: boolean) => void;
   generateSchedule: (tournamentId: string) => void;
   resolveMatch: (tournamentId: string, matchId: string, homeScore: number, awayScore: number, isDual: boolean, homePlayerId?: string, awayPlayerId?: string) => void;
+  triggerMarketMoves: (tournamentId: string) => void;
 }
 
 const defaultSettings: GlobalSettings = hortaData.settings as GlobalSettings;
-
-// Generador de nombres reales para mayor originalidad
-const realNames = [
-  "Ferran", "Andreu", "Vicent", "Marc", "Joan", "Carles", "Pau", "Sergi", "Jordi", "Martí", "Aleix", "Enric", "Oriol", "Guillem", "Pol", "Arnau", "Biel", "Hugo", "Yeray", "Iker", "Lucas", "Mateo", "Bruno", "Gael", "Leo", "Enzo", "Izan", "Thiago", "Eric", "Mario", "Adrian", "David", "Pablo", "Sergio", "Ivan", "Alvaro", "Ruben", "Diego", "Raul", "Javi", "Victor", "Jorge", "Alberto", "Oscar", "Manuel", "Luis", "Jose", "Juan", "Francisco", "Antonio", "Ramon", "Pepe", "Paco"
-];
-const realSurnames = [
-  "Garcia", "Rodriguez", "Gonzalez", "Fernandez", "Lopez", "Martinez", "Sanchez", "Perez", "Gomez", "Martin", "Jimenez", "Ruiz", "Hernandez", "Diaz", "Moreno", "Muñoz", "Alvarez", "Romero", "Alonso", "Gutierrez", "Navarro", "Torres", "Dominguez", "Vazquez", "Ramos", "Gil", "Ramirez", "Serrano", "Blanco", "Molina", "Morales", "Suarez", "Ortega", "Delgado", "Castro", "Ortiz", "Rubio", "Marin", "Sanz", "Nuñez", "Iglesias", "Medina", "Garrido", "Santos", "Castillo", "Cortes", "Lozano", "Cano", "Prieto", "Mendez", "Cruz", "Calvo", "Gallego", "Vidal", "Leon", "Herrera", "Peña", "Flores", "Cabrera", "Campos", "Vega", "Fuentes", "Carrasco", "Diez", "Caballero", "Reyes", "Nieto", "Aguilar", "Pascual", "Santana", "Gimenez", "Hidalgo", "Lorenzo", "Montero", "Ibañez", "Ferrer", "Duran", "Santiago", "Benitez", "Mora", "Vicente", "Varga", "Arias", "Carmona", "Crespo", "Roman", "Pastor", "Soto", "Saez", "Velasco", "Soler", "Bravo", "Esteban", "Rueda"
-];
-
-const getRandomName = () => `${realNames[Math.floor(Math.random() * realNames.length)]} ${realSurnames[Math.floor(Math.random() * realSurnames.length)]}`;
-
-const generateSeedData = () => {
-  const allTeams: Team[] = hortaData.teams.map(t => ({ ...t, players: [] })) as Team[];
-  const allPlayers: Player[] = [];
-
-  // Usar los jugadores ya definidos en el JSON si existen, si no, generarlos
-  const existingPlayers = hortaData.players || [];
-  allPlayers.push(...existingPlayers);
-
-  allTeams.forEach(team => {
-    // Si el equipo no tiene jugadores asignados en el JSON, creamos 3 originales
-    const currentTeamPlayers = existingPlayers.filter(p => p.teamId === team.id);
-    if (currentTeamPlayers.length === 0) {
-      const isTop = team.rating >= 90;
-      const positions = ['Sharpshooter', 'Blitz', 'Defenseman'];
-      
-      positions.forEach((pos, i) => {
-        const pId = `${team.id}-p-gen-${i}`;
-        const name = getRandomName();
-        
-        let bio = "";
-        if (pos === 'Sharpshooter') bio = `Especialista en larga distancia de ${team.name}. Su capacidad para anotar bajo presión técnica lo convierte en una pieza clave del quinteto.`;
-        if (pos === 'Blitz') bio = `El relámpago de ${team.name}. Posee un drible endiablado y una visión de juego periférica que rompe cualquier defensa zonal.`;
-        if (pos === 'Defenseman') bio = `El baluarte defensivo de ${team.name}. Experto en lectura de jugadas rivales y sacrificado en el rebote ofensivo.`;
-
-        const playerVal = Math.floor((team.rating * (isTop ? 0.8 : 0.4)));
-
-        const player: Player = {
-          id: pId,
-          name,
-          description: bio,
-          monetaryValue: playerVal,
-          jerseyNumber: Math.floor(Math.random() * 99) + 1,
-          position: pos,
-          teamId: team.id,
-          suspensionMatchdays: 0,
-          attributes: hortaData.settings.attributeNames.map(attr => ({
-            name: attr,
-            value: isTop ? 82 + Math.floor(Math.random() * 16) : 55 + Math.floor(Math.random() * 32)
-          })),
-          uniformStyle: 'solid',
-          kitPrimary: team.crestPrimary,
-          kitSecondary: team.crestSecondary,
-          crestPlacement: 'left',
-          sponsorPlacement: 'middle',
-          brandPlacement: 'right'
-        };
-        allPlayers.push(player);
-      });
-    }
-  });
-
-  return { 
-    teams: allTeams, 
-    players: allPlayers, 
-    tournaments: hortaData.tournaments as any[]
-  };
-};
 
 const TournamentContext = createContext<TournamentContextType | undefined>(undefined);
 
@@ -124,10 +56,10 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         console.error("Store Load Error:", e);
       }
     } else {
-      const seed = generateSeedData();
-      setTeams(seed.teams);
-      setPlayers(seed.players);
-      setTournaments(seed.tournaments); 
+      // Seed logic (already handled by the JSON mostly)
+      setTeams(hortaData.teams as any[]);
+      setPlayers(hortaData.players as any[]);
+      setTournaments(hortaData.tournaments as any[]); 
       setSettings(defaultSettings);
     }
     setIsLoading(true);
@@ -152,14 +84,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     }
   }, [teams, players, tournaments, settings, isLoaded, user?.uid, db]);
 
-  useEffect(() => {
-    if (isLoaded) {
-      const themeList = ['light', 'dark', 'midnight', 'obsidian', 'nord', 'retro'];
-      document.documentElement.classList.remove(...themeList);
-      document.documentElement.classList.add(settings.theme);
-    }
-  }, [settings.theme, isLoaded]);
-
   const generateSchedule = useCallback((tournamentId: string) => {
     setTournaments(prev => prev.map(t => {
       if (t.id !== tournamentId) return t;
@@ -168,52 +92,33 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       const dualSchedule: Match[] = [];
       let matchIdCounter = 1;
 
-      const createMatchesForList = (participants: string[], baseMatchday: number = 0) => {
+      const createMatchesForList = (participants: string[]) => {
         const n = participants.length;
         if (n < 2) return;
-        
         const rounds = n % 2 === 0 ? n - 1 : n;
         const matchesPerRound = Math.floor(n / 2);
-        
         const tempParticipants = [...participants];
         if (n % 2 !== 0) tempParticipants.push('BYE');
 
         for (let round = 0; round < rounds; round++) {
-          const matchday = baseMatchday + round + 1;
+          const matchday = round + 1;
           for (let i = 0; i < matchesPerRound; i++) {
             const home = tempParticipants[i];
             const away = tempParticipants[tempParticipants.length - 1 - i];
-
             if (home !== 'BYE' && away !== 'BYE') {
               const mId = `${t.id}-m-${matchIdCounter++}`;
-              schedule.push({
-                id: mId,
-                homeId: home,
-                awayId: away,
-                matchday,
-                isSimulated: false,
-              });
-
+              schedule.push({ id: mId, homeId: home, awayId: away, matchday, isSimulated: false });
               if (t.dualLeagueEnabled) {
-                dualSchedule.push({
-                  id: `dual-${mId}`,
-                  homeId: away, // Mirror
-                  awayId: home,
-                  matchday,
-                  isSimulated: false,
-                });
+                dualSchedule.push({ id: `dual-${mId}`, homeId: away, awayId: home, matchday, isSimulated: false });
               }
             }
           }
-          // Rotate for Round Robin
           tempParticipants.splice(1, 0, tempParticipants.pop()!);
         }
       };
 
       if (t.leagueType === 'groups' && t.groupIsolation && t.groups) {
-        t.groups.forEach(group => {
-          createMatchesForList(group.participantIds);
-        });
+        t.groups.forEach(group => createMatchesForList(group.participantIds));
       } else {
         createMatchesForList(t.participants);
       }
@@ -228,36 +133,106 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       
       const updateMatches = (matches: Match[]) => matches.map(m => {
         if (m.id === matchId) {
-          return { ...m, homeScore, awayScore, isSimulated: true, homePlayerId, awayPlayerId, winnerId: homeScore > awayScore ? m.homeId : awayScore > homeScore ? m.awayId : undefined };
+          const winnerId = homeScore > awayScore ? m.homeId : awayScore > homeScore ? m.awayId : undefined;
+          
+          // Apply Economics to Teams
+          setTeams(tPrev => tPrev.map(team => {
+            if (team.id === m.homeId || team.id === m.awayId) {
+              const isHome = team.id === m.homeId;
+              const isWin = (isHome && homeScore > awayScore) || (!isHome && awayScore > homeScore);
+              const isLoss = (isHome && awayScore > homeScore) || (!isHome && homeScore > awayScore);
+              const isDraw = homeScore === awayScore;
+              
+              let change = 0;
+              if (isWin) change = t.winReward;
+              else if (isLoss) change = -t.lossPenalty;
+              else if (isDraw) change = t.drawReward;
+              
+              return { ...team, budget: team.budget + change };
+            }
+            return team;
+          }));
+
+          // Player value fluctuation based on performance
+          if (homePlayerId) {
+            setPlayers(pPrev => pPrev.map(p => {
+              if (p.id === homePlayerId) {
+                const perfFactor = (homeScore / (homeScore + awayScore || 1)) * 1.5;
+                const valueChange = Math.round(p.monetaryValue * (perfFactor - 0.5) * 0.05);
+                return { ...p, monetaryValue: Math.max(1, p.monetaryValue + valueChange) };
+              }
+              return p;
+            }));
+          }
+          if (awayPlayerId) {
+            setPlayers(pPrev => pPrev.map(p => {
+              if (p.id === awayPlayerId) {
+                const perfFactor = (awayScore / (homeScore + awayScore || 1)) * 1.5;
+                const valueChange = Math.round(p.monetaryValue * (perfFactor - 0.5) * 0.05);
+                return { ...p, monetaryValue: Math.max(1, p.monetaryValue + valueChange) };
+              }
+              return p;
+            }));
+          }
+
+          return { ...m, homeScore, awayScore, isSimulated: true, homePlayerId, awayPlayerId, winnerId };
         }
         return m;
       });
 
-      if (isDual) {
-        return { ...t, dualLeagueMatches: updateMatches(t.dualLeagueMatches) };
-      } else {
-        return { ...t, matches: updateMatches(t.matches) };
-      }
+      if (isDual) return { ...t, dualLeagueMatches: updateMatches(t.dualLeagueMatches) };
+      return { ...t, matches: updateMatches(t.matches) };
     }));
   }, []);
+
+  const triggerMarketMoves = useCallback((tournamentId: string) => {
+    // Random chance for IA teams to trade or release
+    if (Math.random() > 0.3) return; // 30% chance of market activity per matchday
+
+    setPlayers(prevPlayers => {
+      const updatedPlayers = [...prevPlayers];
+      const aiTeams = teams.filter(t => {
+        const tourney = tournaments.find(x => x.id === tournamentId);
+        return t.id !== tourney?.managedParticipantId;
+      });
+
+      // 1. Release underperforming or too expensive players
+      aiTeams.forEach(team => {
+        const teamPlayers = updatedPlayers.filter(p => p.teamId === team.id);
+        if (teamPlayers.length > 3 && Math.random() > 0.8) {
+          const index = updatedPlayers.findIndex(p => p.id === teamPlayers[0].id);
+          if (index !== -1) updatedPlayers[index].teamId = undefined;
+        }
+      });
+
+      // 2. Hire free agents if budget allows
+      const freeAgents = updatedPlayers.filter(p => !p.teamId);
+      if (freeAgents.length > 0) {
+        aiTeams.forEach(team => {
+          if (Math.random() > 0.9) {
+            const candidate = freeAgents[Math.floor(Math.random() * freeAgents.length)];
+            if (team.budget >= candidate.monetaryValue) {
+              const index = updatedPlayers.findIndex(p => p.id === candidate.id);
+              if (index !== -1) updatedPlayers[index].teamId = team.id;
+            }
+          }
+        });
+      }
+
+      return updatedPlayers;
+    });
+  }, [teams, tournaments]);
 
   const transferPlayer = useCallback((playerId: string, toTeamId: string | undefined) => {
     setPlayers(prev => prev.map(p => {
       if (p.id === playerId) {
         const oldTeamId = p.teamId;
         const playerVal = p.monetaryValue;
-        if (toTeamId) {
-          setTeams(tPrev => tPrev.map(t => {
-            if (t.id === toTeamId) return { ...t, budget: t.budget - playerVal };
-            if (t.id === oldTeamId) return { ...t, budget: t.budget + playerVal };
-            return t;
-          }));
-        } else if (oldTeamId) {
-          setTeams(tPrev => tPrev.map(t => {
-            if (t.id === oldTeamId) return { ...t, budget: t.budget + playerVal };
-            return t;
-          }));
-        }
+        setTeams(tPrev => tPrev.map(t => {
+          if (t.id === toTeamId) return { ...t, budget: t.budget - playerVal };
+          if (t.id === oldTeamId) return { ...t, budget: t.budget + playerVal };
+          return t;
+        }));
         return { ...p, teamId: toTeamId };
       }
       return p;
@@ -274,18 +249,9 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
 
   const importData = useCallback((data: any, merge: boolean) => {
     if (merge) {
-      setTeams(prev => {
-        const existingIds = new Set(prev.map(t => t.id));
-        return [...prev, ...(data.teams || []).filter((t: any) => !existingIds.has(t.id))];
-      });
-      setPlayers(prev => {
-        const existingIds = new Set(prev.map(p => p.id));
-        return [...prev, ...(data.players || []).filter((p: any) => !existingIds.has(p.id))];
-      });
-      setTournaments(prev => {
-        const existingIds = new Set(prev.map(t => t.id));
-        return [...prev, ...(data.tournaments || []).filter((t: any) => !existingIds.has(t.id))];
-      });
+      setTeams(prev => [...prev, ...(data.teams || []).filter((t: any) => !prev.find(x => x.id === t.id))]);
+      setPlayers(prev => [...prev, ...(data.players || []).filter((p: any) => !prev.find(x => x.id === p.id))]);
+      setTournaments(prev => [...prev, ...(data.tournaments || []).filter((t: any) => !prev.find(x => x.id === t.id))]);
       if (data.settings) setSettings(prev => ({ ...prev, ...data.settings }));
     } else {
       setTeams(data.teams || []);
@@ -295,23 +261,19 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     }
   }, []);
 
-  const addTeam = useCallback((team: Team) => setTeams(p => [...p, team]), []);
-  const updateTeam = useCallback((team: Team) => setTeams(p => p.map(t => t.id === team.id ? team : t)), []);
-  const deleteTeam = useCallback((id: string) => setTeams(p => p.filter(t => t.id !== id)), []);
-  const addPlayer = useCallback((player: Player) => setPlayers(p => [...p, player]), []);
-  const updatePlayer = useCallback((player: Player) => setPlayers(p => p.map(p2 => p2.id === player.id ? player : p2)), []);
-  const deletePlayer = useCallback((id: string) => setPlayers(p => p.filter(p2 => p2.id !== id)), []);
-  const addTournament = useCallback((t: Tournament) => {
-    setTournaments(p => [...p, t]);
-  }, []);
-  const updateTournament = useCallback((t: Tournament) => {
-    setTournaments(p => p.map(t2 => t2.id === t.id ? t : t2));
-  }, []);
-  const updateSettings = useCallback((s: Partial<GlobalSettings>) => setSettings(p => ({ ...p, ...s })), []);
+  const addTeam = (team: Team) => setTeams(p => [...p, team]);
+  const updateTeam = (team: Team) => setTeams(p => p.map(t => t.id === team.id ? team : t));
+  const deleteTeam = (id: string) => setTeams(p => p.filter(t => t.id !== id));
+  const addPlayer = (player: Player) => setPlayers(p => [...p, player]);
+  const updatePlayer = (player: Player) => setPlayers(p => p.map(p2 => p2.id === player.id ? player : p2));
+  const deletePlayer = (id: string) => setPlayers(p => p.filter(p2 => p2.id !== id));
+  const addTournament = (t: Tournament) => setTournaments(p => [...p, t]);
+  const updateTournament = (t: Tournament) => setTournaments(p => p.map(t2 => t2.id === t.id ? t : t2));
+  const updateSettings = (s: Partial<GlobalSettings>) => setSettings(p => ({ ...p, ...s }));
 
   const value = useMemo(() => ({
-    teams, players, tournaments, settings, addTeam, updateTeam, deleteTeam, addPlayer, updatePlayer, deletePlayer, addTournament, updateTournament, updateSettings, importData, transferPlayer, applySanction, generateSchedule, resolveMatch
-  }), [teams, players, tournaments, settings, addTeam, updateTeam, deleteTeam, addPlayer, updatePlayer, deletePlayer, addTournament, updateTournament, updateSettings, importData, transferPlayer, applySanction, generateSchedule, resolveMatch]);
+    teams, players, tournaments, settings, addTeam, updateTeam, deleteTeam, addPlayer, updatePlayer, deletePlayer, addTournament, updateTournament, updateSettings, importData, transferPlayer, applySanction, generateSchedule, resolveMatch, triggerMarketMoves
+  }), [teams, players, tournaments, settings, generateSchedule, resolveMatch, triggerMarketMoves, transferPlayer, applySanction, importData]);
 
   return <TournamentContext.Provider value={value}>{children}</TournamentContext.Provider>;
 }

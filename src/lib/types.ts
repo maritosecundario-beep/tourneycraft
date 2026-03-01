@@ -84,8 +84,8 @@ export type Match = {
   matchday: number;
   winnerId?: string;
   incidentLog?: string;
-  homePlayerId?: string; // Player who played in main league
-  awayPlayerId?: string; // Player who played in main league
+  homePlayerId?: string; 
+  awayPlayerId?: string; 
 };
 
 export type TournamentGroup = {
@@ -102,7 +102,7 @@ export type Tournament = {
   managedParticipantId?: string;
   format: TournamentFormat;
   leagueType?: LeagueType;
-  groupIsolation: boolean; // If true, only play within groups
+  groupIsolation: boolean; 
   groups?: TournamentGroup[];
   scoringRuleType: ScoringRuleType;
   scoringValue?: number;
@@ -113,10 +113,15 @@ export type Tournament = {
   dualLeagueEnabled: boolean;
   dualLeagueMatches: Match[];
   settingsLocked: boolean;
+  // Economics
   winReward: number;
   lossPenalty: number;
   drawReward: number;
   variability: number; 
+  // Points
+  winPoints: number;
+  lossPoints: number;
+  drawPoints: number;
   playoffSpots: number;
   relegationSpots: number;
   currentSeason: number;
