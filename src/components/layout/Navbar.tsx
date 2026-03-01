@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from 'next/link';
@@ -33,7 +32,7 @@ export function Navbar() {
       console.error("Auth Error:", error);
       let message = "No se pudo completar la autenticación.";
       if (error.code === 'auth/operation-not-allowed') {
-        message = "El inicio de sesión con Google NO está habilitado en Firebase Console.";
+        message = "El inicio de sesión con Google NO está habilitado.";
       }
       toast({ 
         title: "Error de inicio de sesión", 
@@ -158,7 +157,7 @@ export function Navbar() {
       </nav>
 
       {/* MOBILE BOTTOM NAVIGATION */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-card border-t border-border flex items-center justify-around px-2 z-50">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-card border-t border-border flex items-center justify-around px-2 z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
         {navItems.filter(i => i.name !== 'Torneos').map((item) => {
           const isActive = pathname === item.href;
           const Icon = item.icon;
@@ -167,31 +166,32 @@ export function Navbar() {
               key={item.href} 
               href={item.href} 
               className={cn(
-                "flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors",
+                "flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors relative",
                 isActive ? "text-primary" : "text-muted-foreground"
               )}
             >
               <Icon className="w-5 h-5" />
               <span className="text-[9px] font-black uppercase tracking-tight">{item.name}</span>
+              {isActive && <span className="absolute top-0 w-8 h-1 bg-primary rounded-b-full" />}
             </Link>
           );
         })}
         
         <Sheet>
           <SheetTrigger asChild>
-            <button className="flex flex-col items-center justify-center flex-1 h-full gap-1 text-muted-foreground">
+            <button className="flex flex-col items-center justify-center flex-1 h-full gap-1 text-muted-foreground outline-none">
               <MoreHorizontal className="w-5 h-5" />
               <span className="text-[9px] font-black uppercase tracking-tight">Más</span>
             </button>
           </SheetTrigger>
-          <SheetContent side="bottom" className="rounded-t-[2.5rem] border-none bg-card p-6 outline-none">
+          <SheetContent side="bottom" className="rounded-t-[2.5rem] border-none bg-card p-6 outline-none max-h-[80vh] overflow-y-auto scrollbar-hide">
             <SheetHeader className="mb-6">
               <SheetTitle className="text-left text-xl font-black uppercase tracking-tighter">Opciones</SheetTitle>
             </SheetHeader>
             <div className="grid grid-cols-2 gap-3">
-              <Link href="/tournaments" className="flex flex-col items-center gap-3 p-6 bg-muted/30 rounded-3xl border border-border/50">
+              <Link href="/tournaments" className="flex flex-col items-center gap-3 p-6 bg-muted/30 rounded-3xl border border-border/50 hover:bg-muted/50 transition-colors">
                 <Trophy className="w-6 h-6 text-primary" />
-                <span className="font-black text-xs uppercase tracking-tight">Torneos</span>
+                <span className="font-black text-xs uppercase tracking-tight text-foreground">Torneos</span>
               </Link>
               {moreItems.map((item) => (
                 <Link 
@@ -200,31 +200,31 @@ export function Navbar() {
                   className="flex flex-col items-center gap-3 p-6 bg-muted/30 rounded-3xl border border-border/50 hover:bg-muted/50 transition-colors"
                 >
                   <item.icon className="w-6 h-6 text-primary" />
-                  <span className="font-black text-xs uppercase tracking-tight">{item.name}</span>
+                  <span className="font-black text-xs uppercase tracking-tight text-foreground">{item.name}</span>
                 </Link>
               ))}
             </div>
             <div className="mt-8 pt-8 border-t border-border">
               {!isUserLoading && (
                 user ? (
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between bg-muted/20 p-4 rounded-3xl">
                     <div className="flex items-center gap-3">
-                      <Avatar className="h-12 w-12 border-2 border-primary/50">
+                      <Avatar className="h-12 w-12 border-2 border-primary/50 shadow-lg">
                         <AvatarImage src={user.photoURL || undefined} />
                         <AvatarFallback className="font-bold text-lg">{user.displayName?.charAt(0)}</AvatarFallback>
                       </Avatar>
-                      <div>
-                        <p className="font-black text-sm uppercase">{user.displayName}</p>
+                      <div className="overflow-hidden">
+                        <p className="font-black text-sm uppercase truncate max-w-[120px]">{user.displayName}</p>
                         <p className="text-[10px] text-accent font-black uppercase tracking-widest">Cuenta Vinculada</p>
                       </div>
                     </div>
-                    <Button variant="outline" size="sm" className="rounded-xl font-bold" onClick={handleLogout}>
-                      <LogOut className="w-4 h-4 mr-2" /> Salir
+                    <Button variant="outline" size="sm" className="rounded-xl font-bold border-destructive/50 text-destructive hover:bg-destructive/10" onClick={handleLogout}>
+                      <LogOut className="w-4 h-4" />
                     </Button>
                   </div>
                 ) : (
                   <Button className="w-full h-14 shadow-lg shadow-primary/20 rounded-2xl font-black text-lg" onClick={handleLogin}>
-                    <LogIn className="w-5 h-5 mr-3" /> CONECTAR CON GOOGLE
+                    <LogIn className="w-5 h-5 mr-3" /> CONECTAR GOOGLE
                   </Button>
                 )
               )}

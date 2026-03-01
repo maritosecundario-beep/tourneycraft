@@ -50,7 +50,7 @@ export default function SettingsPage() {
   const addPosition = () => {
     const newPos = `POS ${positions.length + 1}`;
     setPositions([...positions, newPos]);
-    setPosColors({ ...posColors, [newPos]: PREDEFINED_COLORS[24] }); // Default to Blue
+    setPosColors({ ...posColors, [newPos]: PREDEFINED_COLORS[24] });
   };
 
   const removePosition = (index: number) => {
@@ -80,34 +80,34 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 pb-32 px-4 md:px-0">
+    <div className="max-w-5xl mx-auto space-y-6 md:space-y-8 pb-32 px-2 md:px-0">
       <header>
-        <h1 className="text-3xl md:text-4xl font-black flex items-center gap-3 text-foreground">
-          <Settings className="text-primary w-8 h-8 md:w-10 md:h-10" /> AJUSTES GLOBALES
+        <h1 className="text-2xl md:text-4xl font-black flex items-center gap-3 text-foreground uppercase tracking-tighter">
+          <Settings className="text-primary w-6 h-6 md:w-10 md:h-10" /> AJUSTES
         </h1>
-        <p className="text-muted-foreground text-sm md:text-lg">Personaliza la base estructural y estética de tu simulador.</p>
+        <p className="text-muted-foreground text-[10px] md:text-lg">Personaliza la base estructural y estética de tu simulador.</p>
       </header>
 
       <div className="grid gap-6 md:gap-8">
         {/* TEMAS Y ESTÉTICA */}
-        <Card className="border-none bg-card shadow-xl overflow-hidden">
+        <Card className="border-none bg-card shadow-xl overflow-hidden rounded-[1.5rem] md:rounded-[2.5rem]">
           <div className="h-2 w-full bg-gradient-to-r from-primary via-accent to-yellow-500" />
-          <CardHeader>
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-primary/10 flex items-center justify-center">
-                <Palette className="text-primary w-5 h-5 md:w-6 md:h-6" />
+          <CardHeader className="p-4 md:p-6">
+            <div className="flex items-center gap-3 md:gap-4">
+              <div className="w-8 h-8 md:w-12 md:h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Palette className="text-primary w-4 h-4 md:w-6 md:h-6" />
               </div>
               <div>
-                <CardTitle className="text-lg md:text-xl">Atmósfera Visual</CardTitle>
-                <CardDescription className="text-xs md:text-sm">Look & feel de la plataforma.</CardDescription>
+                <CardTitle className="text-base md:text-xl font-black uppercase">Atmósfera Visual</CardTitle>
+                <CardDescription className="text-[10px] md:text-sm">Look & feel de la plataforma.</CardDescription>
               </div>
             </div>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-            <div className="space-y-4">
-              <Label className="text-xs md:text-sm font-black uppercase tracking-widest text-muted-foreground">Tema Seleccionado</Label>
+          <CardContent className="p-4 md:p-6 grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+            <div className="space-y-3 md:space-y-4">
+              <Label className="text-[10px] md:text-sm font-black uppercase tracking-widest text-muted-foreground">Tema Seleccionado</Label>
               <Select value={theme} onValueChange={(v: any) => setTheme(v)}>
-                <SelectTrigger className="h-12 text-base">
+                <SelectTrigger className="h-10 md:h-12 text-sm md:text-base rounded-xl">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -124,29 +124,29 @@ export default function SettingsPage() {
         </Card>
 
         {/* EDITOR DE POSICIONES */}
-        <Card className="border-none bg-card shadow-xl">
-          <CardHeader className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-accent/10 flex items-center justify-center">
-                <MapPin className="text-accent w-5 h-5 md:w-6 md:h-6" />
+        <Card className="border-none bg-card shadow-xl rounded-[1.5rem] md:rounded-[2.5rem]">
+          <CardHeader className="p-4 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-3 md:gap-4">
+              <div className="w-8 h-8 md:w-12 md:h-12 rounded-xl bg-accent/10 flex items-center justify-center">
+                <MapPin className="text-accent w-4 h-4 md:w-6 md:h-6" />
               </div>
               <div>
-                <CardTitle className="text-lg md:text-xl">Roles y Colores</CardTitle>
-                <CardDescription className="text-xs md:text-sm">Identificación por rol.</CardDescription>
+                <CardTitle className="text-base md:text-xl font-black uppercase">Roles y Colores</CardTitle>
+                <CardDescription className="text-[10px] md:text-sm">Identificación por rol competitivo.</CardDescription>
               </div>
             </div>
-            <Button onClick={addPosition} variant="outline" className="w-full md:w-auto border-accent text-accent font-black h-12 rounded-xl">
-              <Plus className="w-4 h-4 mr-2" /> Añadir Rol
+            <Button onClick={addPosition} variant="outline" className="w-full md:w-auto border-accent text-accent font-black h-10 md:h-12 rounded-xl text-xs md:text-sm">
+              <Plus className="w-3 h-3 md:w-4 md:h-4 mr-2" /> AÑADIR ROL
             </Button>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 md:p-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
               {positions.map((pos, index) => (
                 <div key={index} className="group flex items-center gap-3 md:gap-4 p-3 md:p-4 bg-muted/20 hover:bg-muted/40 rounded-2xl border transition-all">
                   <Popover>
                     <PopoverTrigger asChild>
                       <button 
-                        className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-[10px] md:text-xs font-black shadow-lg shrink-0 transition-transform hover:scale-110 active:scale-90"
+                        className="w-8 h-8 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-[8px] md:text-[10px] font-black shadow-lg shrink-0 transition-transform hover:scale-110 active:scale-90"
                         style={{ backgroundColor: posColors[pos] || PREDEFINED_COLORS[24], color: '#fff' }}
                       >
                         {pos.substring(0, 3).toUpperCase()}
@@ -168,20 +168,20 @@ export default function SettingsPage() {
                       </div>
                     </PopoverContent>
                   </Popover>
-                  <div className="flex-1 space-y-1">
+                  <div className="flex-1 overflow-hidden">
                     <Input 
                       value={pos} 
                       onChange={(e) => updatePositionName(index, e.target.value)}
-                      className="h-8 bg-transparent border-none font-bold text-base md:text-lg focus-visible:ring-0 p-0"
+                      className="h-8 bg-transparent border-none font-bold text-sm md:text-lg focus-visible:ring-0 p-0"
                     />
                   </div>
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="text-destructive h-8 w-8"
+                    className="text-destructive h-8 w-8 hover:bg-destructive/10"
                     onClick={() => removePosition(index)}
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3 h-3 md:w-4 md:h-4" />
                   </Button>
                 </div>
               ))}
@@ -190,24 +190,24 @@ export default function SettingsPage() {
         </Card>
 
         {/* ATRIBUTOS */}
-        <Card className="border-none bg-card shadow-xl">
-          <CardHeader>
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-primary/10 flex items-center justify-center">
-                <ListPlus className="text-primary w-5 h-5 md:w-6 md:h-6" />
+        <Card className="border-none bg-card shadow-xl rounded-[1.5rem] md:rounded-[2.5rem]">
+          <CardHeader className="p-4 md:p-6">
+            <div className="flex items-center gap-3 md:gap-4">
+              <div className="w-8 h-8 md:w-12 md:h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                <ListPlus className="text-primary w-4 h-4 md:w-6 md:h-6" />
               </div>
               <div>
-                <CardTitle className="text-lg md:text-xl">Atributos</CardTitle>
-                <CardDescription className="text-xs md:text-sm">Define las estadísticas por párrafo (uno por línea).</CardDescription>
+                <CardTitle className="text-base md:text-xl font-black uppercase">Atributos</CardTitle>
+                <CardDescription className="text-[10px] md:text-sm">Define las estadísticas una por línea.</CardDescription>
               </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="p-4 md:p-6 space-y-4">
             <Textarea 
               value={attributes} 
               onChange={(e) => setAttributes(e.target.value)} 
               placeholder="Ej: Poder&#10;Velocidad..."
-              className="min-h-[150px] md:min-h-[200px] text-base md:text-lg font-medium p-4 md:p-6 bg-muted/10 rounded-2xl"
+              className="min-h-[150px] md:min-h-[200px] text-sm md:text-lg font-medium p-4 md:p-6 bg-muted/10 rounded-2xl"
             />
           </CardContent>
         </Card>
@@ -217,9 +217,9 @@ export default function SettingsPage() {
         <Button 
           onClick={handleSave} 
           size="lg" 
-          className="w-full md:w-auto shadow-2xl shadow-primary/40 h-14 md:h-16 text-lg md:text-xl font-black gap-3 rounded-2xl"
+          className="w-full md:w-auto shadow-2xl shadow-primary/40 h-14 md:h-16 text-base md:text-xl font-black gap-3 rounded-2xl"
         >
-          <CheckCircle2 className="w-6 h-6" /> GUARDAR UNIVERSO
+          <CheckCircle2 className="w-5 h-5 md:w-6 md:h-6" /> GUARDAR CONFIGURACIÓN
         </Button>
       </div>
     </div>

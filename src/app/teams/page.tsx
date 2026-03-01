@@ -20,121 +20,6 @@ import { CrestIcon } from '@/components/ui/crest-icon';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 
-// Hyper-Realistic Jersey SVG Visualizer 4.0 (Shared with players page)
-const PlayerJerseySVG = ({ 
-  primary, secondary, tertiary, accent, style, brand, sponsor, 
-  crestPlacement, sponsorPlacement, brandPlacement, crestSize = 'medium'
-}: { 
-  primary: string, secondary: string, tertiary: string, accent: string, style: UniformStyle, 
-  brand?: string, sponsor?: string, crestPlacement: ElementPlacement, 
-  sponsorPlacement: VerticalPlacement, brandPlacement: ElementPlacement, crestSize?: ElementSize
-}) => {
-  const getCrestPos = () => {
-    if (crestPlacement === 'left') return { x: 65, y: 70 };
-    if (crestPlacement === 'center') return { x: 100, y: 70 };
-    return { x: 135, y: 70 };
-  };
-
-  const getSponsorPos = () => {
-    if (sponsorPlacement === 'top') return { x: 100, y: 105 };
-    if (sponsorPlacement === 'middle') return { x: 100, y: 140 };
-    return { x: 100, y: 175 };
-  };
-
-  const getBrandPos = () => {
-    if (brandPlacement === 'left') return { x: 65, y: 55 };
-    if (brandPlacement === 'center') return { x: 100, y: 45 };
-    return { x: 135, y: 55 };
-  };
-
-  const getCrestScale = () => {
-    if (crestSize === 'small') return 0.6;
-    if (crestSize === 'large') return 1.4;
-    return 1;
-  };
-
-  return (
-    <svg viewBox="0 0 200 240" className="w-full h-full drop-shadow-2xl">
-      <defs>
-        <clipPath id="jerseyClip">
-          <path d="M40 40 L60 20 L140 20 L160 40 L180 60 L180 100 L160 100 L160 220 L150 225 L50 225 L40 220 L40 100 L20 100 L20 60 Z" />
-        </clipPath>
-        <linearGradient id="clothHighlight" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="white" stopOpacity="0.2" />
-          <stop offset="50%" stopColor="white" stopOpacity="0" />
-          <stop offset="100%" stopColor="black" stopOpacity="0.2" />
-        </linearGradient>
-        <pattern id="pat_stripes" width="40" height="240" patternUnits="userSpaceOnUse"><rect width="20" height="240" fill={secondary} /></pattern>
-        <pattern id="pat_hoops" width="200" height="40" patternUnits="userSpaceOnUse"><rect width="200" height="20" fill={secondary} /></pattern>
-        <pattern id="pat_checks" width="40" height="40" patternUnits="userSpaceOnUse">
-          <rect width="20" height="20" fill={secondary} />
-          <rect x="20" y="20" width="20" height="20" fill={secondary} />
-        </pattern>
-        <pattern id="pat_pinstripes" width="10" height="240" patternUnits="userSpaceOnUse"><rect width="1" height="240" fill={secondary} /></pattern>
-      </defs>
-
-      {/* Main Body */}
-      <path d="M40 40 L60 20 L140 20 L160 40 L180 60 L180 100 L160 100 L160 220 L150 225 L50 225 L40 220 L40 100 L20 100 L20 60 Z" fill={primary} />
-      
-      {/* Patterns */}
-      <g clipPath="url(#jerseyClip)">
-        {style === 'stripes' && <rect width="200" height="240" fill="url(#pat_stripes)" />}
-        {style === 'hoops' && <rect width="200" height="240" fill="url(#pat_hoops)" />}
-        {style === 'checks' && <rect width="200" height="240" fill="url(#pat_checks)" />}
-        {style === 'pinstripes' && <rect width="200" height="240" fill="url(#pat_pinstripes)" />}
-        {style === 'halves' && <rect x="100" width="100" height="240" fill={secondary} />}
-        {style === 'sash' && <path d="M40 20 L200 180 L200 240 L0 80 Z" fill={secondary} />}
-      </g>
-
-      {/* Trims */}
-      <path d="M60 20 L100 35 L140 20 L120 20 L100 30 L80 20 Z" fill={tertiary} />
-      <rect x="20" y="85" width="20" height="15" fill={tertiary} transform="rotate(-45 20 85)" />
-      <rect x="160" y="100" width="20" height="15" fill={tertiary} transform="rotate(45 160 100)" />
-
-      {/* Realistic Volumetry Shadows */}
-      <path d="M40 40 L60 20 L140 20 L160 40 L180 60 L180 100 L160 100 L160 220 L150 225 L50 225 L40 220 L40 100 L20 100 L20 60 Z" fill="url(#clothHighlight)" opacity="0.4" />
-      <path d="M160 100 L180 100 L180 60 L160 40 Z" fill="black" opacity="0.1" /> {/* Shoulder shadow */}
-      <path d="M40 100 L20 100 L20 60 L40 40 Z" fill="black" opacity="0.1" /> {/* Shoulder shadow */}
-
-      {/* Branding Elements */}
-      <g opacity="0.95">
-        <text 
-          x={getBrandPos().x} 
-          y={getBrandPos().y} 
-          textAnchor="middle" 
-          fill={accent} 
-          fontSize="8" 
-          fontWeight="900" 
-          style={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}
-        >
-          {brand || ''}
-        </text>
-        
-        <circle 
-          cx={getCrestPos().x} 
-          cy={getCrestPos().y} 
-          r={9 * getCrestScale()} 
-          fill={accent} 
-          stroke={tertiary} 
-          strokeWidth="1.5" 
-        />
-        
-        <text 
-          x={getSponsorPos().x} 
-          y={getSponsorPos().y} 
-          textAnchor="middle" 
-          fill={accent} 
-          fontSize="16" 
-          fontWeight="900" 
-          style={{ textTransform: 'uppercase', letterSpacing: '1px' }}
-        >
-          {sponsor || ''}
-        </text>
-      </g>
-    </svg>
-  );
-};
-
 const ColorPicker = ({ label, value, onChange }: { label: string, value: string, onChange: (c: string) => void }) => (
   <div className="space-y-1.5">
     <Label className="text-[10px] font-black uppercase text-muted-foreground">{label}</Label>
@@ -179,29 +64,16 @@ export default function TeamsPage() {
   const [crestBorder, setCrestBorder] = useState<'none'|'thin'|'thick'>('thin');
   const [venueName, setVenueName] = useState('');
   const [venueCapacity, setVenueCapacity] = useState(1000);
-  const [venueSurface, setVenueSurface] = useState<VenueSurface>('parquet');
+  const [venueSurface, setVenueSurface] = useState<VenueSurface>('grass');
   const [venueSize, setVenueSize] = useState<VenueSize>('medium');
 
-  // New Player State (Matches free agents creation)
+  // New Player State
   const [pName, setPName] = useState('');
   const [pDesc, setPDesc] = useState('');
   const [pPos, setPPos] = useState(settings.positions[0] || 'FW');
   const [pVal, setPVal] = useState(10);
   const [pNum, setPNum] = useState(10);
   const [pAttrs, setPAttrs] = useState<Record<string, number>>({});
-  
-  // Kit State for New Player
-  const [pKitStyle, setPKitStyle] = useState<UniformStyle>('solid');
-  const [pKitC1, setPKitC1] = useState(PREDEFINED_COLORS[24]);
-  const [pKitC2, setPKitC2] = useState(PREDEFINED_COLORS[35]);
-  const [pKitC3, setPKitC3] = useState(PREDEFINED_COLORS[34]);
-  const [pKitC4, setPKitC4] = useState(PREDEFINED_COLORS[35]);
-  const [pBrand, setPBrand] = useState('');
-  const [pSponsor, setPSponsor] = useState('');
-  const [pCrestPos, setPCrestPos] = useState<ElementPlacement>('left');
-  const [pSponsorPos, setPSponsorPos] = useState<VerticalPlacement>('middle');
-  const [pBrandPos, setPBrandPos] = useState<ElementPlacement>('right');
-  const [pCrestSize, setPCrestSize] = useState<ElementSize>('medium');
 
   useEffect(() => {
     if (editingTeam) {
@@ -231,16 +103,8 @@ export default function TeamsPage() {
       const initialAttrs: Record<string, number> = {};
       settings.attributeNames.forEach(attr => initialAttrs[attr] = 50);
       setPAttrs(initialAttrs);
-      
-      const targetTeam = teams.find(t => t.id === playerTargetTeamId);
-      if (targetTeam) {
-        setPKitC1(targetTeam.crestPrimary);
-        setPKitC2(targetTeam.crestSecondary);
-        setPKitC3(targetTeam.crestTertiary || targetTeam.crestSecondary);
-        setPKitC4(targetTeam.crestAccent || targetTeam.crestSecondary);
-      }
     }
-  }, [isPlayerDialogOpen, settings.attributeNames, playerTargetTeamId, teams]);
+  }, [isPlayerDialogOpen, settings.attributeNames]);
 
   const resetForm = () => {
     setName(''); setDescription(''); setAbbreviation(''); setRating(50); setBudget(50);
@@ -248,7 +112,7 @@ export default function TeamsPage() {
     setCrestC1(PREDEFINED_COLORS[24]); setCrestC2(PREDEFINED_COLORS[35]);
     setCrestC3(PREDEFINED_COLORS[35]); setCrestC4(undefined);
     setCrestBorder('thin'); setVenueName(''); setVenueCapacity(1000);
-    setVenueSurface('parquet'); setVenueSize('medium');
+    setVenueSurface('grass'); setVenueSize('medium');
   };
 
   const handleSaveTeam = () => {
@@ -279,6 +143,8 @@ export default function TeamsPage() {
 
   const handleCreatePlayer = () => {
     if (!pName || !playerTargetTeamId) return;
+    const targetTeam = teams.find(t => t.id === playerTargetTeamId);
+    
     const newPlayer: Player = {
       id: Math.random().toString(36).substr(2, 9),
       name: pName,
@@ -289,23 +155,20 @@ export default function TeamsPage() {
       teamId: playerTargetTeamId,
       suspensionMatchdays: 0,
       attributes: Object.entries(pAttrs).map(([name, value]) => ({ name, value })),
-      uniformStyle: pKitStyle,
-      kitPrimary: pKitC1,
-      kitSecondary: pKitC2,
-      kitTertiary: pKitC3,
-      kitAccent: pKitC4,
-      brand: pBrand,
-      sponsor: pSponsor,
-      crestPlacement: pCrestPos,
-      sponsorPlacement: pSponsorPos,
-      brandPlacement: pBrandPos,
-      crestSize: pCrestSize
+      uniformStyle: 'solid',
+      kitPrimary: targetTeam?.crestPrimary || PREDEFINED_COLORS[24],
+      kitSecondary: targetTeam?.crestSecondary || PREDEFINED_COLORS[35],
+      kitTertiary: targetTeam?.crestTertiary || targetTeam?.crestSecondary,
+      kitAccent: targetTeam?.crestAccent || targetTeam?.crestSecondary,
+      crestPlacement: 'left',
+      sponsorPlacement: 'middle',
+      brandPlacement: 'right',
+      crestSize: 'medium'
     };
     addPlayer(newPlayer);
     toast({ title: "Jugador Reclutado", description: `${pName} se ha unido al club.` });
     setIsPlayerDialogOpen(false);
-    // Reset player form
-    setPName(''); setPDesc(''); setPVal(10); setPNum(10); setPBrand(''); setPSponsor('');
+    setPName(''); setPDesc(''); setPVal(10); setPNum(10);
   };
 
   const filteredTeams = teams.filter(t => 
@@ -318,37 +181,37 @@ export default function TeamsPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 pb-32">
-      <header className="flex justify-between items-center px-4 md:px-0">
+      <header className="flex justify-between items-center px-2 md:px-0">
         <div>
-          <h1 className="text-3xl font-black uppercase flex items-center gap-3">
-            Clubs <Sparkles className="text-accent" />
+          <h1 className="text-2xl md:text-3xl font-black uppercase flex items-center gap-3">
+            Clubs <Sparkles className="text-accent w-5 h-5 md:w-6 md:h-6" />
           </h1>
-          <p className="text-muted-foreground">Gestiona tus franquicias y su economía regional.</p>
+          <p className="text-muted-foreground text-xs md:text-sm">Gestiona tus franquicias y su economía regional.</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if(!open) setEditingTeam(null); }}>
-          <DialogTrigger asChild><Button className="font-black rounded-xl h-12 shadow-lg shadow-primary/20">FUNDAR CLUB</Button></DialogTrigger>
-          <DialogContent className="max-w-[800px] p-0 overflow-hidden rounded-[2.5rem] border-none shadow-2xl">
-            <div className="p-6 bg-muted/20 border-b flex justify-between items-center">
-              <DialogTitle className="font-black uppercase">Club Identity Studio</DialogTitle>
+          <DialogTrigger asChild><Button className="font-black rounded-xl h-10 md:h-12 shadow-lg shadow-primary/20 text-xs md:text-sm">FUNDAR CLUB</Button></DialogTrigger>
+          <DialogContent className="max-w-[95vw] md:max-w-[800px] p-0 overflow-hidden rounded-[1.5rem] md:rounded-[2.5rem] border-none shadow-2xl">
+            <div className="p-4 md:p-6 bg-muted/20 border-b">
+              <DialogTitle className="font-black uppercase text-sm md:text-base">Club Identity Studio</DialogTitle>
             </div>
-            <Tabs defaultValue="base" className="w-full flex flex-col h-[70vh]">
-              <TabsList className="grid grid-cols-3 rounded-none h-14 border-b bg-card p-1">
-                <TabsTrigger value="base" className="rounded-xl">General</TabsTrigger>
-                <TabsTrigger value="crest" className="rounded-xl">Heráldica</TabsTrigger>
-                <TabsTrigger value="venue" className="rounded-xl">Sede</TabsTrigger>
+            <Tabs defaultValue="base" className="w-full flex flex-col h-[80vh] md:h-[70vh]">
+              <TabsList className="grid grid-cols-3 rounded-none h-12 md:h-14 border-b bg-card p-1">
+                <TabsTrigger value="base" className="rounded-lg md:rounded-xl text-xs">General</TabsTrigger>
+                <TabsTrigger value="crest" className="rounded-lg md:rounded-xl text-xs">Heráldica</TabsTrigger>
+                <TabsTrigger value="venue" className="rounded-lg md:rounded-xl text-xs">Sede</TabsTrigger>
               </TabsList>
               
-              <div className="flex-1 overflow-y-auto p-6">
+              <div className="flex-1 overflow-y-auto p-4 md:p-6 scrollbar-hide">
                 <TabsContent value="base" className="space-y-6 mt-0">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2"><Label>Nombre del Club</Label><Input value={name} onChange={e => setName(e.target.value)} className="h-12 rounded-xl" /></div>
-                    <div className="space-y-2"><Label>Siglas (3 car.)</Label><Input maxLength={3} value={abbreviation} onChange={e => setAbbreviation(e.target.value)} className="h-12 rounded-xl" /></div>
-                    <div className="space-y-2 col-span-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label>Nombre del Club</Label><Input value={name} onChange={e => setName(e.target.value)} className="h-10 md:h-12 rounded-xl" /></div>
+                    <div className="space-y-2"><Label>Siglas (3 car.)</Label><Input maxLength={3} value={abbreviation} onChange={e => setAbbreviation(e.target.value)} className="h-10 md:h-12 rounded-xl" /></div>
+                    <div className="space-y-2 md:col-span-2">
                       <Label>Descripción / Historia</Label>
-                      <Textarea value={description} onChange={e => setDescription(e.target.value)} className="min-h-[100px] rounded-xl" />
+                      <Textarea value={description} onChange={e => setDescription(e.target.value)} className="min-h-[80px] md:min-h-[100px] rounded-xl" />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2 p-4 bg-muted/10 rounded-2xl border">
                       <div className="flex justify-between items-center mb-2"><Label>Rating Global</Label><span className="font-black text-primary">{rating}</span></div>
                       <Slider value={[rating]} onValueChange={v => setRating(v[0])} max={100} min={1} />
@@ -361,9 +224,9 @@ export default function TeamsPage() {
                 </TabsContent>
 
                 <TabsContent value="crest" className="space-y-8 mt-0">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-start">
                     <div className="aspect-square bg-muted/20 rounded-3xl flex items-center justify-center border-2 border-dashed border-accent/20">
-                      <CrestIcon shape={crestShape} pattern={crestPattern} c1={crestC1} c2={crestC2} c3={crestC3} c4={crestC4} border={crestBorder} size="w-40 h-40" />
+                      <CrestIcon shape={crestShape} pattern={crestPattern} c1={crestC1} c2={crestC2} c3={crestC3} c4={crestC4} border={crestBorder} size="w-32 h-32 md:w-40 h-40" />
                     </div>
                     <div className="space-y-6">
                       <div className="grid grid-cols-2 gap-4">
@@ -393,20 +256,20 @@ export default function TeamsPage() {
                 </TabsContent>
 
                 <TabsContent value="venue" className="space-y-6 mt-0">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2"><Label>Nombre de la Sede</Label><Input value={venueName} onChange={e => setVenueName(e.target.value)} className="h-12 rounded-xl" /></div>
-                    <div className="space-y-2"><Label>Aforo Máximo</Label><Input type="number" value={venueCapacity} onChange={e => setVenueCapacity(Number(e.target.value))} className="h-12 rounded-xl" /></div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                    <div className="space-y-2"><Label>Nombre de la Sede</Label><Input value={venueName} onChange={e => setVenueName(e.target.value)} className="h-10 md:h-12 rounded-xl" /></div>
+                    <div className="space-y-2"><Label>Aforo Máximo</Label><Input type="number" value={venueCapacity} onChange={e => setVenueCapacity(Number(e.target.value))} className="h-10 md:h-12 rounded-xl" /></div>
                     <div className="space-y-2">
                       <Label>Superficie</Label>
                       <Select value={venueSurface} onValueChange={(v: any) => setVenueSurface(v)}>
-                        <SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-10 md:h-12 rounded-xl"><SelectValue /></SelectTrigger>
                         <SelectContent>{['grass','artificial','clay','hardcourt','parquet','ice','sand'].map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Escala del Recinto</Label>
+                      <Label>Escala</Label>
                       <Select value={venueSize} onValueChange={(v: any) => setVenueSize(v)}>
-                        <SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-10 md:h-12 rounded-xl"><SelectValue /></SelectTrigger>
                         <SelectContent>{['small','medium','large','monumental'].map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
@@ -415,75 +278,89 @@ export default function TeamsPage() {
               </div>
 
               <div className="p-4 bg-muted/20 border-t flex justify-end gap-3">
-                <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="rounded-xl h-12 px-8 font-black">CANCELAR</Button>
-                <Button onClick={handleSaveTeam} className="rounded-xl h-12 px-8 font-black shadow-lg shadow-primary/20">GUARDAR CLUB</Button>
+                <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="rounded-xl h-10 md:h-12 px-4 md:px-8 font-black text-xs md:text-sm">CANCELAR</Button>
+                <Button onClick={handleSaveTeam} className="rounded-xl h-10 md:h-12 px-4 md:px-8 font-black shadow-lg shadow-primary/20 text-xs md:text-sm">GUARDAR CLUB</Button>
               </div>
             </Tabs>
           </DialogContent>
         </Dialog>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 px-4 md:px-0">
+      <div className="px-2 md:px-0">
+        <div className="relative group">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4 md:w-5 md:h-5" />
+          <Input 
+            className="pl-12 h-12 md:h-14 rounded-2xl border-none shadow-xl bg-card text-base md:text-lg" 
+            placeholder="Buscar club..." 
+            value={search} 
+            onChange={(e) => setSearch(e.target.value)} 
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8 px-2 md:px-0">
         {filteredTeams.map((team) => (
-          <Card key={team.id} className="rounded-[2.5rem] border-none shadow-2xl overflow-hidden group">
-            <div className="h-3 w-full" style={{ backgroundColor: team.crestPrimary }} />
-            <div className="p-8">
-              <div className="flex gap-6 items-center mb-6">
-                <div className="w-20 h-20 bg-muted/30 rounded-[2rem] flex items-center justify-center relative shadow-inner">
-                  <CrestIcon shape={team.emblemShape} pattern={team.emblemPattern} c1={team.crestPrimary} c2={team.crestSecondary} c3={team.crestTertiary || team.crestSecondary} c4={team.crestAccent} border={team.crestBorderWidth} size="w-12 h-12" />
-                  <div className="absolute -bottom-2 -right-2 bg-primary text-[10px] font-black px-3 py-1 rounded-full text-white shadow-xl">{team.abbreviation}</div>
+          <Card key={team.id} className="rounded-[1.5rem] md:rounded-[2.5rem] border-none shadow-2xl overflow-hidden group">
+            <div className="h-2 md:h-3 w-full" style={{ backgroundColor: team.crestPrimary }} />
+            <div className="p-4 md:p-8">
+              <div className="flex gap-4 md:gap-6 items-center mb-4 md:mb-6">
+                <div className="w-16 h-16 md:w-20 md:h-20 bg-muted/30 rounded-2xl md:rounded-[2rem] flex items-center justify-center relative shadow-inner">
+                  <CrestIcon shape={team.emblemShape} pattern={team.emblemPattern} c1={team.crestPrimary} c2={team.crestSecondary} c3={team.crestTertiary || team.crestSecondary} c4={team.crestAccent} border={team.crestBorderWidth} size="w-10 h-10 md:w-12 md:h-12" />
+                  <div className="absolute -bottom-1 -right-1 md:-bottom-2 md:-right-2 bg-primary text-[8px] md:text-[10px] font-black px-2 py-0.5 md:px-3 md:py-1 rounded-full text-white shadow-xl">{team.abbreviation}</div>
                 </div>
                 <div className="flex-1 overflow-hidden">
-                  <h3 className="text-2xl font-black uppercase truncate tracking-tighter">{team.name}</h3>
-                  <div className="flex items-center gap-3 mt-2">
-                    <div className="flex items-center gap-1 text-xs font-black text-accent"><Coins className="w-3 h-3" /> {team.budget?.toLocaleString()}</div>
-                    <div className="flex items-center gap-1 text-xs font-black text-primary"><Star className="w-3 h-3 fill-current" /> {team.rating}</div>
+                  <h3 className="text-lg md:text-2xl font-black uppercase truncate tracking-tighter">{team.name}</h3>
+                  <div className="flex items-center gap-2 md:gap-3 mt-1 md:mt-2">
+                    <div className="flex items-center gap-1 text-[10px] md:text-xs font-black text-accent"><Coins className="w-3 h-3" /> {team.budget?.toLocaleString()}</div>
+                    <div className="flex items-center gap-1 text-[10px] md:text-xs font-black text-primary"><Star className="w-3 h-3 fill-current" /> {team.rating}</div>
                   </div>
                 </div>
               </div>
 
-              {team.description && <p className="text-[10px] text-muted-foreground line-clamp-2 mb-6 italic">{team.description}</p>}
+              {team.description && <p className="text-[10px] text-muted-foreground line-clamp-2 mb-4 md:mb-6 italic">{team.description}</p>}
 
               <div className="grid grid-cols-2 gap-2">
-                <Button className="h-11 rounded-xl font-black shadow-lg" variant="secondary" onClick={() => { setEditingTeam(team); setIsDialogOpen(true); }}>
-                  <Pencil className="w-4 h-4 mr-2" /> EDITAR
+                <Button className="h-9 md:h-11 rounded-xl font-black text-[10px] md:text-sm" variant="secondary" onClick={() => { setEditingTeam(team); setIsDialogOpen(true); }}>
+                  <Pencil className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" /> EDITAR
                 </Button>
-                <Button className="h-11 rounded-xl font-black shadow-lg" variant="default" onClick={() => { setPlayerTargetTeamId(team.id); setIsPlayerDialogOpen(true); }}>
-                  <UserPlus className="w-4 h-4 mr-2" /> RECLUTAR
+                <Button className="h-9 md:h-11 rounded-xl font-black text-[10px] md:text-sm" variant="default" onClick={() => { setPlayerTargetTeamId(team.id); setIsPlayerDialogOpen(true); }}>
+                  <UserPlus className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" /> RECLUTAR
                 </Button>
-                <Button variant="outline" className="h-11 rounded-xl font-black border-primary text-primary" onClick={() => setViewingRosterTeamId(team.id)}>
-                  <LayoutGrid className="w-4 h-4 mr-2" /> PLANTILLA
+                <Button variant="outline" className="h-9 md:h-11 rounded-xl font-black border-primary text-primary text-[10px] md:text-sm" onClick={() => setViewingRosterTeamId(team.id)}>
+                  <LayoutGrid className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" /> PLANTILLA
                 </Button>
                 <Dialog>
                   <DialogTrigger asChild>
-                    <Button variant="outline" className="h-11 rounded-xl font-black border-accent text-accent"><Users className="w-4 h-4 mr-2" /> TRASPASOS</Button>
+                    <Button variant="outline" className="h-9 md:h-11 rounded-xl font-black border-accent text-accent text-[10px] md:text-sm"><Users className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" /> TRASPASOS</Button>
                   </DialogTrigger>
-                  <DialogContent className="rounded-[2rem] max-w-lg">
-                    <DialogHeader><DialogTitle className="font-black uppercase">Mercado de Traspasos</DialogTitle></DialogHeader>
+                  <DialogContent className="rounded-[1.5rem] md:rounded-[2rem] max-w-[90vw] md:max-w-lg">
+                    <DialogHeader><DialogTitle className="font-black uppercase text-sm md:text-base">Mercado de Traspasos</DialogTitle></DialogHeader>
                     <div className="space-y-4 py-4">
-                      <p className="text-xs font-bold text-muted-foreground uppercase">Fichar Agente para {team.name}</p>
-                      <div className="grid gap-2 max-h-[300px] overflow-y-auto pr-2">
-                        {players.filter(p => !p.teamId).map(p => (
-                          <div key={p.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-xl">
-                            <div><p className="font-black text-sm">{p.name}</p><p className="text-[10px] font-bold text-accent">{p.monetaryValue.toLocaleString()} {settings.currency}</p></div>
-                            <Button size="sm" className="font-black" onClick={() => {
-                              if (team.budget < p.monetaryValue) {
-                                toast({ title: "Fondos Insuficientes", description: "El club no tiene presupuesto para este agente.", variant: "destructive" });
-                                return;
-                              }
-                              transferPlayer(p.id, team.id);
-                              toast({ title: "Fichaje Confirmado", description: `${p.name} se une a ${team.name}.` });
-                            }}>FICHAR</Button>
-                          </div>
-                        ))}
-                      </div>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase">Fichar para {team.name}</p>
+                      <ScrollArea className="h-[250px] md:h-[300px] pr-2">
+                        <div className="grid gap-2">
+                          {players.filter(p => !p.teamId).map(p => (
+                            <div key={p.id} className="flex items-center justify-between p-2 md:p-3 bg-muted/30 rounded-xl">
+                              <div className="overflow-hidden"><p className="font-black text-xs md:text-sm truncate">{p.name}</p><p className="text-[9px] md:text-[10px] font-bold text-accent">{p.monetaryValue.toLocaleString()} {settings.currency}</p></div>
+                              <Button size="sm" className="font-black text-[9px] md:text-xs h-7 md:h-8" onClick={() => {
+                                if (team.budget < p.monetaryValue) {
+                                  toast({ title: "Fondos Insuficientes", variant: "destructive" });
+                                  return;
+                                }
+                                transferPlayer(p.id, team.id);
+                                toast({ title: "Fichaje Confirmado" });
+                              }}>FICHAR</Button>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
                     </div>
                   </DialogContent>
                 </Dialog>
-                <Button variant="destructive" className="h-11 rounded-xl shadow-lg shadow-destructive/10" onClick={() => {
+                <Button variant="destructive" className="h-9 md:h-11 rounded-xl shadow-lg" onClick={() => {
                   if(confirm(`¿Desaparecer el club ${team.name}?`)) deleteTeam(team.id);
                 }}>
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-3 h-3 md:w-4 md:h-4" />
                 </Button>
               </div>
             </div>
@@ -491,165 +368,97 @@ export default function TeamsPage() {
         ))}
       </div>
 
-      {/* Recruitment Dialog - Full experience like free agents page */}
       <Dialog open={isPlayerDialogOpen} onOpenChange={setIsPlayerDialogOpen}>
-        <DialogContent className="rounded-[2.5rem] max-w-[900px] p-0 overflow-hidden border-none shadow-2xl">
-          <div className="p-6 bg-muted/20 border-b">
-            <DialogTitle className="font-black uppercase flex items-center gap-2">
-              <UserCircle2 className="text-primary" /> Reclutamiento de Élite para {teams.find(t => t.id === playerTargetTeamId)?.name}
+        <DialogContent className="rounded-[1.5rem] md:rounded-[2.5rem] max-w-[95vw] md:max-w-[800px] p-0 overflow-hidden border-none shadow-2xl">
+          <div className="p-4 md:p-6 bg-muted/20 border-b">
+            <DialogTitle className="font-black uppercase flex items-center gap-2 text-sm md:text-base">
+              <UserCircle2 className="text-primary w-4 h-4 md:w-5 md:h-5" /> Reclutamiento para {teams.find(t => t.id === playerTargetTeamId)?.name}
             </DialogTitle>
           </div>
-          <Tabs defaultValue="base" className="w-full flex flex-col h-[80vh]">
-            <TabsList className="grid grid-cols-3 rounded-none h-14 bg-card p-1 border-b">
-              <TabsTrigger value="base" className="rounded-xl">Bio</TabsTrigger>
-              <TabsTrigger value="stats" className="rounded-xl">Estadísticas</TabsTrigger>
-              <TabsTrigger value="brand" className="rounded-xl">Marca Personal</TabsTrigger>
+          <Tabs defaultValue="base" className="w-full flex flex-col h-[80vh] md:h-[65vh]">
+            <TabsList className="grid grid-cols-2 rounded-none h-12 md:h-14 bg-card p-1 border-b">
+              <TabsTrigger value="base" className="rounded-lg md:rounded-xl text-xs">Bio</TabsTrigger>
+              <TabsTrigger value="stats" className="rounded-lg md:rounded-xl text-xs">Estadísticas</TabsTrigger>
             </TabsList>
             
-            <div className="flex-1 overflow-y-auto p-6 scrollbar-hide">
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 scrollbar-hide">
               <TabsContent value="base" className="space-y-6 mt-0">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2"><Label>Nombre Completo</Label><Input value={pName} onChange={e => setPName(e.target.value)} className="h-12 rounded-xl" /></div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                  <div className="space-y-2"><Label>Nombre</Label><Input value={pName} onChange={e => setPName(e.target.value)} className="h-10 md:h-12 rounded-xl" /></div>
                   <div className="space-y-2">
-                    <Label>Posición Predilecta</Label>
+                    <Label>Posición</Label>
                     <Select value={pPos} onValueChange={setPPos}>
-                      <SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-10 md:h-12 rounded-xl"><SelectValue /></SelectTrigger>
                       <SelectContent>{settings.positions.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2"><Label>Valor ({settings.currency})</Label><Input type="number" value={pVal} onChange={e => setPVal(Number(e.target.value))} className="h-12 rounded-xl" /></div>
-                  <div className="space-y-2"><Label>Dorsal</Label><Input type="number" value={pNum} onChange={e => setPNum(Number(e.target.value))} className="h-12 rounded-xl" /></div>
+                  <div className="space-y-2"><Label>Valor</Label><Input type="number" value={pVal} onChange={e => setPVal(Number(e.target.value))} className="h-10 md:h-12 rounded-xl" /></div>
+                  <div className="space-y-2"><Label>Dorsal</Label><Input type="number" value={pNum} onChange={e => setPNum(Number(e.target.value))} className="h-10 md:h-12 rounded-xl" /></div>
                   <div className="space-y-2 md:col-span-2">
-                    <Label>Biografía / Descripción del Jugador</Label>
-                    <Textarea 
-                      value={pDesc} 
-                      onChange={e => setPDesc(e.target.value)} 
-                      placeholder="Historia, logros, estilo de juego..." 
-                      className="min-h-[120px] rounded-xl" 
-                    />
+                    <Label>Biografía</Label>
+                    <Textarea value={pDesc} onChange={e => setPDesc(e.target.value)} placeholder="Historia del jugador..." className="min-h-[100px] rounded-xl" />
                   </div>
                 </div>
               </TabsContent>
 
               <TabsContent value="stats" className="space-y-6 mt-0">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
                   {settings.attributeNames.map(attr => (
-                    <div key={attr} className="space-y-3 p-4 bg-muted/10 rounded-2xl border">
+                    <div key={attr} className="space-y-2 p-3 md:p-4 bg-muted/10 rounded-2xl border">
                       <div className="flex justify-between items-center">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-primary">{attr}</span>
-                        <span className="text-lg font-black">{pAttrs[attr] || 50}</span>
+                        <span className="text-[9px] md:text-[10px] font-black uppercase text-primary">{attr}</span>
+                        <span className="text-base md:text-lg font-black">{pAttrs[attr] || 50}</span>
                       </div>
-                      <Slider 
-                        value={[pAttrs[attr] || 50]} 
-                        onValueChange={v => setPAttrs(prev => ({...prev, [attr]: v[0]}))} 
-                        max={100} min={1} 
-                      />
+                      <Slider value={[pAttrs[attr] || 50]} onValueChange={v => setPAttrs(prev => ({...prev, [attr]: v[0]}))} max={100} min={1} />
                     </div>
                   ))}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="brand" className="space-y-8 mt-0">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
-                  <div className="aspect-square bg-muted/20 rounded-3xl flex items-center justify-center p-8 border-2 border-dashed border-accent/30 shadow-inner">
-                    <div className="w-full max-w-[240px]">
-                      <PlayerJerseySVG 
-                        primary={pKitC1} secondary={pKitC2} tertiary={pKitC3} accent={pKitC4} 
-                        style={pKitStyle} brand={pBrand} sponsor={pSponsor}
-                        crestPlacement={pCrestPos} sponsorPlacement={pSponsorPos} 
-                        brandPlacement={pBrandPos} crestSize={pCrestSize}
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-8 pb-10">
-                    <div className="space-y-4">
-                      <h4 className="text-sm font-black uppercase text-accent border-b pb-2">Identidad Visual</h4>
-                      <div className="space-y-2">
-                        <Label>Estilo de Jersey</Label>
-                        <Select value={pKitStyle} onValueChange={(v: any) => setPKitStyle(v)}>
-                          <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="solid">Liso</SelectItem>
-                            <SelectItem value="stripes">Rayas</SelectItem>
-                            <SelectItem value="hoops">Aros</SelectItem>
-                            <SelectItem value="checks">Cuadros</SelectItem>
-                            <SelectItem value="pinstripes">Rayas Finas</SelectItem>
-                            <SelectItem value="halves">Mitades</SelectItem>
-                            <SelectItem value="sash">Banda Diagonal</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <ColorPicker label="Primario" value={pKitC1} onChange={setPKitC1} />
-                        <ColorPicker label="Secundario" value={pKitC2} onChange={setPKitC2} />
-                        <ColorPicker label="Detalles" value={pKitC3} onChange={setPKitC3} />
-                        <ColorPicker label="Acento" value={pKitC4} onChange={setPKitC4} />
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      <h4 className="text-sm font-black uppercase text-accent border-b pb-2">Patrocinios</h4>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2"><Label>Marca Técnica</Label><Input value={pBrand} onChange={e => setPBrand(e.target.value)} /></div>
-                        <div className="space-y-2"><Label>Sponsor Principal</Label><Input value={pSponsor} onChange={e => setPSponsor(e.target.value)} /></div>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </TabsContent>
             </div>
 
             <div className="p-4 bg-muted/20 border-t flex justify-end gap-3">
-              <Button variant="ghost" onClick={() => setIsPlayerDialogOpen(false)} className="rounded-xl h-12 font-black px-8">CANCELAR</Button>
-              <Button onClick={handleCreatePlayer} disabled={!pName} className="rounded-xl h-12 font-black px-8 shadow-lg shadow-primary/20">CONFIRMAR FICHAJE</Button>
+              <Button variant="ghost" onClick={() => setIsPlayerDialogOpen(false)} className="rounded-xl h-10 md:h-12 text-xs md:text-sm font-black px-4 md:px-8">CANCELAR</Button>
+              <Button onClick={handleCreatePlayer} disabled={!pName} className="rounded-xl h-10 md:h-12 text-xs md:text-sm font-black px-4 md:px-8 shadow-lg shadow-primary/20">CONFIRMAR</Button>
             </div>
           </Tabs>
         </DialogContent>
       </Dialog>
 
       <Dialog open={!!viewingRosterTeamId} onOpenChange={(o) => !o && setViewingRosterTeamId(null)}>
-        <DialogContent className="max-w-3xl p-0 overflow-hidden rounded-[2.5rem] border-none shadow-2xl">
+        <DialogContent className="max-w-[95vw] md:max-w-3xl p-0 overflow-hidden rounded-[1.5rem] md:rounded-[2.5rem] border-none shadow-2xl">
           {viewingRosterTeam && (
-            <div className="flex flex-col h-[85vh]">
-              <div className="p-8 bg-muted/10 border-b flex items-center gap-6">
-                <CrestIcon 
-                  shape={viewingRosterTeam.emblemShape} 
-                  pattern={viewingRosterTeam.emblemPattern} 
-                  c1={viewingRosterTeam.crestPrimary} 
-                  c2={viewingRosterTeam.crestSecondary} 
-                  c3={viewingRosterTeam.crestTertiary || viewingRosterTeam.crestSecondary} 
-                  size="w-20 h-20" 
-                />
-                <div className="flex-1">
-                  <DialogTitle className="text-3xl font-black uppercase tracking-tighter">Plantilla de {viewingRosterTeam.name}</DialogTitle>
-                  <p className="text-muted-foreground font-bold text-xs uppercase mt-1">Total: {teamRoster.length} Agentes • Presupuesto: {viewingRosterTeam.budget} {settings.currency}</p>
+            <div className="flex flex-col h-[85vh] md:h-[80vh]">
+              <div className="p-4 md:p-8 bg-muted/10 border-b flex items-center gap-4 md:gap-6">
+                <CrestIcon shape={viewingRosterTeam.emblemShape} pattern={viewingRosterTeam.emblemPattern} c1={viewingRosterTeam.crestPrimary} c2={viewingRosterTeam.crestSecondary} c3={viewingRosterTeam.crestTertiary || viewingRosterTeam.crestSecondary} size="w-12 h-12 md:w-20 md:h-20" />
+                <div className="flex-1 overflow-hidden">
+                  <DialogTitle className="text-xl md:text-3xl font-black uppercase tracking-tighter truncate">Plantilla de {viewingRosterTeam.name}</DialogTitle>
+                  <p className="text-muted-foreground font-bold text-[9px] md:text-xs uppercase mt-1">Total: {teamRoster.length} • {viewingRosterTeam.budget} {settings.currency}</p>
                 </div>
               </div>
               
-              <div className="flex-1 overflow-y-auto p-8">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="flex-1 overflow-y-auto p-4 md:p-8 scrollbar-hide">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                   {teamRoster.length === 0 ? (
-                    <div className="col-span-full py-20 text-center bg-muted/10 rounded-3xl border-2 border-dashed">
-                      <Users className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                      <p className="font-bold text-muted-foreground">Sin jugadores asignados actualmente.</p>
+                    <div className="col-span-full py-12 md:py-20 text-center bg-muted/10 rounded-2xl md:rounded-3xl border-2 border-dashed">
+                      <Users className="w-10 h-10 md:w-12 md:h-12 mx-auto mb-4 opacity-20" />
+                      <p className="font-bold text-muted-foreground text-xs md:text-sm">Sin jugadores asignados.</p>
                     </div>
                   ) : (
                     teamRoster.map(player => (
-                      <div key={player.id} className="p-4 bg-card border rounded-2xl shadow-sm flex items-center justify-between hover:border-primary/50 transition-colors">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center font-black text-primary">#{player.jerseyNumber}</div>
-                          <div>
-                            <p className="font-black text-sm uppercase truncate max-w-[150px]">{player.name}</p>
-                            <Badge variant="secondary" className="text-[9px] h-4 mt-1 font-black">{player.position}</Badge>
+                      <div key={player.id} className="p-3 md:p-4 bg-card border rounded-2xl flex items-center justify-between">
+                        <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
+                          <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-primary/10 flex items-center justify-center font-black text-primary text-xs md:text-sm shrink-0">#{player.jerseyNumber}</div>
+                          <div className="overflow-hidden">
+                            <p className="font-black text-xs md:text-sm uppercase truncate">{player.name}</p>
+                            <Badge variant="secondary" className="text-[8px] md:text-[9px] h-4 mt-0.5 font-black">{player.position}</Badge>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="font-black text-xs text-accent">{player.monetaryValue} {settings.currency}</p>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => {
+                        <div className="text-right shrink-0 flex items-center gap-2">
+                          <p className="font-black text-[10px] md:text-xs text-accent">{player.monetaryValue}</p>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8 text-destructive" onClick={() => {
                             if(confirm(`¿Despedir a ${player.name}?`)) deletePlayer(player.id);
                           }}>
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3 h-3 md:w-4 md:h-4" />
                           </Button>
                         </div>
                       </div>
@@ -658,8 +467,8 @@ export default function TeamsPage() {
                 </div>
               </div>
               
-              <div className="p-6 border-t bg-muted/5 flex justify-end">
-                <Button onClick={() => setViewingRosterTeamId(null)} className="rounded-xl font-black h-12 px-8">CERRAR PLANTILLA</Button>
+              <div className="p-4 md:p-6 border-t bg-muted/5 flex justify-end">
+                <Button onClick={() => setViewingRosterTeamId(null)} className="rounded-xl font-black h-10 md:h-12 px-6 md:px-8 text-xs md:text-sm">CERRAR</Button>
               </div>
             </div>
           )}
