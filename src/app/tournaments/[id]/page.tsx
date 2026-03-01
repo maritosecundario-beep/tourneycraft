@@ -41,9 +41,8 @@ export default function TournamentDetailPage() {
     }
   }, [teams, players, tournament]);
 
-  if (!tournament) return <div className="p-20 text-center font-black">TOURNAMENT NOT FOUND</div>;
-
   const calculateStandings = (list: (Team | Player)[]) => {
+    if (!tournament) return [];
     const stats = list.map(item => {
       let played = 0, won = 0, drawn = 0, lost = 0, gf = 0, ga = 0, pts = 0;
       
@@ -74,6 +73,7 @@ export default function TournamentDetailPage() {
   };
 
   const groupedStandings = useMemo(() => {
+    if (!tournament) return [];
     if (tournament.leagueType !== 'single-table' && tournament.groups) {
       return tournament.groups.map(group => ({
         name: group.name,
@@ -82,6 +82,8 @@ export default function TournamentDetailPage() {
     }
     return [{ name: 'Clasificación General', standings: calculateStandings(participants) }];
   }, [tournament, participants]);
+
+  if (!tournament) return <div className="p-20 text-center font-black">TOURNAMENT NOT FOUND</div>;
 
   const simulateMatch = (match: Match) => {
     let h = 0, a = 0;
