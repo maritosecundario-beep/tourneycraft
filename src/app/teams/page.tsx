@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { Search, Trash2, Pencil, Sparkles, Shield, Star, Coins, UserPlus } from 'lucide-react';
+import { Search, Trash2, Pencil, Sparkles, Shield, Star, Coins, UserPlus, FileText } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/hooks/use-toast';
@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { EmblemShape, EmblemPattern, VenueSurface, VenueSize, Team, Player } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { PREDEFINED_COLORS } from '@/lib/colors';
+import { Textarea } from '@/components/ui/textarea';
 
 // Advanced Crest SVG Component
 const CrestIcon = ({ 
@@ -115,6 +116,7 @@ export default function TeamsPage() {
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   
   const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
   const [abbreviation, setAbbreviation] = useState('');
   const [rating, setRating] = useState(50);
   const [budget, setBudget] = useState(50000);
@@ -133,6 +135,7 @@ export default function TeamsPage() {
   useEffect(() => {
     if (editingTeam) {
       setName(editingTeam.name);
+      setDescription(editingTeam.description || '');
       setAbbreviation(editingTeam.abbreviation);
       setRating(editingTeam.rating);
       setBudget(editingTeam.budget || 50000);
@@ -153,7 +156,7 @@ export default function TeamsPage() {
   }, [editingTeam]);
 
   const resetForm = () => {
-    setName(''); setAbbreviation(''); setRating(50); setBudget(50000);
+    setName(''); setDescription(''); setAbbreviation(''); setRating(50); setBudget(50000);
     setCrestShape('shield'); setCrestPattern('none');
     setCrestC1(PREDEFINED_COLORS[24]); setCrestC2(PREDEFINED_COLORS[35]);
     setCrestC3(PREDEFINED_COLORS[35]); setCrestC4(undefined);
@@ -169,7 +172,7 @@ export default function TeamsPage() {
     
     const teamData: Team = {
       id: editingTeam ? editingTeam.id : Math.random().toString(36).substr(2, 9),
-      name, abbreviation: abbreviation.toUpperCase(), rating, budget,
+      name, description, abbreviation: abbreviation.toUpperCase(), rating, budget,
       emblemShape: crestShape, emblemPattern: crestPattern, crestPrimary: crestC1, crestSecondary: crestC2,
       crestTertiary: crestC3, crestAccent: crestC4, crestBorderWidth: crestBorder,
       venueName: venueName || 'Arena Principal', venueCapacity, venueSurface, venueSize,
@@ -219,6 +222,10 @@ export default function TeamsPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2"><Label>Nombre del Club</Label><Input value={name} onChange={e => setName(e.target.value)} className="h-12 rounded-xl" /></div>
                     <div className="space-y-2"><Label>Siglas (3 car.)</Label><Input maxLength={3} value={abbreviation} onChange={e => setAbbreviation(e.target.value)} className="h-12 rounded-xl" /></div>
+                    <div className="space-y-2 col-span-2">
+                      <Label>Historia / Descripción del Club</Label>
+                      <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Breve historia del club, palmarés..." className="min-h-[100px] rounded-xl" />
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2 p-4 bg-muted/10 rounded-2xl border">
@@ -303,7 +310,7 @@ export default function TeamsPage() {
           <Card key={team.id} className="rounded-[2.5rem] border-none shadow-2xl overflow-hidden hover:translate-y-[-8px] transition-all duration-300 group">
             <div className="h-3 w-full" style={{ backgroundColor: team.crestPrimary }} />
             <div className="p-8">
-              <div className="flex gap-6 items-center mb-8">
+              <div className="flex gap-6 items-center mb-6">
                 <div className="w-20 h-20 bg-muted/30 rounded-[2rem] flex items-center justify-center border-2 border-dashed group-hover:border-primary/50 transition-colors relative shadow-inner">
                   <CrestIcon shape={team.emblemShape} pattern={team.emblemPattern} c1={team.crestPrimary} c2={team.crestSecondary} c3={team.crestTertiary || team.crestSecondary} c4={team.crestAccent} border={team.crestBorderWidth} size="w-12 h-12" />
                   <div className="absolute -bottom-2 -right-2 bg-primary text-[10px] font-black px-3 py-1 rounded-full text-white shadow-xl">
@@ -318,6 +325,12 @@ export default function TeamsPage() {
                   </div>
                 </div>
               </div>
+
+              {team.description && (
+                <p className="text-[10px] text-muted-foreground line-clamp-2 mb-6 italic">
+                  {team.description}
+                </p>
+              )}
 
               <div className="flex gap-3">
                 <Button className="flex-1 h-12 rounded-2xl font-black shadow-lg" variant="secondary" onClick={() => { setEditingTeam(team); setIsDialogOpen(true); }}>

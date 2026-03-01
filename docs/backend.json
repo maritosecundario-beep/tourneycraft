@@ -50,10 +50,16 @@
         "name": {
           "type": "string"
         },
+        "description": {
+          "type": "string"
+        },
         "abbreviation": {
           "type": "string"
         },
         "rating": {
+          "type": "number"
+        },
+        "budget": {
           "type": "number"
         },
         "emblemShape": {
@@ -110,6 +116,9 @@
           "type": "string"
         },
         "name": {
+          "type": "string"
+        },
+        "description": {
           "type": "string"
         },
         "monetaryValue": {

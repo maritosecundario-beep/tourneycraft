@@ -7,6 +7,7 @@ export type PlayerAttribute = {
 export type Player = {
   id: string;
   name: string;
+  description?: string;
   monetaryValue: number;
   jerseyNumber: number;
   position: string;
@@ -48,6 +49,7 @@ export type VenueSize = 'small' | 'medium' | 'large' | 'monumental';
 export type Team = {
   id: string;
   name: string;
+  description?: string;
   abbreviation: string;
   rating: number; // 1-100
   budget: number; // Economía del club

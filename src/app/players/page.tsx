@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { UserPlus, Search, User, Trash2, Pencil, Sparkles, LayoutGrid } from 'lucide-react';
+import { UserPlus, Search, User, Trash2, Pencil, Sparkles, LayoutGrid, FileText } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
@@ -16,6 +16,7 @@ import { Player, UniformStyle, ElementPlacement, VerticalPlacement, ElementSize 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PREDEFINED_COLORS } from '@/lib/colors';
 import { cn } from '@/lib/utils';
+import { Textarea } from '@/components/ui/textarea';
 
 // Hyper-Realistic Jersey SVG Visualizer 4.0
 const PlayerJerseySVG = ({ 
@@ -160,6 +161,7 @@ export default function PlayersPage() {
 
   // Form State
   const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
   const [value, setValue] = useState(1000);
   const [number, setNumber] = useState(10);
   const [position, setPosition] = useState(settings.positions[0] || 'FW');
@@ -181,6 +183,7 @@ export default function PlayersPage() {
   useEffect(() => {
     if (editingPlayer) {
       setName(editingPlayer.name);
+      setDescription(editingPlayer.description || '');
       setValue(editingPlayer.monetaryValue);
       setNumber(editingPlayer.jerseyNumber);
       setPosition(editingPlayer.position);
@@ -208,7 +211,7 @@ export default function PlayersPage() {
   }, [editingPlayer, settings]);
 
   const resetForm = () => {
-    setName(''); setValue(1000); setNumber(10);
+    setName(''); setDescription(''); setValue(1000); setNumber(10);
     setPosition(settings.positions[0] || 'FW');
     setAttributes(settings.attributeNames.reduce((acc, name) => ({ ...acc, [name]: 50 }), {}));
     setKitStyle('solid'); setKitC1(PREDEFINED_COLORS[24]); setKitC2(PREDEFINED_COLORS[35]);
@@ -222,7 +225,7 @@ export default function PlayersPage() {
 
     const playerData: Player = {
       id: editingPlayer ? editingPlayer.id : Math.random().toString(36).substr(2, 9),
-      name, monetaryValue: value, jerseyNumber: number, position,
+      name, description, monetaryValue: value, jerseyNumber: number, position,
       attributes: Object.entries(attributes).map(([k, v]) => ({ name: k, value: v })),
       teamId: editingPlayer ? editingPlayer.teamId : undefined,
       uniformStyle: kitStyle, kitPrimary: kitC1, kitSecondary: kitC2, 
@@ -282,6 +285,10 @@ export default function PlayersPage() {
                     </div>
                     <div className="space-y-2"><Label>Valor de Mercado ({settings.currency})</Label><Input type="number" value={value} onChange={e => setValue(Number(e.target.value))} className="h-12 rounded-xl" /></div>
                     <div className="space-y-2"><Label>Dorsal</Label><Input type="number" value={number} onChange={e => setNumber(Number(e.target.value))} className="h-12 rounded-xl" /></div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label>Biografía / Descripción</Label>
+                      <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Historia del agente, logros..." className="min-h-[100px] rounded-xl" />
+                    </div>
                   </div>
                 </TabsContent>
 
@@ -436,9 +443,14 @@ export default function PlayersPage() {
                 </div>
               </div>
               <h3 className="text-xl font-black uppercase truncate mb-1">{player.name}</h3>
-              <p className="text-sm font-bold text-muted-foreground mb-6 flex items-center gap-2">
+              <p className="text-sm font-bold text-muted-foreground mb-4 flex items-center gap-2">
                 <LayoutGrid className="w-3 h-3" /> {player.monetaryValue.toLocaleString()} {settings.currency}
               </p>
+              {player.description && (
+                <p className="text-[10px] text-muted-foreground line-clamp-2 mb-4 italic">
+                  {player.description}
+                </p>
+              )}
               <div className="flex gap-2">
                 <Button variant="secondary" className="flex-1 rounded-xl h-11 font-black" onClick={() => { setEditingPlayer(player); setIsDialogOpen(true); }}>
                   <Pencil className="w-4 h-4 mr-2" /> EDITAR
