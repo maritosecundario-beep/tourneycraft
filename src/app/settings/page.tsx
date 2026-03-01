@@ -6,12 +6,14 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Settings, Coins, MapPin, ListPlus, Info, Palette, CheckCircle2, Plus, Trash2, Hash } from 'lucide-react';
+import { Settings, Coins, MapPin, ListPlus, Palette, CheckCircle2, Plus, Trash2, Hash } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { GlobalSettings } from '@/lib/types';
+import { PREDEFINED_COLORS } from '@/lib/colors';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 export default function SettingsPage() {
   const { settings, updateSettings } = useTournamentStore();
@@ -48,7 +50,7 @@ export default function SettingsPage() {
   const addPosition = () => {
     const newPos = `POS ${positions.length + 1}`;
     setPositions([...positions, newPos]);
-    setPosColors({ ...posColors, [newPos]: '#3b82f6' });
+    setPosColors({ ...posColors, [newPos]: PREDEFINED_COLORS[10] }); // Default to Blue
   };
 
   const removePosition = (index: number) => {
@@ -66,7 +68,7 @@ export default function SettingsPage() {
     newPositions[index] = newName;
     
     const newColors = { ...posColors };
-    newColors[newName] = newColors[oldName] || '#3b82f6';
+    newColors[newName] = newColors[oldName] || PREDEFINED_COLORS[10];
     if (oldName !== newName) delete newColors[oldName];
     
     setPositions(newPositions);
@@ -80,7 +82,7 @@ export default function SettingsPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-32">
       <header>
-        <h1 className="text-4xl font-black flex items-center gap-3">
+        <h1 className="text-4xl font-black flex items-center gap-3 text-foreground">
           <Settings className="text-primary w-10 h-10" /> AJUSTES GLOBALES
         </h1>
         <p className="text-muted-foreground text-lg">Personaliza la base estructural y estética de tu simulador.</p>
@@ -97,7 +99,7 @@ export default function SettingsPage() {
               </div>
               <div>
                 <CardTitle className="text-xl">Atmósfera Visual</CardTitle>
-                <CardDescription>Cambia el look \u0026 feel de toda la plataforma.</CardDescription>
+                <CardDescription>Cambia el look & feel de toda la plataforma.</CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -175,25 +177,42 @@ export default function SettingsPage() {
               {positions.map((pos, index) => (
                 <div key={index} className="group flex items-center gap-4 p-4 bg-muted/20 hover:bg-muted/40 rounded-2xl border transition-all">
                   <div 
-                    className="w-12 h-12 rounded-xl flex items-center justify-center text-xs font-black shadow-lg"
-                    style={{ backgroundColor: posColors[pos] || '#3b82f6', color: '#fff' }}
+                    className="w-12 h-12 rounded-xl flex items-center justify-center text-xs font-black shadow-lg shrink-0"
+                    style={{ backgroundColor: posColors[pos] || PREDEFINED_COLORS[10], color: '#fff' }}
                   >
                     {pos.substring(0, 3).toUpperCase()}
                   </div>
-                  <div className="flex-1 space-y-1">
+                  <div className="flex-1 space-y-2">
                     <Input 
                       value={pos} 
                       onChange={(e) => updatePositionName(index, e.target.value)}
-                      className="h-9 bg-transparent border-none font-bold text-lg focus-visible:ring-0 p-0"
+                      className="h-8 bg-transparent border-none font-bold text-lg focus-visible:ring-0 p-0"
                     />
                     <div className="flex items-center gap-2">
-                      <input 
-                        type="color" 
-                        value={posColors[pos] || '#3b82f6'} 
-                        onChange={(e) => handleColorChange(pos, e.target.value)}
-                        className="w-6 h-6 rounded-md cursor-pointer border-none bg-transparent"
-                      />
-                      <span className="text-[10px] uppercase font-bold text-muted-foreground">Color de Identidad</span>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button 
+                            className="w-6 h-6 rounded-full border-2 border-white shadow-sm cursor-pointer"
+                            style={{ backgroundColor: posColors[pos] || PREDEFINED_COLORS[10] }}
+                          />
+                        </PopoverTrigger>
+                        <PopoverContent className="w-64 p-3 bg-card border-border">
+                          <div className="grid grid-cols-5 gap-2">
+                            {PREDEFINED_COLORS.map(color => (
+                              <button
+                                key={color}
+                                onClick={() => handleColorChange(pos, color)}
+                                className={cn(
+                                  "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110",
+                                  posColors[pos] === color ? "border-foreground" : "border-transparent"
+                                )}
+                                style={{ backgroundColor: color }}
+                              />
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground">Elegir Color de Rol</span>
                     </div>
                   </div>
                   <Button 
@@ -226,7 +245,7 @@ export default function SettingsPage() {
           <CardContent className="space-y-4">
             <div className="bg-accent/5 p-4 rounded-xl border border-accent/20 flex gap-3 mb-4">
               <Hash className="text-accent shrink-0" />
-              <p className="text-sm">Escribe un atributo por párrafo. Esto generará automáticamente los sliders en el creador de jugadores.</p>
+              <p className="text-sm text-foreground/80">Escribe un atributo por párrafo. Esto generará automáticamente los sliders en el creador de jugadores.</p>
             </div>
             <Textarea 
               value={attributes} 

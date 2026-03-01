@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { UniformStyle, EmblemShape, VenueSurface, Team } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { PREDEFINED_COLORS } from '@/lib/colors';
 
 export default function TeamsPage() {
   const { teams, addTeam, deleteTeam } = useTournamentStore();
@@ -30,8 +31,8 @@ export default function TeamsPage() {
   const [venueSurface, setVenueSurface] = useState<VenueSurface>('parquet');
   
   // Aesthetic state
-  const [primaryColor, setPrimaryColor] = useState('#3b82f6');
-  const [secondaryColor, setSecondaryColor] = useState('#ffffff');
+  const [primaryColor, setPrimaryColor] = useState(PREDEFINED_COLORS[10]); // Default Blue
+  const [secondaryColor, setSecondaryColor] = useState(PREDEFINED_COLORS[19]); // Default White
   const [uniformStyle, setUniformStyle] = useState<UniformStyle>('solid');
   const [emblemShape, setEmblemShape] = useState<EmblemShape>('modern');
 
@@ -103,7 +104,7 @@ export default function TeamsPage() {
           <div className="absolute top-0 right-0 w-8 h-full" style={{ backgroundColor: secondary }} />
         )}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <span className="text-[30px] font-black opacity-10 uppercase tracking-widest">TEAM BRAND</span>
+          <span className="text-[30px] font-black opacity-10 uppercase tracking-widest text-foreground">IDENTITY</span>
         </div>
       </div>
     );
@@ -113,7 +114,7 @@ export default function TeamsPage() {
     <div className="max-w-7xl mx-auto space-y-8">
       <header className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Organizations & Teams</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Organizations & Teams</h1>
           <p className="text-muted-foreground">Define your rosters and visual identities.</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -122,7 +123,7 @@ export default function TeamsPage() {
               <Plus className="w-5 h-5 mr-2" /> New Team
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[550px] bg-card border-none shadow-2xl p-0 overflow-hidden">
+          <DialogContent className="sm:max-w-[650px] bg-card border-none shadow-2xl p-0 overflow-hidden">
             <DialogHeader className="p-6 bg-muted/20 border-b">
               <DialogTitle className="text-2xl">Identity Builder</DialogTitle>
             </DialogHeader>
@@ -155,35 +156,55 @@ export default function TeamsPage() {
                 </TabsContent>
 
                 <TabsContent value="branding" className="space-y-6 mt-0">
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <div className="grid gap-2">
-                        <Label>Primary Color</Label>
-                        <div className="flex gap-2 items-center">
-                          <input type="color" className="w-10 h-10 rounded cursor-pointer border-none" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} />
-                          <Input value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} className="font-mono text-xs" />
+                  <div className="grid grid-cols-2 gap-8">
+                    <div className="space-y-6">
+                      <div className="space-y-2">
+                        <Label className="text-xs uppercase tracking-widest text-muted-foreground">Primary Color</Label>
+                        <div className="grid grid-cols-5 gap-2">
+                          {PREDEFINED_COLORS.map(color => (
+                            <button
+                              key={color}
+                              onClick={() => setPrimaryColor(color)}
+                              className={cn(
+                                "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110 shadow-sm",
+                                primaryColor === color ? "border-foreground" : "border-transparent"
+                              )}
+                              style={{ backgroundColor: color }}
+                            />
+                          ))}
                         </div>
                       </div>
-                      <div className="grid gap-2">
-                        <Label>Logo Background</Label>
-                        <div className="flex gap-2 items-center">
-                          <input type="color" className="w-10 h-10 rounded cursor-pointer border-none" value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)} />
-                          <Input value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)} className="font-mono text-xs" />
+
+                      <div className="space-y-2">
+                        <Label className="text-xs uppercase tracking-widest text-muted-foreground">Accent Color</Label>
+                        <div className="grid grid-cols-5 gap-2">
+                          {PREDEFINED_COLORS.map(color => (
+                            <button
+                              key={color}
+                              onClick={() => setSecondaryColor(color)}
+                              className={cn(
+                                "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110 shadow-sm",
+                                secondaryColor === color ? "border-foreground" : "border-transparent"
+                              )}
+                              style={{ backgroundColor: color }}
+                            />
+                          ))}
                         </div>
                       </div>
                     </div>
+
                     <div className="space-y-4">
                       <div className="grid gap-2">
-                        <Label>Uniform Style</Label>
+                        <Label>Visual Style</Label>
                         <Select value={uniformStyle} onValueChange={(v: any) => setUniformStyle(v)}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="solid">Solid</SelectItem>
-                            <SelectItem value="stripes">Vertical</SelectItem>
-                            <SelectItem value="hoops">Horizontal</SelectItem>
-                            <SelectItem value="halves">Divided</SelectItem>
+                            <SelectItem value="stripes">Vertical Stripes</SelectItem>
+                            <SelectItem value="hoops">Horizontal Hoops</SelectItem>
+                            <SelectItem value="halves">Halves</SelectItem>
                             <SelectItem value="gradient">Gradient</SelectItem>
-                            <SelectItem value="minimal">Minimal</SelectItem>
+                            <SelectItem value="minimal">Minimal Accent</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -192,18 +213,18 @@ export default function TeamsPage() {
                         <Select value={emblemShape} onValueChange={(v: any) => setEmblemShape(v)}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="shield">Shield</SelectItem>
-                            <SelectItem value="circle">Circular</SelectItem>
+                            <SelectItem value="shield">Classic Shield</SelectItem>
+                            <SelectItem value="circle">Circular Logo</SelectItem>
                             <SelectItem value="square">Quadrangular</SelectItem>
-                            <SelectItem value="modern">Geometric</SelectItem>
-                            <SelectItem value="diamond">Diamond</SelectItem>
+                            <SelectItem value="modern">Geometric Modern</SelectItem>
+                            <SelectItem value="diamond">Diamond Shape</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs uppercase tracking-widest text-muted-foreground">Visual Identity Preview</Label>
+                  <div className="space-y-2 mt-4 pt-4 border-t">
+                    <Label className="text-xs uppercase tracking-widest text-muted-foreground">Real-time Identity Preview</Label>
                     {renderUniformPreview(primaryColor, secondaryColor, uniformStyle)}
                   </div>
                 </TabsContent>
