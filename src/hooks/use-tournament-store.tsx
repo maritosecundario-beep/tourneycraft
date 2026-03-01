@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
@@ -54,7 +55,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       try {
         const parsed = JSON.parse(saved);
         
-        // Data Migration/Cleanup
+        // Data Migration: Ensure Players have Kit data and Teams have Crest/Venue data
         const migratedTeams = (parsed.teams || []).map((t: any) => ({
           ...t,
           emblemPattern: t.emblemPattern || 'none',
@@ -73,9 +74,12 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
           uniformStyle: p.uniformStyle || 'solid',
           kitPrimary: p.kitPrimary || PREDEFINED_COLORS[24],
           kitSecondary: p.kitSecondary || PREDEFINED_COLORS[35],
-          crestPlacement: 'left',
-          sponsorPlacement: 'middle',
-          brandPlacement: 'right'
+          kitTertiary: p.kitTertiary || PREDEFINED_COLORS[34],
+          kitAccent: p.kitAccent || PREDEFINED_COLORS[35],
+          crestPlacement: p.crestPlacement || 'left',
+          sponsorPlacement: p.sponsorPlacement || 'middle',
+          brandPlacement: p.brandPlacement || 'right',
+          crestSize: p.crestSize || 'medium'
         }));
         
         setTeams(migratedTeams);
