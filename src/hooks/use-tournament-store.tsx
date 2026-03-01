@@ -1,10 +1,9 @@
-
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Team, Player, Tournament, GlobalSettings } from '@/lib/types';
 import { useUser, useFirestore } from '@/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 interface TournamentContextType {
@@ -47,7 +46,18 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     const saved = localStorage.getItem('tourneycraft-store');
     if (saved) {
       const parsed = JSON.parse(saved);
-      setTeams(parsed.teams || []);
+      // Migration/Safety check for old team formats
+      const migratedTeams = (parsed.teams || []).map((t: any) => ({
+        ...t,
+        primaryColor: t.primaryColor || '#3b82f6',
+        secondaryColor: t.secondaryColor || '#ffffff',
+        kitDesign: t.kitDesign || 'solid',
+        crestType: t.crestType || 'shield',
+        stadiumCapacity: t.stadiumCapacity || 25000,
+        stadiumSurface: t.stadiumSurface || 'grass'
+      }));
+      
+      setTeams(migratedTeams);
       setPlayers(parsed.players || []);
       setTournaments(parsed.tournaments || []);
       setSettings(parsed.settings || defaultSettings);

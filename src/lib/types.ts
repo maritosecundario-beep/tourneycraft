@@ -14,14 +14,23 @@ export type Player = {
   kitCustomization?: string;
 };
 
+export type KitDesign = 'solid' | 'stripes' | 'hoops' | 'halves' | 'gradient';
+export type CrestType = 'shield' | 'circle' | 'square' | 'modern';
+export type StadiumSurface = 'grass' | 'artificial' | 'clay' | 'hardcourt';
+
 export type Team = {
   id: string;
   name: string;
   abbreviation: string;
   rating: number; // 1-100
   crestUrl?: string;
-  kitDesign?: string;
-  stadiumName?: string;
+  crestType: CrestType;
+  primaryColor: string;
+  secondaryColor: string;
+  kitDesign: KitDesign;
+  stadiumName: string;
+  stadiumCapacity: number;
+  stadiumSurface: StadiumSurface;
   players: Player[];
 };
 
