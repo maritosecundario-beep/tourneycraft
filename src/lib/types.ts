@@ -11,6 +11,18 @@ export type Player = {
   position: string;
   attributes: PlayerAttribute[];
   teamId?: string;
+  // Kit Configuration (Moved from Team to Player)
+  uniformStyle: UniformStyle;
+  kitPrimary: string;
+  kitSecondary: string;
+  kitTertiary?: string;
+  kitAccent?: string;
+  brand?: string;
+  sponsor?: string;
+  crestPlacement: ElementPlacement;
+  sponsorPlacement: VerticalPlacement;
+  brandPlacement: ElementPlacement;
+  crestSize?: ElementSize;
 };
 
 export type UniformStyle = 
@@ -36,7 +48,7 @@ export type Team = {
   name: string;
   abbreviation: string;
   rating: number; // 1-100
-  // Crest Configuration
+  // Crest Configuration (Teams keep their crest)
   emblemShape: EmblemShape;
   emblemPattern: EmblemPattern;
   crestPrimary: string;
@@ -44,18 +56,6 @@ export type Team = {
   crestTertiary?: string;
   crestAccent?: string;
   crestBorderWidth: 'none' | 'thin' | 'thick';
-  // Kit Configuration
-  kitPrimary: string;
-  kitSecondary: string;
-  kitTertiary?: string;
-  kitAccent?: string;
-  uniformStyle: UniformStyle;
-  brand?: string;
-  sponsor?: string;
-  crestPlacement: ElementPlacement;
-  sponsorPlacement: VerticalPlacement;
-  brandPlacement: ElementPlacement;
-  crestSize?: ElementSize;
   // Venue Configuration
   venueName: string;
   venueCapacity: number;

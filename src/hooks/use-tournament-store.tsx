@@ -5,6 +5,7 @@ import { Team, Player, Tournament, GlobalSettings } from '@/lib/types';
 import { useUser, useFirestore } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { PREDEFINED_COLORS } from '@/lib/colors';
 
 interface TournamentContextType {
   teams: Team[];
@@ -52,34 +53,37 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
+        
+        // Data Migration/Cleanup
         const migratedTeams = (parsed.teams || []).map((t: any) => ({
           ...t,
           emblemPattern: t.emblemPattern || 'none',
           crestBorderWidth: t.crestBorderWidth || 'thin',
-          crestPlacement: t.crestPlacement || 'left',
-          sponsorPlacement: t.sponsorPlacement || 'middle',
-          brandPlacement: t.brandPlacement || 'right',
-          crestSize: t.crestSize || 'medium',
-          crestPrimary: t.crestPrimary || t.primaryColor || '#3b82f6',
-          crestSecondary: t.crestSecondary || t.secondaryColor || '#ffffff',
-          kitPrimary: t.kitPrimary || t.primaryColor || '#3b82f6',
-          kitSecondary: t.kitSecondary || t.secondaryColor || '#ffffff',
-          uniformStyle: t.uniformStyle || 'solid',
+          crestPrimary: t.crestPrimary || t.kitPrimary || '#3b82f6',
+          crestSecondary: t.crestSecondary || t.kitSecondary || '#ffffff',
           emblemShape: t.emblemShape || 'shield',
           venueName: t.venueName || 'Arena Principal',
           venueCapacity: t.venueCapacity || 5000,
           venueSurface: t.venueSurface || 'grass',
-          venueSize: t.venueSize || 'medium',
-          brand: t.brand || 'Classic',
-          sponsor: t.sponsor || ''
+          venueSize: t.venueSize || 'medium'
+        }));
+
+        const migratedPlayers = (parsed.players || []).map((p: any) => ({
+          ...p,
+          uniformStyle: p.uniformStyle || 'solid',
+          kitPrimary: p.kitPrimary || PREDEFINED_COLORS[24],
+          kitSecondary: p.kitSecondary || PREDEFINED_COLORS[35],
+          crestPlacement: 'left',
+          sponsorPlacement: 'middle',
+          brandPlacement: 'right'
         }));
         
         setTeams(migratedTeams);
-        setPlayers(parsed.players || []);
+        setPlayers(migratedPlayers);
         setTournaments(parsed.tournaments || []);
         setSettings(parsed.settings || defaultSettings);
       } catch (e) {
-        console.error("Failed to parse local storage", e);
+        console.error("Store Migration Error:", e);
       }
     }
     setIsLoaded(true);

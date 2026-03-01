@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Trophy, Users, UserPlus, Settings, LayoutDashboard, Database, LogIn, LogOut, Menu, MoreHorizontal } from 'lucide-react';
+import { Trophy, Users, UserPlus, Settings, LayoutDashboard, Database, LogIn, LogOut, MoreHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUser, useAuth } from '@/firebase';
 import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
@@ -18,32 +18,46 @@ export function Navbar() {
   const { toast } = useToast();
 
   const handleLogin = async () => {
-    if (!auth) return;
+    if (!auth) {
+      toast({ title: "Error", description: "Servicio de autenticación no disponible.", variant: "destructive" });
+      return;
+    }
     const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    
     try {
       await signInWithPopup(auth, provider);
-      toast({ title: "Bienvenido", description: "Sesión iniciada con éxito." });
-    } catch (error) {
-      toast({ title: "Error", description: "No se pudo iniciar sesión.", variant: "destructive" });
+      toast({ title: "Bienvenido", description: "Has iniciado sesión correctamente." });
+    } catch (error: any) {
+      console.error("Auth Error:", error);
+      toast({ 
+        title: "Error de inicio de sesión", 
+        description: error.message || "No se pudo completar la autenticación con Google.", 
+        variant: "destructive" 
+      });
     }
   };
 
   const handleLogout = async () => {
     if (!auth) return;
-    await signOut(auth);
-    toast({ title: "Sesión cerrada", description: "Tus datos locales siguen disponibles." });
+    try {
+      await signOut(auth);
+      toast({ title: "Sesión cerrada", description: "Vuelve pronto." });
+    } catch (error) {
+      toast({ title: "Error", description: "No se pudo cerrar la sesión.", variant: "destructive" });
+    }
   };
 
   const navItems = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-    { name: 'Teams', href: '/teams', icon: Users },
-    { name: 'Agents', href: '/players', icon: UserPlus },
-    { name: 'Tourneys', href: '/tournaments', icon: Trophy },
+    { name: 'Clubs', href: '/teams', icon: Users },
+    { name: 'Agentes', href: '/players', icon: UserPlus },
+    { name: 'Torneos', href: '/tournaments', icon: Trophy },
   ];
 
   const moreItems = [
     { name: 'Backups', href: '/backups', icon: Database },
-    { name: 'Settings', href: '/settings', icon: Settings },
+    { name: 'Ajustes', href: '/settings', icon: Settings },
   ];
 
   return (
@@ -59,7 +73,7 @@ export function Navbar() {
           </span>
         </div>
 
-        <div className="flex-1 px-4 space-y-2">
+        <div className="flex-1 px-4 space-y-1.5">
           {[...navItems, ...moreItems].map((item) => {
             const isActive = pathname === item.href;
             const Icon = item.icon;
@@ -76,36 +90,36 @@ export function Navbar() {
                 )}
               >
                 <Icon className={cn("w-5 h-5", isActive ? "" : "group-hover:text-accent")} />
-                <span className="font-medium">{item.name}</span>
+                <span className="font-bold text-sm">{item.name}</span>
               </Link>
             );
           })}
         </div>
 
-        <div className="px-4 mt-auto space-y-4">
+        <div className="px-4 mt-auto">
           {!isUserLoading && (
-            <div className="p-4 bg-muted/30 rounded-2xl">
+            <div className="p-4 bg-muted/30 rounded-2xl border border-border/50">
               {user ? (
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center gap-3">
                     <Avatar className="h-8 w-8 border-2 border-primary/50">
                       <AvatarImage src={user.photoURL || undefined} />
-                      <AvatarFallback>{user.displayName?.charAt(0)}</AvatarFallback>
+                      <AvatarFallback className="font-bold">{user.displayName?.charAt(0)}</AvatarFallback>
                     </Avatar>
                     <div className="overflow-hidden">
-                      <p className="text-xs font-bold truncate">{user.displayName}</p>
-                      <p className="text-[10px] text-accent uppercase font-black">Cloud Synced</p>
+                      <p className="text-[11px] font-black truncate uppercase tracking-tight">{user.displayName}</p>
+                      <p className="text-[9px] text-accent uppercase font-black tracking-widest">Sincronizado</p>
                     </div>
                   </div>
-                  <Button variant="ghost" size="sm" className="w-full justify-start h-8 px-3" onClick={handleLogout}>
+                  <Button variant="ghost" size="sm" className="w-full justify-start h-8 px-2 hover:bg-destructive/10 hover:text-destructive" onClick={handleLogout}>
                     <LogOut className="w-4 h-4 mr-2" />
-                    <span>Log Out</span>
+                    <span className="text-xs font-bold">Cerrar Sesión</span>
                   </Button>
                 </div>
               ) : (
-                <Button variant="default" size="sm" className="w-full justify-start h-10 shadow-lg shadow-primary/20" onClick={handleLogin}>
+                <Button variant="default" size="sm" className="w-full h-10 shadow-lg shadow-primary/20 font-black" onClick={handleLogin}>
                   <LogIn className="w-4 h-4 mr-2" />
-                  <span>Sign In</span>
+                  <span>CONECTAR</span>
                 </Button>
               )}
             </div>
@@ -128,32 +142,31 @@ export function Navbar() {
               )}
             >
               <Icon className="w-5 h-5" />
-              <span className="text-[10px] font-bold">{item.name}</span>
+              <span className="text-[9px] font-black uppercase tracking-tight">{item.name}</span>
             </Link>
           );
         })}
         
-        {/* MOBILE MORE MENU */}
         <Sheet>
           <SheetTrigger asChild>
             <button className="flex flex-col items-center justify-center flex-1 h-full gap-1 text-muted-foreground">
               <MoreHorizontal className="w-5 h-5" />
-              <span className="text-[10px] font-bold">More</span>
+              <span className="text-[9px] font-black uppercase tracking-tight">Más</span>
             </button>
           </SheetTrigger>
-          <SheetContent side="bottom" className="rounded-t-3xl border-none bg-card p-6">
+          <SheetContent side="bottom" className="rounded-t-[2.5rem] border-none bg-card p-6 outline-none">
             <SheetHeader className="mb-6">
-              <SheetTitle className="text-left text-xl font-black">Universe Options</SheetTitle>
+              <SheetTitle className="text-left text-xl font-black uppercase tracking-tighter">Opciones del Universo</SheetTitle>
             </SheetHeader>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               {moreItems.map((item) => (
                 <Link 
                   key={item.href} 
                   href={item.href}
-                  className="flex flex-col items-center gap-3 p-6 bg-muted/30 rounded-2xl"
+                  className="flex flex-col items-center gap-3 p-6 bg-muted/30 rounded-3xl border border-border/50 hover:bg-muted/50 transition-colors"
                 >
                   <item.icon className="w-6 h-6 text-primary" />
-                  <span className="font-bold">{item.name}</span>
+                  <span className="font-black text-xs uppercase tracking-tight">{item.name}</span>
                 </Link>
               ))}
             </div>
@@ -162,22 +175,22 @@ export function Navbar() {
                 user ? (
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <Avatar className="h-10 w-10 border-2 border-primary/50">
+                      <Avatar className="h-12 w-12 border-2 border-primary/50">
                         <AvatarImage src={user.photoURL || undefined} />
-                        <AvatarFallback>{user.displayName?.charAt(0)}</AvatarFallback>
+                        <AvatarFallback className="font-bold text-lg">{user.displayName?.charAt(0)}</AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-bold">{user.displayName}</p>
-                        <p className="text-xs text-accent font-black uppercase tracking-widest">Connected</p>
+                        <p className="font-black text-sm uppercase">{user.displayName}</p>
+                        <p className="text-[10px] text-accent font-black uppercase tracking-widest">Cuenta Vinculada</p>
                       </div>
                     </div>
-                    <Button variant="outline" size="sm" onClick={handleLogout}>
-                      <LogOut className="w-4 h-4 mr-2" /> Log Out
+                    <Button variant="outline" size="sm" className="rounded-xl font-bold" onClick={handleLogout}>
+                      <LogOut className="w-4 h-4 mr-2" /> Salir
                     </Button>
                   </div>
                 ) : (
-                  <Button className="w-full h-12 shadow-lg shadow-primary/20" onClick={handleLogin}>
-                    <LogIn className="w-4 h-4 mr-2" /> Sign In with Google
+                  <Button className="w-full h-14 shadow-lg shadow-primary/20 rounded-2xl font-black text-lg" onClick={handleLogin}>
+                    <LogIn className="w-5 h-5 mr-3" /> CONECTAR CON GOOGLE
                   </Button>
                 )
               )}
