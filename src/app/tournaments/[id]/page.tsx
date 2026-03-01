@@ -14,6 +14,14 @@ import { Team, Player, Match } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
 
 export default function TournamentDetailPage() {
   const { id } = useParams();
@@ -82,20 +90,16 @@ export default function TournamentDetailPage() {
     let incident = "";
 
     if (rule === 'bestOfN') {
-      // Suma total es exactamente N. (Ej: Best of 9 -> 5-4)
       h = Math.floor(Math.random() * (val + 1));
       a = val - h;
-      // Asegurar que no sea empate si N es impar
       if (h === a && val % 2 !== 0) {
         h > 0 ? h-- : h++;
         a = val - h;
       }
     } else if (rule === 'firstToN') {
-      // Uno de los dos debe llegar a N. La suma no es fija.
       h = Math.random() > 0.5 ? val : Math.floor(Math.random() * val);
       a = h === val ? Math.floor(Math.random() * val) : val;
     } else if (rule === 'nToNRange') {
-      // La SUMA de ambos debe estar entre min y max.
       const min = tournament.nToNRangeMin || 80;
       const max = tournament.nToNRangeMax || 150;
       const targetSum = Math.floor(Math.random() * (max - min + 1)) + min;
