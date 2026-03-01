@@ -1,7 +1,8 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { Team, Player, Tournament, GlobalSettings, Match } from '@/lib/types';
+import { Team, Player, Tournament, GlobalSettings, Match, TournamentGroup } from '@/lib/types';
 import { useUser, useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
@@ -73,7 +74,7 @@ const generateSeedData = () => {
   return { 
     teams: allTeams, 
     players: allPlayers, 
-    tournaments: [] 
+    tournaments: hortaData.tournaments as any[]
   };
 };
 
@@ -105,7 +106,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       const seed = generateSeedData();
       setTeams(seed.teams);
       setPlayers(seed.players);
-      setTournaments([]); 
+      setTournaments(seed.tournaments); 
       setSettings(defaultSettings);
     }
     setIsLoaded(true);
@@ -148,6 +149,8 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
 
       const createMatchesForList = (participants: string[], baseMatchday: number = 0) => {
         const n = participants.length;
+        if (n < 2) return;
+        
         const rounds = n % 2 === 0 ? n - 1 : n;
         const matchesPerRound = Math.floor(n / 2);
         
@@ -187,8 +190,11 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       };
 
       if (t.leagueType === 'groups' && t.groupIsolation && t.groups) {
+        let maxMatchdaysInGroups = 0;
         t.groups.forEach(group => {
           createMatchesForList(group.participantIds);
+          const groupRounds = group.participantIds.length % 2 === 0 ? group.participantIds.length - 1 : group.participantIds.length;
+          maxMatchdaysInGroups = Math.max(maxMatchdaysInGroups, groupRounds);
         });
       } else {
         createMatchesForList(t.participants);
