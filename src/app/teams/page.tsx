@@ -295,6 +295,11 @@ export default function TeamsPage() {
     setIsDialogOpen(false);
   };
 
+  const filteredTeams = teams.filter(t => 
+    t.name.toLowerCase().includes(search.toLowerCase()) || 
+    t.abbreviation.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
     <div className="max-w-7xl mx-auto space-y-8 pb-20">
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 px-4 md:px-0">
