@@ -1,5 +1,5 @@
 
-"use client";
+'use client';
 
 import { useState, useEffect } from 'react';
 import { useTournamentStore } from '@/hooks/use-tournament-store';
@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { UserPlus, Search, User, Trash2, Pencil, Shirt, Sparkles, LayoutGrid } from 'lucide-react';
+import { UserPlus, Search, User, Trash2, Pencil, Sparkles, LayoutGrid } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
@@ -17,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PREDEFINED_COLORS } from '@/lib/colors';
 import { cn } from '@/lib/utils';
 
-// Elite Jersey SVG Visualizer 2.0
+// Elite Jersey SVG Visualizer 3.0 (Hyper-Realistic)
 const PlayerJerseySVG = ({ 
   primary, secondary, tertiary, accent, style, brand, sponsor, 
   crestPlacement, sponsorPlacement, brandPlacement, crestSize = 'medium'
@@ -56,11 +56,12 @@ const PlayerJerseySVG = ({
         <clipPath id="jerseyClip">
           <path d="M40 40 L60 20 L140 20 L160 40 L180 60 L180 100 L160 100 L160 220 L150 225 L50 225 L40 220 L40 100 L20 100 L20 60 Z" />
         </clipPath>
-        <radialGradient id="clothGradient" cx="50%" cy="30%" r="70%">
-          <stop offset="0%" stopColor="white" stopOpacity="0.2" />
-          <stop offset="50%" stopColor="white" stopOpacity="0" />
-          <stop offset="100%" stopColor="black" stopOpacity="0.4" />
-        </radialGradient>
+        <linearGradient id="clothShadow" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="black" stopOpacity="0.2" />
+          <stop offset="15%" stopColor="white" stopOpacity="0" />
+          <stop offset="85%" stopColor="white" stopOpacity="0" />
+          <stop offset="100%" stopColor="black" stopOpacity="0.2" />
+        </linearGradient>
         <pattern id="pat_stripes" width="40" height="240" patternUnits="userSpaceOnUse"><rect width="20" height="240" fill={secondary} /></pattern>
         <pattern id="pat_hoops" width="200" height="40" patternUnits="userSpaceOnUse"><rect width="200" height="20" fill={secondary} /></pattern>
         <pattern id="pat_checks" width="40" height="40" patternUnits="userSpaceOnUse">
@@ -88,12 +89,11 @@ const PlayerJerseySVG = ({
       <rect x="20" y="85" width="20" height="15" fill={tertiary} transform="rotate(-45 20 85)" />
       <rect x="160" y="100" width="20" height="15" fill={tertiary} transform="rotate(45 160 100)" />
 
-      {/* Shadow & Volume */}
-      <path d="M40 40 L60 20 L140 20 L160 40 L180 60 L180 100 L160 100 L160 220 L150 225 L50 225 L40 220 L40 100 L20 100 L20 60 Z" fill="url(#clothGradient)" opacity="0.6" />
+      {/* Lighting & Volumetry */}
+      <path d="M40 40 L60 20 L140 20 L160 40 L180 60 L180 100 L160 100 L160 220 L150 225 L50 225 L40 220 L40 100 L20 100 L20 60 Z" fill="url(#clothShadow)" opacity="0.5" />
 
       {/* Branding Elements */}
       <g opacity="0.9">
-        {/* Brand Logo */}
         <text 
           x={getBrandPos().x} 
           y={getBrandPos().y} 
@@ -106,7 +106,6 @@ const PlayerJerseySVG = ({
           {brand || ''}
         </text>
         
-        {/* Crest Placeholder */}
         <circle 
           cx={getCrestPos().x} 
           cy={getCrestPos().y} 
@@ -116,7 +115,6 @@ const PlayerJerseySVG = ({
           strokeWidth="1" 
         />
         
-        {/* Main Sponsor */}
         <text 
           x={getSponsorPos().x} 
           y={getSponsorPos().y} 
@@ -306,7 +304,7 @@ export default function PlayersPage() {
 
                 <TabsContent value="brand" className="space-y-8 mt-0">
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
-                    <div className="sticky top-0 aspect-square bg-muted/20 rounded-3xl flex items-center justify-center p-8 border-2 border-dashed border-accent/30 shadow-inner">
+                    <div className="aspect-square bg-muted/20 rounded-3xl flex items-center justify-center p-8 border-2 border-dashed border-accent/30 shadow-inner">
                       <div className="w-full max-w-[240px]">
                         <PlayerJerseySVG 
                           primary={kitC1} secondary={kitC2} tertiary={kitC3} accent={kitC4} 

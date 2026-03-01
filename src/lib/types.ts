@@ -1,3 +1,4 @@
+
 export type PlayerAttribute = {
   name: string;
   value: number; // 1-100
@@ -11,7 +12,7 @@ export type Player = {
   position: string;
   attributes: PlayerAttribute[];
   teamId?: string;
-  // Kit Configuration (Moved from Team to Player)
+  // Kit Configuration (Exclusivo de Jugadores/Agentes Libres)
   uniformStyle: UniformStyle;
   kitPrimary: string;
   kitSecondary: string;
@@ -48,7 +49,7 @@ export type Team = {
   name: string;
   abbreviation: string;
   rating: number; // 1-100
-  // Crest Configuration (Teams keep their crest)
+  // Crest Configuration (Los equipos mantienen su heráldica)
   emblemShape: EmblemShape;
   emblemPattern: EmblemPattern;
   crestPrimary: string;

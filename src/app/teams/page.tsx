@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { Search, Trash2, Pencil, Sparkles, Landmark, Star, Shield } from 'lucide-react';
+import { Search, Trash2, Pencil, Sparkles, Shield, Star } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/hooks/use-toast';
@@ -17,7 +17,7 @@ import { EmblemShape, EmblemPattern, VenueSurface, VenueSize, Team } from '@/lib
 import { cn } from '@/lib/utils';
 import { PREDEFINED_COLORS } from '@/lib/colors';
 
-// Advanced Crest SVG Component 2.0
+// Advanced Crest SVG Component
 const CrestIcon = ({ 
   shape, pattern, c1, c2, c3, c4, border = 'thin', size = "w-10 h-10" 
 }: { 
