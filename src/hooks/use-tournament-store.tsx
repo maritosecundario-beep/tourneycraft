@@ -4,7 +4,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { Team, Player, Tournament, GlobalSettings } from '@/lib/types';
 import { useUser, useFirestore } from '@/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { PREDEFINED_COLORS } from '@/lib/colors';
 
@@ -29,61 +29,85 @@ interface TournamentContextType {
 
 const defaultSettings: GlobalSettings = {
   currency: 'CR',
-  positions: ['PG', 'SG', 'SF', 'PF', 'C'],
+  positions: ['Sharpshooter', 'Blitz', 'Defenseman'],
   positionColors: {
-    'PG': '#3b82f6',
-    'SG': '#f59e0b',
-    'SF': '#10b981',
-    'PF': '#ef4444',
-    'C': '#8b5cf6'
+    'Sharpshooter': '#ef4444',
+    'Blitz': '#0ea5e9',
+    'Defenseman': '#22c55e',
   },
-  attributeNames: ['Triples', 'Tiro Medio', 'Tiro Libre', 'Mate', 'Bandeja', 'Drible', 'Físico', 'Estilo', 'Tapón', 'Robo'],
-  theme: 'dark',
+  attributeNames: [
+    'Triples', 'Tiro Medio', 'Tiro Libre', 'Mate', 'Bandeja', 
+    'Drible', 'Físico', 'Estilo', 'Tapón', 'Robo'
+  ],
+  theme: 'midnight',
 };
 
 const generateSeedData = () => {
-  const sudNames = ['Torrent', 'Mislata', 'Alaquàs', 'Aldaia', 'Manises', 'Xirivella', 'Quart de Poblet', 'Paiporta', 'Catarroja', 'Alfafar'];
-  const nordNames = ['Paterna', 'Burjassot', 'Alboraia', 'Moncada', 'Puçol', 'El Puig', 'Rafelbunyol', 'Meliana', 'Foios', 'Almàssera'];
+  const sudNames = [
+    { name: 'Torrent', top: true },
+    { name: 'Mislata', top: true },
+    { name: 'Alaquàs', top: false }, // Player team
+    { name: 'Aldaia', top: false },
+    { name: 'Manises', top: false },
+    { name: 'Xirivella', top: false },
+    { name: 'Quart de Poblet', top: false },
+    { name: 'Paiporta', top: false },
+    { name: 'Catarroja', top: false },
+    { name: 'Alfafar', top: false }
+  ];
+
+  const nordNames = [
+    { name: 'Paterna', top: true },
+    { name: 'Burjassot', top: true },
+    { name: 'Alboraia', top: false },
+    { name: 'Moncada', top: false },
+    { name: 'Puçol', top: false },
+    { name: 'El Puig', top: false },
+    { name: 'Rafelbunyol', top: false },
+    { name: 'Meliana', top: false },
+    { name: 'Foios', top: false },
+    { name: 'Almàssera', top: false }
+  ];
   
   const allTeams: Team[] = [];
   const allPlayers: Player[] = [];
 
   const createTeam = (name: string, region: 'Sud' | 'Nord', isTop: boolean) => {
-    const id = name.toLowerCase().replace(/\s/g, '-');
+    const id = name.toLowerCase().replace(/\s/g, '-').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     const team: Team = {
       id,
       name,
       abbreviation: name.substring(0, 3).toUpperCase(),
-      rating: isTop ? 92 : 75 + Math.floor(Math.random() * 15),
-      budget: isTop ? 200000 : 50000,
+      rating: isTop ? 90 : 72 + Math.floor(Math.random() * 15),
+      budget: isTop ? 150000 : 45000,
       region,
-      emblemShape: 'shield',
+      emblemShape: isTop ? 'shield' : 'circle',
       emblemPattern: 'none',
       crestPrimary: region === 'Sud' ? PREDEFINED_COLORS[24] : PREDEFINED_COLORS[0],
       crestSecondary: PREDEFINED_COLORS[35],
       crestBorderWidth: 'thin',
-      venueName: `Pavelló Municipal ${name}`,
-      venueCapacity: isTop ? 5000 : 1500,
+      venueName: `Arena ${name}`,
+      venueCapacity: isTop ? 6000 : 2000,
       venueSurface: 'parquet',
       venueSize: isTop ? 'large' : 'medium',
       players: []
     };
 
-    ['Estrella', 'Capità', 'Base'].forEach((role, i) => {
+    ['Alpha', 'Beta', 'Gamma'].forEach((role, i) => {
       const pId = `${id}-p-${i}`;
       const player: Player = {
         id: pId,
         name: `${role} de ${name}`,
-        monetaryValue: isTop ? 50000 : 12000,
-        jerseyNumber: i + 7,
-        position: i === 0 ? 'PG' : i === 1 ? 'SF' : 'C',
+        monetaryValue: isTop ? 40000 : 10000,
+        jerseyNumber: i + 10,
+        position: defaultSettings.positions[i % 3],
         teamId: id,
         suspensionMatchdays: 0,
         attributes: defaultSettings.attributeNames.map(name => ({
           name,
-          value: isTop ? 85 + Math.floor(Math.random() * 15) : 60 + Math.floor(Math.random() * 30)
+          value: isTop ? 80 + Math.floor(Math.random() * 20) : 55 + Math.floor(Math.random() * 35)
         })),
-        uniformStyle: 'stripes',
+        uniformStyle: 'solid',
         kitPrimary: team.crestPrimary,
         kitSecondary: team.crestSecondary,
         crestPlacement: 'left',
@@ -96,21 +120,21 @@ const generateSeedData = () => {
     return team;
   };
 
-  sudNames.forEach(name => allTeams.push(createTeam(name, 'Sud', name === 'Torrent' || name === 'Mislata')));
-  nordNames.forEach(name => allTeams.push(createTeam(name, 'Nord', name === 'Paterna' || name === 'Burjassot')));
+  sudNames.forEach(t => allTeams.push(createTeam(t.name, 'Sud', t.top)));
+  nordNames.forEach(t => allTeams.push(createTeam(t.name, 'Nord', t.top)));
 
   const tourney: Tournament = {
-    id: 'lliga-horta-1',
-    name: "Lliga Basket l'Horta",
+    id: 'horta-elite-league',
+    name: "Lliga l'Horta Élite",
     sport: 'Basketball',
     mode: 'arcade',
-    managedParticipantId: 'alaquàs',
+    managedParticipantId: 'alaquas',
     entryType: 'teams',
     format: 'league',
     leagueType: 'groups',
     groups: [
-      { name: "Grup Sud (l'Horta Sud)", participantIds: allTeams.filter(t => t.region === 'Sud').map(t => t.id) },
-      { name: "Grup Nord (l'Horta Nord)", participantIds: allTeams.filter(t => t.region === 'Nord').map(t => t.id) }
+      { name: "Horta Sud", participantIds: allTeams.filter(t => t.region === 'Sud').map(t => t.id) },
+      { name: "Horta Nord", participantIds: allTeams.filter(t => t.region === 'Nord').map(t => t.id) }
     ],
     scoringRuleType: 'nToNRange',
     nToNRangeMin: 80,
@@ -118,12 +142,12 @@ const generateSeedData = () => {
     participants: allTeams.map(t => t.id),
     matches: [],
     settingsLocked: false,
-    winReward: 5000,
-    lossPenalty: 1000,
-    drawReward: 2000,
-    variability: 15,
+    winReward: 6000,
+    lossPenalty: 1500,
+    drawReward: 2500,
+    variability: 12,
     playoffSpots: 4,
-    relegationSpots: 2,
+    reliciationSpots: 2,
     currentSeason: 1
   };
 
@@ -183,15 +207,12 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     }
   }, [teams, players, tournaments, settings, isLoaded, user?.uid, db]);
 
-  // Effect to apply theme class to the document root
   useEffect(() => {
     if (isLoaded) {
       const themeList = ['light', 'dark', 'midnight', 'obsidian', 'nord', 'retro'];
       document.documentElement.classList.remove(...themeList);
       document.documentElement.classList.add(settings.theme);
-      
-      // Also sync with system color scheme for browser elements
-      if (settings.theme === 'dark' || settings.theme === 'midnight' || settings.theme === 'obsidian') {
+      if (['dark', 'midnight', 'obsidian'].includes(settings.theme)) {
         document.documentElement.style.colorScheme = 'dark';
       } else {
         document.documentElement.style.colorScheme = 'light';
@@ -204,7 +225,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       if (p.id === playerId) {
         const oldTeamId = p.teamId;
         const playerVal = p.monetaryValue;
-
         if (toTeamId) {
           setTeams(tPrev => tPrev.map(t => {
             if (t.id === toTeamId) return { ...t, budget: t.budget - playerVal };
@@ -217,7 +237,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
             return t;
           }));
         }
-
         return { ...p, teamId: toTeamId };
       }
       return p;
