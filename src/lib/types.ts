@@ -1,4 +1,3 @@
-
 export type PlayerAttribute = {
   name: string;
   value: number; // 1-100
@@ -13,7 +12,7 @@ export type Player = {
   position: string;
   attributes: PlayerAttribute[];
   teamId?: string;
-  suspensionMatchdays: number; // Días de sanción restantes
+  suspensionMatchdays: number;
   // Kit Configuration
   uniformStyle: UniformStyle;
   kitPrimary: string;
@@ -52,7 +51,7 @@ export type Team = {
   description?: string;
   abbreviation: string;
   rating: number; // 1-100
-  budget: number; // Economía del club
+  budget: number;
   region?: 'Sud' | 'Nord';
   emblemShape: EmblemShape;
   emblemPattern: EmblemPattern;
@@ -84,7 +83,9 @@ export type Match = {
   isSimulated: boolean;
   matchday: number;
   winnerId?: string;
-  incidentLog?: string; // Para registrar sanciones automáticas
+  incidentLog?: string;
+  homePlayerId?: string; // Player who played in main league
+  awayPlayerId?: string; // Player who played in main league
 };
 
 export type TournamentGroup = {
@@ -101,17 +102,17 @@ export type Tournament = {
   managedParticipantId?: string;
   format: TournamentFormat;
   leagueType?: LeagueType;
+  groupIsolation: boolean; // If true, only play within groups
   groups?: TournamentGroup[];
   scoringRuleType: ScoringRuleType;
-  scoringValue?: number; // N para bestOfN o firstToN
+  scoringValue?: number;
   nToNRangeMin?: number;
   nToNRangeMax?: number;
-  participants: string[]; // IDs de equipos o jugadores
+  participants: string[]; 
   matches: Match[];
   dualLeagueEnabled: boolean;
   dualLeagueMatches: Match[];
   settingsLocked: boolean;
-  // Economía de Torneo
   winReward: number;
   lossPenalty: number;
   drawReward: number;
@@ -119,6 +120,7 @@ export type Tournament = {
   playoffSpots: number;
   relegationSpots: number;
   currentSeason: number;
+  currentMatchday: number;
 };
 
 export type GlobalSettings = {

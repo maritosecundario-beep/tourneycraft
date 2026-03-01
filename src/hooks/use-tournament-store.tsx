@@ -1,8 +1,7 @@
-
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { Team, Player, Tournament, GlobalSettings } from '@/lib/types';
+import { Team, Player, Tournament, GlobalSettings, Match } from '@/lib/types';
 import { useUser, useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
@@ -25,6 +24,8 @@ interface TournamentContextType {
   transferPlayer: (playerId: string, toTeamId: string | undefined) => void;
   applySanction: (targetId: string, type: 'team-budget' | 'player-suspension', value: number) => void;
   importData: (data: { teams?: Team[], players?: Player[], tournaments?: Tournament[], settings?: GlobalSettings }, merge: boolean) => void;
+  generateSchedule: (tournamentId: string) => void;
+  resolveMatch: (tournamentId: string, matchId: string, homeScore: number, awayScore: number, isDual: boolean, homePlayerId?: string, awayPlayerId?: string) => void;
 }
 
 const defaultSettings: GlobalSettings = hortaData.settings as GlobalSettings;
@@ -72,7 +73,7 @@ const generateSeedData = () => {
   return { 
     teams: allTeams, 
     players: allPlayers, 
-    tournaments: hortaData.tournaments.map(t => ({ ...t, dualLeagueEnabled: false, dualLeagueMatches: [] })) as Tournament[] 
+    tournaments: [] 
   };
 };
 
@@ -104,7 +105,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       const seed = generateSeedData();
       setTeams(seed.teams);
       setPlayers(seed.players);
-      setTournaments(seed.tournaments);
+      setTournaments([]); 
       setSettings(defaultSettings);
     }
     setIsLoaded(true);
@@ -134,13 +135,87 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       const themeList = ['light', 'dark', 'midnight', 'obsidian', 'nord', 'retro'];
       document.documentElement.classList.remove(...themeList);
       document.documentElement.classList.add(settings.theme);
-      if (['dark', 'midnight', 'obsidian'].includes(settings.theme)) {
-        document.documentElement.style.colorScheme = 'dark';
-      } else {
-        document.documentElement.style.colorScheme = 'light';
-      }
     }
   }, [settings.theme, isLoaded]);
+
+  const generateSchedule = useCallback((tournamentId: string) => {
+    setTournaments(prev => prev.map(t => {
+      if (t.id !== tournamentId) return t;
+
+      const schedule: Match[] = [];
+      const dualSchedule: Match[] = [];
+      let matchIdCounter = 1;
+
+      const createMatchesForList = (participants: string[], baseMatchday: number = 0) => {
+        const n = participants.length;
+        const rounds = n % 2 === 0 ? n - 1 : n;
+        const matchesPerRound = Math.floor(n / 2);
+        
+        const tempParticipants = [...participants];
+        if (n % 2 !== 0) tempParticipants.push('BYE');
+
+        for (let round = 0; round < rounds; round++) {
+          const matchday = baseMatchday + round + 1;
+          for (let i = 0; i < matchesPerRound; i++) {
+            const home = tempParticipants[i];
+            const away = tempParticipants[tempParticipants.length - 1 - i];
+
+            if (home !== 'BYE' && away !== 'BYE') {
+              const mId = `${t.id}-m-${matchIdCounter++}`;
+              schedule.push({
+                id: mId,
+                homeId: home,
+                awayId: away,
+                matchday,
+                isSimulated: false,
+              });
+
+              if (t.dualLeagueEnabled) {
+                dualSchedule.push({
+                  id: `dual-${mId}`,
+                  homeId: away, // Mirror
+                  awayId: home,
+                  matchday,
+                  isSimulated: false,
+                });
+              }
+            }
+          }
+          // Rotate for Round Robin
+          tempParticipants.splice(1, 0, tempParticipants.pop()!);
+        }
+      };
+
+      if (t.leagueType === 'groups' && t.groupIsolation && t.groups) {
+        t.groups.forEach(group => {
+          createMatchesForList(group.participantIds);
+        });
+      } else {
+        createMatchesForList(t.participants);
+      }
+
+      return { ...t, matches: schedule, dualLeagueMatches: dualSchedule, currentMatchday: 1 };
+    }));
+  }, []);
+
+  const resolveMatch = useCallback((tournamentId: string, matchId: string, homeScore: number, awayScore: number, isDual: boolean, homePlayerId?: string, awayPlayerId?: string) => {
+    setTournaments(prev => prev.map(t => {
+      if (t.id !== tournamentId) return t;
+      
+      const updateMatches = (matches: Match[]) => matches.map(m => {
+        if (m.id === matchId) {
+          return { ...m, homeScore, awayScore, isSimulated: true, homePlayerId, awayPlayerId, winnerId: homeScore > awayScore ? m.homeId : awayScore > homeScore ? m.awayId : undefined };
+        }
+        return m;
+      });
+
+      if (isDual) {
+        return { ...t, dualLeagueMatches: updateMatches(t.dualLeagueMatches) };
+      } else {
+        return { ...t, matches: updateMatches(t.matches) };
+      }
+    }));
+  }, []);
 
   const transferPlayer = useCallback((playerId: string, toTeamId: string | undefined) => {
     setPlayers(prev => prev.map(p => {
@@ -202,17 +277,17 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   const addPlayer = useCallback((player: Player) => setPlayers(p => [...p, player]), []);
   const updatePlayer = useCallback((player: Player) => setPlayers(p => p.map(p2 => p2.id === player.id ? player : p2)), []);
   const deletePlayer = useCallback((id: string) => setPlayers(p => p.filter(p2 => p2.id !== id)), []);
-  const addTournament = useCallback((t: Tournament) => setTournaments(p => [...p, t]), []);
+  const addTournament = useCallback((t: Tournament) => {
+    setTournaments(p => [...p, t]);
+  }, []);
   const updateTournament = useCallback((t: Tournament) => {
     setTournaments(p => p.map(t2 => t2.id === t.id ? t : t2));
-    // Check if we need to reduce player suspensions if a matchday was simulated
-    setPlayers(prev => prev.map(p => p.suspensionMatchdays > 0 ? { ...p, suspensionMatchdays: p.suspensionMatchdays - 1 } : p));
   }, []);
   const updateSettings = useCallback((s: Partial<GlobalSettings>) => setSettings(p => ({ ...p, ...s })), []);
 
   const value = useMemo(() => ({
-    teams, players, tournaments, settings, addTeam, updateTeam, deleteTeam, addPlayer, updatePlayer, deletePlayer, addTournament, updateTournament, updateSettings, importData, transferPlayer, applySanction
-  }), [teams, players, tournaments, settings, addTeam, updateTeam, deleteTeam, addPlayer, updatePlayer, deletePlayer, addTournament, updateTournament, updateSettings, importData, transferPlayer, applySanction]);
+    teams, players, tournaments, settings, addTeam, updateTeam, deleteTeam, addPlayer, updatePlayer, deletePlayer, addTournament, updateTournament, updateSettings, importData, transferPlayer, applySanction, generateSchedule, resolveMatch
+  }), [teams, players, tournaments, settings, addTeam, updateTeam, deleteTeam, addPlayer, updatePlayer, deletePlayer, addTournament, updateTournament, updateSettings, importData, transferPlayer, applySanction, generateSchedule, resolveMatch]);
 
   return <TournamentContext.Provider value={value}>{children}</TournamentContext.Provider>;
 }
