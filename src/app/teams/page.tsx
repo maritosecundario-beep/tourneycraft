@@ -276,7 +276,7 @@ const ColorPicker = ({ label, value, onChange, onClear }: { label: string, value
         </button>
       )}
     </div>
-    <div className="grid grid-cols-5 gap-2 p-2 bg-muted/10 rounded-xl border">
+    <div className="grid grid-cols-6 gap-2 p-2 bg-muted/10 rounded-xl border">
       {PREDEFINED_COLORS.map(color => (
         <button
           key={color}
@@ -311,8 +311,8 @@ export default function TeamsPage() {
   const [sponsor, setSponsor] = useState('');
   
   // Colors
-  const [color1, setColor1] = useState(PREDEFINED_COLORS[10]);
-  const [color2, setColor2] = useState(PREDEFINED_COLORS[19]);
+  const [color1, setColor1] = useState(PREDEFINED_COLORS[24]);
+  const [color2, setColor2] = useState(PREDEFINED_COLORS[35]);
   const [color3, setColor3] = useState<string | undefined>(undefined);
   const [color4, setColor4] = useState<string | undefined>(undefined);
 
@@ -349,8 +349,8 @@ export default function TeamsPage() {
     setVenueCapacity(1000);
     setVenueSurface('parquet');
     setVenueSize('medium');
-    setColor1(PREDEFINED_COLORS[10]);
-    setColor2(PREDEFINED_COLORS[19]);
+    setColor1(PREDEFINED_COLORS[24]);
+    setColor2(PREDEFINED_COLORS[35]);
     setColor3(undefined);
     setColor4(undefined);
     setUniformStyle('solid');

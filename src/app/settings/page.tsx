@@ -50,7 +50,7 @@ export default function SettingsPage() {
   const addPosition = () => {
     const newPos = `POS ${positions.length + 1}`;
     setPositions([...positions, newPos]);
-    setPosColors({ ...posColors, [newPos]: PREDEFINED_COLORS[10] }); // Default to Blue
+    setPosColors({ ...posColors, [newPos]: PREDEFINED_COLORS[24] }); // Default to Blue
   };
 
   const removePosition = (index: number) => {
@@ -68,7 +68,7 @@ export default function SettingsPage() {
     newPositions[index] = newName;
     
     const newColors = { ...posColors };
-    newColors[newName] = newColors[oldName] || PREDEFINED_COLORS[10];
+    newColors[newName] = newColors[oldName] || PREDEFINED_COLORS[24];
     if (oldName !== newName) delete newColors[oldName];
     
     setPositions(newPositions);
@@ -147,13 +147,13 @@ export default function SettingsPage() {
                     <PopoverTrigger asChild>
                       <button 
                         className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-[10px] md:text-xs font-black shadow-lg shrink-0 transition-transform hover:scale-110 active:scale-90"
-                        style={{ backgroundColor: posColors[pos] || PREDEFINED_COLORS[10], color: '#fff' }}
+                        style={{ backgroundColor: posColors[pos] || PREDEFINED_COLORS[24], color: '#fff' }}
                       >
                         {pos.substring(0, 3).toUpperCase()}
                       </button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-[80vw] sm:w-64 p-3 bg-card border-border shadow-2xl rounded-2xl">
-                      <div className="grid grid-cols-5 gap-2">
+                    <PopoverContent className="w-[85vw] sm:w-[320px] p-4 bg-card border-border shadow-2xl rounded-2xl">
+                      <div className="grid grid-cols-6 gap-2">
                         {PREDEFINED_COLORS.map(color => (
                           <button
                             key={color}
