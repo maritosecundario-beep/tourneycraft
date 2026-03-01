@@ -30,18 +30,26 @@ export type Team = {
   name: string;
   abbreviation: string;
   rating: number; // 1-100
+  // Crest Configuration
   emblemShape: EmblemShape;
-  primaryColor: string; // Color 1
-  secondaryColor: string; // Color 2
-  tertiaryColor?: string; // Color 3 (Trim/Cuello)
-  accentColor?: string; // Color 4 (Logos/Detalles)
+  crestPrimary: string;
+  crestSecondary: string;
+  crestTertiary?: string;
+  crestAccent?: string;
+  // Kit Configuration
+  kitPrimary: string;
+  kitSecondary: string;
+  kitTertiary?: string;
+  kitAccent?: string;
   uniformStyle: UniformStyle;
+  brand?: string;
+  sponsor?: string;
+  // Venue Configuration
   venueName: string;
   venueCapacity: number;
   venueSurface: VenueSurface;
   venueSize: VenueSize;
-  brand?: string;
-  sponsor?: string;
+  // Relationships
   players: Player[];
 };
 

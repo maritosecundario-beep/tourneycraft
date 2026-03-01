@@ -54,8 +54,10 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         const parsed = JSON.parse(saved);
         const migratedTeams = (parsed.teams || []).map((t: any) => ({
           ...t,
-          primaryColor: t.primaryColor || '#3b82f6',
-          secondaryColor: t.secondaryColor || '#ffffff',
+          crestPrimary: t.crestPrimary || t.primaryColor || '#3b82f6',
+          crestSecondary: t.crestSecondary || t.secondaryColor || '#ffffff',
+          kitPrimary: t.kitPrimary || t.primaryColor || '#3b82f6',
+          kitSecondary: t.kitSecondary || t.secondaryColor || '#ffffff',
           uniformStyle: t.uniformStyle || 'solid',
           emblemShape: t.emblemShape || 'shield',
           venueName: t.venueName || 'Arena Principal',
