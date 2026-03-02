@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "User": {
@@ -33,11 +32,11 @@
   "firestore": {
     "structure": [
       {
-        "path": "/users/{userId}/backups/{backupId}",
+        "path": "/users/{uid}/backups/latest",
         "definition": {
           "entityName": "Backup",
           "schema": { "$ref": "#/backend/entities/Backup" },
-          "description": "Stores full state snapshots for cloud sync."
+          "description": "Stores the latest full state snapshot for cloud sync."
         }
       }
     ]

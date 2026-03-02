@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
@@ -76,15 +75,20 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         const dataToSave = { teams, players, tournaments, settings };
         localStorage.setItem('tourneycraft-store', JSON.stringify(dataToSave));
         
-        if (user && db) {
-          const userDocRef = doc(db, 'users', user.uid, 'backups', 'latest');
-          setDocumentNonBlocking(userDocRef, {
-            ...dataToSave,
-            updatedAt: new Date().toISOString(),
-            ownerId: user.uid
-          }, { merge: true });
+        // Sincronización en la nube SOLO si hay usuario y DB lista
+        if (user?.uid && db) {
+          try {
+            const userDocRef = doc(db, 'users', user.uid, 'backups', 'latest');
+            setDocumentNonBlocking(userDocRef, {
+              ...dataToSave,
+              updatedAt: new Date().toISOString(),
+              ownerId: user.uid
+            }, { merge: true });
+          } catch (err) {
+            console.error("Cloud Sync Silent Fail:", err);
+          }
         }
-      }, 1000);
+      }, 1500); // Debounce de 1.5s para evitar exceder cuotas
       return () => clearTimeout(timer);
     }
   }, [teams, players, tournaments, settings, isLoaded, user?.uid, db]);
