@@ -4,8 +4,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { Team, Player, Tournament, GlobalSettings, Match, TournamentGroup } from '@/lib/types';
 import { useUser, useFirestore } from '@/firebase';
-import { doc } from 'firebase/firestore';
-import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { doc, collection, query, limit, getDocs } from 'firebase/firestore';
+import { setDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import hortaData from '@/data/horta-league.json';
 
 interface TournamentContextType {
@@ -31,6 +31,7 @@ interface TournamentContextType {
   triggerMarketMoves: (tournamentId: string) => void;
   advanceSeason: (tournamentId: string) => void;
   createKnockoutFromStandings: (tournamentId: string, type: 'playoff' | 'relegation') => void;
+  publishTournament: (tournamentId: string) => Promise<void>;
 }
 
 const defaultSettings: GlobalSettings = {
@@ -126,7 +127,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
             if (t.dualLeagueEnabled) {
               dualSchedule.push({ 
                 id: `dual-${mId}`, 
-                homeId: away, // Inverted for dual league
+                homeId: away,
                 awayId: home, 
                 matchday, 
                 isSimulated: false 
@@ -226,7 +227,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const triggerMarketMoves = useCallback((tournamentId: string) => {
-    // Probabilidad de movimiento tras jornada: 40%
     if (Math.random() > 0.4) return;
 
     setPlayers(prevPlayers => {
@@ -234,20 +234,16 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       const t = tournaments.find(x => x.id === tournamentId);
       if (!t) return updatedPlayers;
 
-      // IA Teams only (not the user managed one)
       const aiTeams = teams.filter(tm => tm.id !== t.managedParticipantId && t.participants.includes(tm.id));
 
       aiTeams.forEach(team => {
         const teamPlayers = updatedPlayers.filter(p => p.teamId === team.id);
-        
-        // Probabilidad de despido si hay plantilla amplia (80%)
         if (teamPlayers.length > 3 && Math.random() > 0.8) {
           const index = updatedPlayers.findIndex(p => p.id === teamPlayers[0].id);
           if (index !== -1) updatedPlayers[index].teamId = undefined;
         }
       });
 
-      // Probabilidad de fichaje de agentes libres (10%)
       const freeAgents = updatedPlayers.filter(p => !p.teamId);
       if (freeAgents.length > 0) {
         aiTeams.forEach(team => {
@@ -338,6 +334,25 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     }
   }, []);
 
+  const publishTournament = useCallback(async (tournamentId: string) => {
+    if (!db || !user) return;
+    const t = tournaments.find(x => x.id === tournamentId);
+    if (!t) return;
+
+    const publicCol = collection(db, 'publicTournaments');
+    await addDocumentNonBlocking(publicCol, {
+      ...t,
+      ownerId: user.uid,
+      ownerName: user.displayName,
+      publishedAt: new Date().toISOString(),
+      // Guardamos instantánea de equipos y jugadores participantes
+      snapshot: {
+        teams: teams.filter(tm => t.participants.includes(tm.id)),
+        players: players.filter(pl => pl.teamId && t.participants.includes(pl.teamId))
+      }
+    });
+  }, [db, user, tournaments, teams, players]);
+
   const importData = useCallback((data: any, merge: boolean) => {
     if (merge) {
       setTeams(prev => [...prev, ...(data.teams || []).filter((t: any) => !prev.find(x => x.id === t.id))]);
@@ -369,8 +384,8 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   const updateSettings = (s: Partial<GlobalSettings>) => setSettings(p => ({ ...p, ...s }));
 
   const value = useMemo(() => ({
-    teams, players, tournaments, settings, addTeam, updateTeam, deleteTeam, addPlayer, updatePlayer, deletePlayer, addTournament, updateTournament, deleteTournament, updateSettings, importData, transferPlayer, applySanction, generateSchedule, resolveMatch, triggerMarketMoves, advanceSeason, createKnockoutFromStandings
-  }), [teams, players, tournaments, settings, generateSchedule, resolveMatch, triggerMarketMoves, transferPlayer, applySanction, importData, advanceSeason, createKnockoutFromStandings, createSchedule]);
+    teams, players, tournaments, settings, addTeam, updateTeam, deleteTeam, addPlayer, updatePlayer, deletePlayer, addTournament, updateTournament, deleteTournament, updateSettings, importData, transferPlayer, applySanction, generateSchedule, resolveMatch, triggerMarketMoves, advanceSeason, createKnockoutFromStandings, publishTournament
+  }), [teams, players, tournaments, settings, generateSchedule, resolveMatch, triggerMarketMoves, transferPlayer, applySanction, importData, advanceSeason, createKnockoutFromStandings, publishTournament, createSchedule]);
 
   return <TournamentContext.Provider value={value}>{children}</TournamentContext.Provider>;
 }

@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Trophy, Users, UserPlus, Settings, LayoutDashboard, Database, LogIn, LogOut, MoreHorizontal, Sparkles } from 'lucide-react';
+import { Trophy, Users, UserPlus, Settings, LayoutDashboard, Database, LogIn, LogOut, MoreHorizontal, Sparkles, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUser, useAuth } from '@/firebase';
 import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
@@ -33,9 +33,9 @@ export function Navbar() {
       console.error("Auth Error:", error);
       let message = "No se pudo completar la autenticación.";
       if (error.code === 'auth/operation-not-allowed') {
-        message = "El proveedor de Google no está habilitado en el Firebase Console. Por favor, actívalo en Auth > Sign-in method.";
+        message = "El proveedor de Google no está habilitado. Actívalo en el Firebase Console.";
       } else if (error.code === 'auth/popup-closed-by-user') {
-        message = "Has cerrado la ventana de inicio de sesión antes de terminar.";
+        message = "Has cerrado la ventana de inicio de sesión.";
       }
       toast({ 
         title: "Error de Acceso", 
@@ -57,6 +57,7 @@ export function Navbar() {
 
   const navItems = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+    { name: 'Comunidad', href: '/gallery', icon: Globe },
     { name: 'AI Studio', href: '/ai-studio', icon: Sparkles, highlight: true },
     { name: 'Clubs', href: '/teams', icon: Users },
     { name: 'Agentes', href: '/players', icon: UserPlus },
@@ -70,7 +71,6 @@ export function Navbar() {
 
   return (
     <>
-      {/* DESKTOP SIDEBAR */}
       <nav className="hidden md:flex fixed left-0 top-0 h-full w-64 bg-card border-r border-border flex-col py-8 z-50">
         <div className="px-6 mb-12 flex items-center gap-3">
           <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
@@ -159,9 +159,8 @@ export function Navbar() {
         </div>
       </nav>
 
-      {/* MOBILE BOTTOM NAVIGATION */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-card border-t border-border flex items-center justify-around px-2 z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
-        {navItems.filter(i => i.name !== 'Torneos').map((item) => {
+        {navItems.filter(i => i.name !== 'Torneos' && i.name !== 'Comunidad').map((item) => {
           const isActive = pathname === item.href;
           const Icon = item.icon;
           return (
@@ -192,6 +191,10 @@ export function Navbar() {
               <SheetTitle className="text-left text-xl font-black uppercase tracking-tighter">Opciones</SheetTitle>
             </SheetHeader>
             <div className="grid grid-cols-2 gap-3">
+              <Link href="/gallery" className="flex flex-col items-center gap-3 p-6 bg-muted/30 rounded-3xl border border-border/50 hover:bg-muted/50 transition-colors">
+                <Globe className="w-6 h-6 text-accent" />
+                <span className="font-black text-xs uppercase tracking-tight text-foreground">Comunidad</span>
+              </Link>
               <Link href="/tournaments" className="flex flex-col items-center gap-3 p-6 bg-muted/30 rounded-3xl border border-border/50 hover:bg-muted/50 transition-colors">
                 <Trophy className="w-6 h-6 text-primary" />
                 <span className="font-black text-xs uppercase tracking-tight text-foreground">Torneos</span>

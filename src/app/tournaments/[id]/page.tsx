@@ -4,7 +4,7 @@
 import { useTournamentStore } from '@/hooks/use-tournament-store';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Trophy, Calendar, Users, Play, ShieldAlert, ShoppingBag, Layers, Target, ChevronRight, Star, Sword, Zap, Info, Coins, LayoutGrid, Sparkles, RefreshCw, Brackets, Group, Trash2, MapPin, UserCircle2, Activity } from 'lucide-react';
+import { Trophy, Calendar, Users, Play, ShieldAlert, ShoppingBag, Layers, Target, ChevronRight, Star, Sword, Zap, Info, Coins, LayoutGrid, Sparkles, RefreshCw, Brackets, Group, Trash2, MapPin, UserCircle2, Activity, Globe, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -19,12 +19,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { CrestIcon } from '@/components/ui/crest-icon';
+import { useUser } from '@/firebase';
 
 export default function TournamentDetailPage() {
   const { id } = useParams();
   const router = useRouter();
-  const { tournaments, teams, players, updateTournament, deleteTournament, resolveMatch, triggerMarketMoves, advanceSeason, createKnockoutFromStandings, applySanction, generateSchedule, settings } = useTournamentStore();
+  const { tournaments, teams, players, updateTournament, deleteTournament, resolveMatch, triggerMarketMoves, advanceSeason, createKnockoutFromStandings, applySanction, generateSchedule, settings, publishTournament } = useTournamentStore();
   const { toast } = useToast();
+  const { user } = useUser();
   
   const [sanctionTargetId, setSanctionTargetId] = useState('');
   const [sanctionType, setSanctionType] = useState<'club' | 'player'>('club');
@@ -37,6 +39,7 @@ export default function TournamentDetailPage() {
   const [userAwayScore, setUserAwayScore] = useState<string>('0');
   const [viewingTeamId, setViewTeamId] = useState<string | null>(null);
   const [viewingMatchId, setViewingMatchId] = useState<string | null>(null);
+  const [isPublishing, setIsPublishing] = useState(false);
 
   const tournament = tournaments.find(t => t.id === id);
 
@@ -96,7 +99,6 @@ export default function TournamentDetailPage() {
 
   const dualStandings = useMemo(() => {
     if (!tournament) return [];
-    // En la dual, unificamos a todos para una visión global de canteras
     return getStandingsForParticipants(tournament.participants, true);
   }, [tournament, teams, players]);
 
@@ -120,7 +122,7 @@ export default function TournamentDetailPage() {
     const hVal = hPlayers.reduce((acc, p) => acc + p.monetaryValue, 0) + (hTeam?.rating || 50) * 5;
     const aVal = aPlayers.reduce((acc, p) => acc + p.monetaryValue, 0) + (aTeam?.rating || 50) * 5;
     
-    let hPower = Math.pow(hVal, 1.8) * 1.05; // 5% home advantage
+    let hPower = Math.pow(hVal, 1.8) * 1.05; 
     let aPower = Math.pow(aVal, 1.8);
     
     const total = hPower + aPower;
@@ -212,6 +214,22 @@ export default function TournamentDetailPage() {
     toast({ title: "Simulación Completa", description: "Todos los grupos ajenos han sido simulados." });
   };
 
+  const handlePublish = async () => {
+    if (!user) {
+      toast({ title: "Acceso Requerido", description: "Debes conectar tu cuenta para publicar.", variant: "destructive" });
+      return;
+    }
+    setIsPublishing(true);
+    try {
+      await publishTournament(tournament!.id);
+      toast({ title: "¡Publicado!", description: "Tu universo ya está en la Galería de la Comunidad." });
+    } catch (e) {
+      toast({ title: "Error al publicar", variant: "destructive" });
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
   const playArcadeMatch = () => {
     if (!selectedMatch || !selectedPlayerId || !tournament) return;
     
@@ -276,8 +294,11 @@ export default function TournamentDetailPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2 w-full md:w-auto">
+          <Button variant="outline" onClick={handlePublish} disabled={isPublishing} className="flex-1 md:flex-none h-14 md:h-16 rounded-2xl px-6 font-black border-accent/20 text-accent">
+            {isPublishing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Globe className="w-4 h-4 mr-2" />} PUBLICAR
+          </Button>
           {userGroup && (
-            <Button variant="outline" onClick={simulateOtherGroups} className="flex-1 md:flex-none h-14 md:h-16 rounded-2xl px-6 font-black border-accent/20 text-accent">
+            <Button variant="outline" onClick={simulateOtherGroups} className="flex-1 md:flex-none h-14 md:h-16 rounded-2xl px-6 font-black border-primary/20 text-primary">
               <Zap className="w-4 h-4 mr-2" /> OTROS GRUPOS
             </Button>
           )}
@@ -297,23 +318,6 @@ export default function TournamentDetailPage() {
           <Calendar className="text-yellow-500 w-12 h-12 mx-auto" />
           <h2 className="text-2xl font-black uppercase text-yellow-600">Calendario Pendiente</h2>
           <Button onClick={() => generateSchedule(tournament.id)} className="bg-yellow-500 hover:bg-yellow-600 text-black font-black h-14 px-10 rounded-xl">GENERAR CALENDARIO AHORA</Button>
-        </Card>
-      )}
-
-      {isSeasonOver && (
-        <Card className="border-none bg-accent/10 border-2 border-accent/20 rounded-[2rem] p-6 animate-in fade-in zoom-in">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <h2 className="text-xl md:text-3xl font-black uppercase text-accent">¡TEMPORADA FINALIZADA!</h2>
-            <div className="flex flex-wrap gap-3">
-              <Button onClick={() => advanceSeason(tournament.id)} className="rounded-xl h-12 font-black shadow-lg"><RefreshCw className="w-4 h-4 mr-2" /> NUEVA TEMP.</Button>
-              {tournament.format === 'league' && (
-                <>
-                  <Button onClick={() => createKnockoutFromStandings(tournament.id, 'playoff')} variant="secondary" className="rounded-xl h-12 font-black"><Brackets className="w-4 h-4 mr-2" /> PLAYOFFS</Button>
-                  <Button onClick={() => createKnockoutFromStandings(tournament.id, 'relegation')} variant="destructive" className="rounded-xl h-12 font-black"><ShieldAlert className="w-4 h-4 mr-2" /> DESCENSO</Button>
-                </>
-              )}
-            </div>
-          </div>
         </Card>
       )}
 
@@ -380,9 +384,6 @@ export default function TournamentDetailPage() {
         </TabsContent>
 
         <TabsContent value="calendar" className="space-y-6">
-          <div className="flex justify-end px-2">
-            <Button variant="ghost" size="sm" onClick={() => generateSchedule(tournament.id)} className="text-[10px] font-black uppercase"><RefreshCw className="w-3 h-3 mr-2" /> Re-generar Fixture</Button>
-          </div>
           {tournamentStandings.map((group) => (
             <div key={`calendar-view-group-${group.id}`} className="space-y-6">
               <h2 className="text-xl font-black uppercase text-primary flex items-center gap-3 px-4">
