@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTournamentStore } from '@/hooks/use-tournament-store';
 import { Button } from '@/components/ui/button';
@@ -28,7 +28,7 @@ export default function NewTournamentPage() {
   const [entryType, setEntryType] = useState<TournamentEntryType>('teams');
   const [mode, setMode] = useState<TournamentMode>('normal');
   const [format, setFormat] = useState<TournamentFormat>('league');
-  const [leagueType, setLeagueType] = useState<LeagueType>('single-table');
+  const [leagueType, setLeagueType] = useState<LeagueType>('groups');
   const [groupIsolation, setGroupIsolation] = useState(true);
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
   const [dualLeagueEnabled, setDualLeagueEnabled] = useState(false);
@@ -50,10 +50,15 @@ export default function NewTournamentPage() {
   const [winPoints, setWinPoints] = useState(1);
   const [lossPoints, setLossPoints] = useState(0);
   const [drawPoints, setDrawPoints] = useState(0);
-  const [variability, setVariability] = useState(10);
+  const [variability, setVariability] = useState(15);
   
-  const [playoffSpots, setPlayoffSpots] = useState(8);
-  const [relegationSpots, setRelegationSpots] = useState(4);
+  const [playoffSpots, setPlayoffSpots] = useState(16);
+  const [relegationSpots, setRelegationSpots] = useState(8);
+
+  // Selector Arcade robusto
+  const arcadeTeamOptions = useMemo(() => {
+    return teams.filter(t => selectedParticipants.includes(t.id));
+  }, [teams, selectedParticipants]);
 
   useEffect(() => {
     if (managedParticipantId && !selectedParticipants.includes(managedParticipantId)) {
@@ -88,19 +93,19 @@ export default function NewTournamentPage() {
 
   const handleCreateManual = () => {
     if (!name || selectedParticipants.length < 2) {
-      toast({ title: "Error de Configuración", description: "Se requiere un nombre y al menos 2 equipos inscritos.", variant: "destructive" });
+      toast({ title: "Configuración incompleta", description: "Nombre y al menos 2 equipos requeridos.", variant: "destructive" });
       return;
     }
 
     if (mode === 'arcade' && !managedParticipantId) {
-      toast({ title: "Selección de Club", description: "Debes elegir qué club quieres gestionar en el modo Arcade.", variant: "destructive" });
+      toast({ title: "Club no seleccionado", description: "Debes elegir tu club para el modo Arcade.", variant: "destructive" });
       return;
     }
 
     if (format === 'league' && leagueType === 'groups') {
       const allAssigned = selectedParticipants.every(pId => groups.some(g => g.participantIds.includes(pId)));
       if (!allAssigned) {
-        toast({ title: "Distribución Incompleta", description: "Todos los equipos inscritos deben estar asignados a una conferencia.", variant: "destructive" });
+        toast({ title: "Distribución incompleta", description: "Asigna todos los equipos a un grupo.", variant: "destructive" });
         return;
       }
     }
@@ -119,11 +124,9 @@ export default function NewTournamentPage() {
     };
 
     addTournament(newTourney as any);
-    toast({ title: "Universo Iniciado", description: "El Big Bang del torneo ha ocurrido con éxito." });
+    toast({ title: "Universo Iniciado", description: "Torneo creado con éxito." });
     router.push(`/tournaments/${newTourney.id}`);
   };
-
-  const arcadeTeamOptions = teams.filter(t => selectedParticipants.includes(t.id));
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 md:space-y-8 pb-32 px-4 md:px-0">
@@ -131,29 +134,29 @@ export default function NewTournamentPage() {
         <h1 className="text-2xl md:text-4xl font-black uppercase tracking-tighter flex items-center gap-3">
           <Trophy className="text-primary w-8 h-8 md:w-10 md:h-10" /> Architect Studio
         </h1>
-        <p className="text-muted-foreground text-xs md:text-sm">Configura los puntos, créditos y reglas de tu liga.</p>
+        <p className="text-muted-foreground text-xs md:text-sm">Configura las reglas competitivas de tu nuevo universo.</p>
       </header>
 
       <Tabs defaultValue="manual" className="w-full">
         <TabsList className="grid w-full grid-cols-2 h-12 md:h-16 bg-card p-1 rounded-2xl md:rounded-3xl border shadow-xl">
-          <TabsTrigger value="manual" className="rounded-xl md:rounded-2xl text-xs md:text-lg font-black uppercase tracking-tight">DISEÑO MANUAL</TabsTrigger>
-          <TabsTrigger value="ai" className="rounded-xl md:rounded-2xl text-xs md:text-lg font-black uppercase tracking-tight">ASISTENTE IA</TabsTrigger>
+          <TabsTrigger value="manual" className="rounded-xl md:rounded-2xl text-xs md:text-lg font-black uppercase">DISEÑO MANUAL</TabsTrigger>
+          <TabsTrigger value="ai" className="rounded-xl md:rounded-2xl text-xs md:text-lg font-black uppercase">ASISTENTE IA</TabsTrigger>
         </TabsList>
 
         <TabsContent value="manual" className="mt-6 md:mt-8 space-y-6 md:space-y-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
             <Card className="border-none bg-card shadow-2xl rounded-[1.5rem] md:rounded-[2.5rem] overflow-hidden">
-              <CardHeader className="bg-muted/20 border-b p-6 md:p-8">
-                <CardTitle className="text-lg md:text-xl font-black uppercase">Estructura Base</CardTitle>
+              <CardHeader className="bg-muted/20 border-b p-6">
+                <CardTitle className="text-lg font-black uppercase">Estructura Base</CardTitle>
               </CardHeader>
-              <CardContent className="p-6 md:p-8 space-y-4 md:space-y-6">
-                <div className="space-y-2"><Label>Nombre del Torneo</Label><Input value={name} onChange={e => setName(e.target.value)} className="h-10 md:h-12 rounded-xl" placeholder="Ej: Lliga l'Horta Élite" /></div>
+              <CardContent className="p-6 space-y-6">
+                <div className="space-y-2"><Label>Nombre del Torneo</Label><Input value={name} onChange={e => setName(e.target.value)} className="h-12 rounded-xl" placeholder="Ej: Lliga l'Horta Sud" /></div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>Deporte</Label><Input value={sport} onChange={e => setSport(e.target.value)} className="h-10 md:h-12 rounded-xl" /></div>
+                  <div className="space-y-2"><Label>Deporte</Label><Input value={sport} onChange={e => setSport(e.target.value)} className="h-12 rounded-xl" /></div>
                   <div className="space-y-2">
                     <Label>Modo de Juego</Label>
                     <Select value={mode} onValueChange={(v: any) => setMode(v)}>
-                      <SelectTrigger className="h-10 md:h-12 rounded-xl"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
                       <SelectContent className="rounded-xl">
                         <SelectItem value="normal">Simulación Total</SelectItem>
                         <SelectItem value="arcade">Modo Arcade (Controlas Club)</SelectItem>
@@ -168,12 +171,11 @@ export default function NewTournamentPage() {
                       <Target className="w-4 h-4" /> Tu Club de Gestión
                     </Label>
                     <Select 
-                      key={`arcade-select-${selectedParticipants.length}`}
                       value={managedParticipantId} 
                       onValueChange={setManagedParticipantId}
                     >
-                      <SelectTrigger className="h-10 md:h-12 rounded-xl border-primary/30">
-                        <SelectValue placeholder={selectedParticipants.length > 0 ? "Seleccionar entre inscritos..." : "Inscribe equipos primero"} />
+                      <SelectTrigger className="h-12 rounded-xl border-primary/30">
+                        <SelectValue placeholder={arcadeTeamOptions.length > 0 ? "Seleccionar entre inscritos..." : "Inscribe equipos primero"} />
                       </SelectTrigger>
                       <SelectContent className="rounded-xl">
                         {arcadeTeamOptions.length > 0 ? (
@@ -181,17 +183,12 @@ export default function NewTournamentPage() {
                             <SelectItem key={`managed-team-${t.id}`} value={t.id}>{t.name}</SelectItem>
                           ))
                         ) : (
-                          <SelectItem value="placeholder" disabled className="text-center text-[10px] font-bold text-muted-foreground uppercase italic">
+                          <SelectItem value="placeholder" disabled className="text-center text-[10px] font-bold text-muted-foreground uppercase italic p-4">
                             No hay equipos inscritos aún
                           </SelectItem>
                         )}
                       </SelectContent>
                     </Select>
-                    {managedParticipantId && (
-                      <div className="mt-3 flex items-center gap-2 text-[10px] font-bold text-primary bg-primary/10 p-2 rounded-lg">
-                        <CheckCircle2 className="w-3 h-3" /> CLUB ASIGNADO: {teams.find(t => t.id === managedParticipantId)?.name}
-                      </div>
-                    )}
                   </div>
                 )}
 
@@ -199,7 +196,7 @@ export default function NewTournamentPage() {
                   <div className="space-y-2">
                     <Label>Formato</Label>
                     <Select value={format} onValueChange={(v: any) => setFormat(v)}>
-                      <SelectTrigger className="h-10 md:h-12 rounded-xl"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
                       <SelectContent className="rounded-xl">
                         <SelectItem value="league">Liga Regular</SelectItem>
                         <SelectItem value="knockout">Eliminatoria Directa</SelectItem>
@@ -210,7 +207,7 @@ export default function NewTournamentPage() {
                     <div className="space-y-2">
                       <Label>Tipo de Liga</Label>
                       <Select value={leagueType} onValueChange={(v: any) => setLeagueType(v)}>
-                        <SelectTrigger className="h-10 md:h-12 rounded-xl"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
                         <SelectContent className="rounded-xl">
                           <SelectItem value="single-table">Tabla Única Global</SelectItem>
                           <SelectItem value="groups">Conferencias / Grupos</SelectItem>
@@ -219,10 +216,10 @@ export default function NewTournamentPage() {
                     </div>
                   )}
                 </div>
-                <div className="flex items-center justify-between p-3 md:p-4 bg-muted/20 rounded-2xl border">
+                <div className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl border">
                   <div className="space-y-0.5">
                     <Label className="font-black uppercase text-[10px]">Liga Dual (Espejo)</Label>
-                    <p className="text-[9px] text-muted-foreground">Simula partidos de reservas en paralelo.</p>
+                    <p className="text-[9px] text-muted-foreground">Simula canteras en paralelo.</p>
                   </div>
                   <Switch checked={dualLeagueEnabled} onCheckedChange={setDualLeagueEnabled} />
                 </div>
@@ -230,48 +227,48 @@ export default function NewTournamentPage() {
             </Card>
 
             <Card className="border-none bg-card shadow-2xl rounded-[1.5rem] md:rounded-[2.5rem] overflow-hidden">
-              <CardHeader className="bg-primary/5 border-b p-6 md:p-8"><CardTitle className="text-lg md:text-xl font-black uppercase flex items-center gap-2"><Target className="text-primary" /> Reglas de Competición</CardTitle></CardHeader>
-              <CardContent className="p-6 md:p-8 space-y-4 md:space-y-6">
-                <div className="grid grid-cols-3 gap-2 md:gap-4">
-                  <div className="space-y-1"><Label className="text-[9px] md:text-[10px] uppercase font-bold text-center block">PTS V.</Label><Input type="number" value={winPoints} onChange={e => setWinPoints(Number(e.target.value))} className="h-9 md:h-10 text-center" /></div>
-                  <div className="space-y-1"><Label className="text-[9px] md:text-[10px] uppercase font-bold text-center block">PTS D.</Label><Input type="number" value={lossPoints} onChange={e => setLossPoints(Number(e.target.value))} className="h-9 md:h-10 text-center" /></div>
-                  <div className="space-y-1"><Label className="text-[9px] md:text-[10px] uppercase font-bold text-center block">PTS E.</Label><Input type="number" value={drawPoints} onChange={e => setDrawPoints(Number(e.target.value))} className="h-9 md:h-10 text-center" /></div>
+              <CardHeader className="bg-primary/5 border-b p-6"><CardTitle className="text-lg font-black uppercase flex items-center gap-2"><Target className="text-primary" /> Reglas de Competición</CardTitle></CardHeader>
+              <CardContent className="p-6 space-y-6">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-center block">PTS V.</Label><Input type="number" value={winPoints} onChange={e => setWinPoints(Number(e.target.value))} className="h-10 text-center" /></div>
+                  <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-center block">PTS D.</Label><Input type="number" value={lossPoints} onChange={e => setLossPoints(Number(e.target.value))} className="h-10 text-center" /></div>
+                  <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-center block">PTS E.</Label><Input type="number" value={drawPoints} onChange={e => setDrawPoints(Number(e.target.value))} className="h-10 text-center" /></div>
                 </div>
-                <div className="p-4 md:p-6 bg-accent/5 rounded-2xl md:rounded-3xl border space-y-4">
+                <div className="p-6 bg-accent/5 rounded-[2rem] border space-y-4">
                   <Label className="text-[10px] font-black uppercase text-accent flex items-center gap-2"><Coins className="w-4 h-4" /> Economía (CR)</Label>
-                  <div className="grid grid-cols-3 gap-2 md:gap-4">
-                    <div className="space-y-1"><Label className="text-[9px] text-center block">Gana (+)</Label><Input type="number" value={winReward} onChange={e => setWinReward(Number(e.target.value))} className="h-9 text-center" /></div>
-                    <div className="space-y-1"><Label className="text-[9px] text-center block">Pierde (-)</Label><Input type="number" value={lossPenalty} onChange={e => setLossPenalty(Number(e.target.value))} className="h-9 text-center" /></div>
-                    <div className="space-y-1"><Label className="text-[9px] text-center block">Empata</Label><Input type="number" value={drawReward} onChange={e => setDrawReward(Number(e.target.value))} className="h-9 text-center" /></div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-1"><Label className="text-[9px] text-center block">Gana (+)</Label><Input type="number" value={winReward} onChange={e => setWinReward(Number(e.target.value))} className="h-10 text-center" /></div>
+                    <div className="space-y-1"><Label className="text-[9px] text-center block">Pierde (-)</Label><Input type="number" value={lossPenalty} onChange={e => setLossPenalty(Number(e.target.value))} className="h-10 text-center" /></div>
+                    <div className="space-y-1"><Label className="text-[9px] text-center block">Empata</Label><Input type="number" value={drawReward} onChange={e => setDrawReward(Number(e.target.value))} className="h-10 text-center" /></div>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2 font-black uppercase text-[10px]"><Brackets className="w-3 h-3 text-green-500" /> Plazas Playoff</Label>
-                    <Input type="number" value={playoffSpots} onChange={e => setPlayoffSpots(Number(e.target.value))} className="h-10 md:h-12 rounded-xl" />
+                    <Input type="number" value={playoffSpots} onChange={e => setPlayoffSpots(Number(e.target.value))} className="h-12 rounded-xl" />
                   </div>
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2 font-black uppercase text-[10px]"><ShieldAlert className="w-3 h-3 text-red-500" /> Plazas Descenso</Label>
-                    <Input type="number" value={relegationSpots} onChange={e => setRelegationSpots(Number(e.target.value))} className="h-10 md:h-12 rounded-xl" />
+                    <Input type="number" value={relegationSpots} onChange={e => setRelegationSpots(Number(e.target.value))} className="h-12 rounded-xl" />
                   </div>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          <Card className="border-none bg-card shadow-2xl rounded-[1.5rem] md:rounded-[3rem] p-6 md:p-8 space-y-6 md:space-y-8">
+          <Card className="border-none bg-card shadow-2xl rounded-[1.5rem] md:rounded-[3rem] p-6 md:p-8 space-y-8">
             <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
-                <CardTitle className="text-lg md:text-xl font-black uppercase flex items-center gap-2"><Users className="text-primary" /> Inscripción de Equipos ({selectedParticipants.length})</CardTitle>
-                <p className="text-[10px] text-muted-foreground font-bold mt-1 uppercase">Selecciona qué entidades participarán en este universo.</p>
+                <CardTitle className="text-xl font-black uppercase flex items-center gap-2"><Users className="text-primary" /> Inscripción de Equipos ({selectedParticipants.length})</CardTitle>
+                <p className="text-[10px] text-muted-foreground font-bold mt-1 uppercase">Selecciona los clubes que formarán parte de la temporada.</p>
               </div>
               <div className="flex gap-2 w-full md:w-auto">
-                <Button variant="outline" size="sm" onClick={() => setSelectedParticipants(teams.map(t => t.id))} className="flex-1 md:flex-none text-[10px] font-black uppercase h-9">SELECCIONAR TODOS</Button>
-                <Button variant="outline" size="sm" onClick={() => { setSelectedParticipants([]); setGroups(groups.map(g => ({...g, participantIds: []}))); }} className="flex-1 md:flex-none text-[10px] font-black uppercase h-9">LIMPIAR</Button>
+                <Button variant="outline" size="sm" onClick={() => setSelectedParticipants(teams.map(t => t.id))} className="flex-1 md:flex-none text-[10px] font-black uppercase h-10 px-6">SELECCIONAR TODOS</Button>
+                <Button variant="outline" size="sm" onClick={() => { setSelectedParticipants([]); setGroups(groups.map(g => ({...g, participantIds: []}))); }} className="flex-1 md:flex-none text-[10px] font-black uppercase h-10 px-6">LIMPIAR</Button>
               </div>
             </header>
-            <ScrollArea className="h-[300px] md:h-[400px]">
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 pr-4">
+            <ScrollArea className="h-[400px]">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 pr-4 pb-4">
                 {teams.map((team, idx) => {
                   const isSelected = selectedParticipants.includes(team.id);
                   const isAssigned = groups.some(g => g.participantIds.includes(team.id));
@@ -280,14 +277,14 @@ export default function NewTournamentPage() {
                       key={`team-select-${team.id}-${idx}`} 
                       onClick={() => setSelectedParticipants(prev => isSelected ? prev.filter(id => id !== team.id) : [...prev, team.id])}
                       className={cn(
-                        "p-4 rounded-xl md:rounded-2xl border-2 transition-all text-left flex flex-col gap-2 relative",
+                        "p-4 rounded-2xl border-2 transition-all text-left flex flex-col gap-2 relative",
                         isSelected ? "bg-primary/10 border-primary shadow-md" : "bg-card border-transparent hover:bg-muted/50"
                       )}
                     >
                       <div className="flex items-center gap-3">
-                        <CrestIcon shape={team.emblemShape} pattern={team.emblemPattern} c1={team.crestPrimary} c2={team.crestSecondary} c3={team.crestTertiary || team.crestSecondary} size="w-8 h-8" />
+                        <CrestIcon shape={team.emblemShape} pattern={team.emblemPattern} c1={team.crestPrimary} c2={team.crestSecondary} size="w-10 h-10" />
                         <div className="overflow-hidden">
-                          <span className="font-black text-[10px] md:text-xs uppercase truncate block">{team.name}</span>
+                          <span className="font-black text-[10px] uppercase truncate block">{team.name}</span>
                           <span className="text-[9px] opacity-50 block">{team.abbreviation}</span>
                         </div>
                       </div>
@@ -296,7 +293,6 @@ export default function NewTournamentPage() {
                           {isAssigned ? "Asignado" : "Sin Grupo"}
                         </div>
                       )}
-                      {isSelected && <div className="absolute top-1 right-1 bg-primary text-white p-0.5 rounded-full"><Plus className="w-2 h-2 rotate-45" /></div>}
                     </button>
                   );
                 })}
@@ -305,25 +301,25 @@ export default function NewTournamentPage() {
           </Card>
 
           {format === 'league' && leagueType === 'groups' && selectedParticipants.length > 0 && (
-            <div className="p-6 md:p-10 bg-accent/5 border-2 border-dashed border-accent/20 rounded-[2rem] md:rounded-[4rem] space-y-8 shadow-inner">
+            <div className="p-6 md:p-10 bg-accent/5 border-2 border-dashed border-accent/20 rounded-[3rem] space-y-8">
               <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-accent/20 rounded-2xl flex items-center justify-center">
-                    <Group className="text-accent w-6 h-6" />
+                  <div className="w-14 h-14 bg-accent/20 rounded-2xl flex items-center justify-center">
+                    <Group className="text-accent w-7 h-7" />
                   </div>
                   <div>
-                    <h2 className="text-xl md:text-2xl font-black uppercase tracking-tight">Distribución por Conferencias</h2>
-                    <p className="text-[10px] md:text-xs text-muted-foreground font-bold uppercase">Asigna los equipos inscritos a sus respectivos grupos geográficos.</p>
+                    <h2 className="text-2xl font-black uppercase">Distribución Geográfica</h2>
+                    <p className="text-[10px] text-muted-foreground font-bold uppercase">Organiza los equipos en conferencias regionales.</p>
                   </div>
                 </div>
-                <Button onClick={addGroup} variant="outline" className="w-full md:w-auto h-12 rounded-xl border-accent text-accent font-black text-xs uppercase">
+                <Button onClick={addGroup} variant="outline" className="w-full md:w-auto h-12 rounded-xl border-accent text-accent font-black text-xs uppercase px-8">
                   <Plus className="w-4 h-4 mr-2" /> AÑADIR CONFERENCIA
                 </Button>
               </header>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {groups.map((group, gIdx) => (
-                  <Card key={`group-config-${group.id}-${gIdx}`} className="rounded-[2rem] border bg-card shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <Card key={`group-config-${group.id}-${gIdx}`} className="rounded-[2.5rem] border bg-card shadow-2xl overflow-hidden">
                     <CardHeader className="bg-muted/10 p-6 flex flex-row justify-between items-center border-b">
                       <div className="flex items-center gap-3">
                         <Badge className="bg-accent text-accent-foreground font-black">{group.participantIds.length}</Badge>
@@ -349,7 +345,7 @@ export default function NewTournamentPage() {
                           {group.participantIds.map((pId, pIdx) => {
                             const team = teams.find(t => t.id === pId);
                             return (
-                              <Badge key={`assigned-${group.id}-${pId}-${pIdx}`} variant="secondary" className="bg-primary/10 text-primary border-primary/20 px-4 py-2 rounded-xl flex items-center gap-3 hover:bg-primary/20 transition-colors">
+                              <Badge key={`assigned-${group.id}-${pId}-${pIdx}`} variant="secondary" className="bg-primary/10 text-primary border-primary/20 px-4 py-2 rounded-xl flex items-center gap-3">
                                 <CrestIcon shape={team?.emblemShape!} pattern={team?.emblemPattern!} c1={team?.crestPrimary!} c2={team?.crestSecondary!} size="w-4 h-4" />
                                 <span className="text-[10px] font-black uppercase truncate max-w-[100px]">{team?.name}</span>
                                 <button onClick={() => removeFromGroup(pId)} className="hover:text-destructive transition-colors"><X className="w-3 h-3" /></button>
@@ -360,23 +356,19 @@ export default function NewTournamentPage() {
                       </ScrollArea>
                       
                       <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest block ml-1">Transferir equipo a esta zona</Label>
+                        <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest block ml-1">Transferir equipo aquí</Label>
                         <Select onValueChange={(val) => assignToGroup(val, group.id)}>
-                          <SelectTrigger className="h-12 rounded-xl border-2 focus:ring-accent">
-                            <SelectValue placeholder="Elegir club disponible..." />
+                          <SelectTrigger className="h-12 rounded-xl border-2">
+                            <SelectValue placeholder="Elegir club..." />
                           </SelectTrigger>
                           <SelectContent className="rounded-xl">
                             {selectedParticipants
                               .filter(pId => !group.participantIds.includes(pId))
                               .map((pId, sIdx) => {
                                 const team = teams.find(t => t.id === pId);
-                                const isOtherGroup = groups.some(g => g.id !== group.id && g.participantIds.includes(pId));
                                 return (
-                                  <SelectItem key={`avail-${group.id}-${pId}-${sIdx}`} value={pId} className="rounded-lg">
-                                    <div className="flex items-center justify-between w-full gap-2">
-                                      <span>{team?.name}</span>
-                                      {isOtherGroup && <Badge variant="outline" className="text-[8px] opacity-50 ml-2">OTRO GRUPO</Badge>}
-                                    </div>
+                                  <SelectItem key={`avail-${group.id}-${pId}-${sIdx}`} value={pId}>
+                                    {team?.name}
                                   </SelectItem>
                                 );
                               })
@@ -391,11 +383,11 @@ export default function NewTournamentPage() {
             </div>
           )}
 
-          <div className="fixed bottom-6 left-0 right-0 px-4 md:static md:px-0 md:mt-12 z-50">
+          <div className="pt-12">
             <Button 
               onClick={handleCreateManual} 
               disabled={selectedParticipants.length < 2 || !name} 
-              className="w-full h-16 md:h-24 rounded-[1.5rem] md:rounded-[3rem] text-lg md:text-3xl font-black bg-primary shadow-2xl shadow-primary/40 uppercase tracking-tighter border-b-8 border-primary-foreground/20 hover:translate-y-1 hover:border-b-4 transition-all"
+              className="w-full h-24 rounded-[3rem] text-3xl font-black bg-primary shadow-2xl shadow-primary/40 uppercase tracking-tighter"
             >
               Lanzar Nuevo Universo
             </Button>
@@ -403,35 +395,28 @@ export default function NewTournamentPage() {
         </TabsContent>
 
         <TabsContent value="ai" className="mt-6 md:mt-8">
-          <Card className="rounded-[2.5rem] md:rounded-[4rem] overflow-hidden border-none shadow-2xl">
-            <CardHeader className="bg-accent/10 p-8 md:p-16 text-center">
+          <Card className="rounded-[4rem] overflow-hidden border-none shadow-2xl">
+            <CardHeader className="bg-accent/10 p-16 text-center">
               <div className="mx-auto w-20 h-20 bg-accent/20 rounded-[2rem] flex items-center justify-center mb-6">
                 <Wand2 className="text-accent w-10 h-10" />
               </div>
-              <CardTitle className="text-2xl md:text-5xl font-black uppercase text-accent tracking-tighter">Generative Architect</CardTitle>
-              <CardDescription className="text-base md:text-xl font-bold max-w-2xl mx-auto mt-4">Describe la visión de tu liga y la IA configurará los grupos, calendarios y reglas económicas por ti.</CardDescription>
+              <CardTitle className="text-5xl font-black uppercase text-accent tracking-tighter">Generative Architect</CardTitle>
+              <CardDescription className="text-xl font-bold max-w-2xl mx-auto mt-4">Describe tu liga ideal y la IA configurará las conferencias y reglas por ti.</CardDescription>
             </CardHeader>
-            <CardContent className="p-8 md:p-16 space-y-8">
+            <CardContent className="p-16 space-y-8">
               <textarea 
-                className="min-h-[200px] md:min-h-[300px] w-full rounded-3xl border-none bg-muted/20 p-8 md:p-12 text-lg md:text-2xl font-medium focus-visible:ring-4 focus-visible:ring-accent outline-none transition-all placeholder:opacity-30" 
-                placeholder="Ej. Crea una liga profesional de 20 equipos dividida en Horta Sud y Nord. Quiero recompensas de 10 CR, un sistema de playoff de 8 plazas y que el tema sea retro..." 
+                className="min-h-[300px] w-full rounded-3xl border-none bg-muted/20 p-12 text-2xl font-medium focus-visible:ring-4 focus-visible:ring-accent outline-none placeholder:opacity-30" 
+                placeholder="Ej. Crea una liga profesional de 20 equipos dividida en Horta Sud y Nord con recompensas de 10 CR..." 
                 value={aiDescription} 
-                onChange={(e) => {
-                  setAiDescription(e.target.value);
-                  if(!name) setName(e.target.value.split(' ').slice(0, 3).join(' ')); 
-                }} 
+                onChange={(e) => setAiDescription(e.target.value)} 
               />
               <Button 
                 onClick={handleCreateManual} 
                 disabled={!aiDescription} 
-                className="w-full h-20 md:h-24 rounded-[2rem] md:rounded-[3rem] text-xl md:text-3xl font-black bg-accent shadow-xl shadow-accent/30 uppercase tracking-tighter"
+                className="w-full h-24 rounded-[3rem] text-3xl font-black bg-accent shadow-xl shadow-accent/30 uppercase tracking-tighter"
               >
-                CONSTRUIR CON INTELIGENCIA ARTIFICIAL
+                CONSTRUIR CON IA
               </Button>
-              <div className="flex gap-4 items-center text-xs md:text-sm text-muted-foreground bg-muted/30 p-6 rounded-3xl border border-dashed border-muted-foreground/20">
-                <Info className="w-6 h-6 shrink-0 text-accent" />
-                <p className="font-medium">Nuestra IA analizará la semántica de tu descripción para proponer una estructura óptima de participantes, equilibrando presupuestos y calendarios regionales.</p>
-              </div>
             </CardContent>
           </Card>
         </TabsContent>
