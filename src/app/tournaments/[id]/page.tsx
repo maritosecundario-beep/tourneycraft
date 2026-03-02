@@ -382,7 +382,6 @@ export default function TournamentDetailPage() {
           </Card>
         </TabsContent>
 
-        {/* ... Rest of the tabs content ... */}
         <TabsContent value="dual" className="space-y-6 md:space-y-8">
           <Card className="border-none bg-card shadow-2xl rounded-[1.5rem] md:rounded-[3rem] p-6 md:p-8">
             <header className="mb-6 md:mb-8"><h2 className="text-lg md:text-2xl font-black uppercase flex items-center gap-3"><Layers className="text-accent" /> Liga de Reservas</h2></header>
@@ -467,6 +466,9 @@ export default function TournamentDetailPage() {
         <DialogContent className="max-w-[95vw] md:max-w-2xl rounded-[1.5rem] md:rounded-[3rem] border-none shadow-2xl p-0 overflow-hidden">
           {arcadeMatch && (
             <div className="flex flex-col">
+              <DialogHeader className="sr-only">
+                <DialogTitle>Previa del Partido Arcade</DialogTitle>
+              </DialogHeader>
               <div className="bg-primary p-6 md:p-10 text-white flex flex-col md:flex-row items-center gap-6 md:gap-8">
                 {(() => {
                   const opId = arcadeMatch.homeId === tournament.managedParticipantId ? arcadeMatch.awayId : arcadeMatch.homeId;
@@ -475,7 +477,7 @@ export default function TournamentDetailPage() {
                     <>
                       <CrestIcon shape={opponent?.emblemShape!} pattern={opponent?.emblemPattern!} c1={opponent?.crestPrimary!} c2={opponent?.crestSecondary!} size="w-20 h-20 md:w-24 md:h-24" />
                       <div className="text-center md:text-left">
-                        <h2 className="text-2xl md:text-4xl font-black uppercase tracking-tighter">vs {opponent?.name}</h2>
+                        <DialogTitle className="text-2xl md:text-4xl font-black uppercase tracking-tighter">vs {opponent?.name}</DialogTitle>
                         <p className="text-white/80 font-bold uppercase tracking-widest flex items-center justify-center md:justify-start gap-2 mt-2">
                           <Target className="w-4 h-4" /> DUELO ARCADE
                         </p>
@@ -507,10 +509,13 @@ export default function TournamentDetailPage() {
         <DialogContent className="max-w-[95vw] md:max-w-3xl rounded-[1.5rem] md:rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl">
           {teams.find(t => t.id === viewingTeamId) && (
             <div className="flex flex-col h-[80vh] md:h-auto md:max-h-[85vh]">
+              <DialogHeader className="sr-only">
+                <DialogTitle>Detalles del Club: {teams.find(t => t.id === viewingTeamId)!.name}</DialogTitle>
+              </DialogHeader>
               <div className="p-6 md:p-8 bg-muted/10 border-b flex items-center gap-4 md:gap-6">
                 <CrestIcon shape={teams.find(t => t.id === viewingTeamId)!.emblemShape} pattern={teams.find(t => t.id === viewingTeamId)!.emblemPattern} c1={teams.find(t => t.id === viewingTeamId)!.crestPrimary} c2={teams.find(t => t.id === viewingTeamId)!.crestSecondary} size="w-16 h-16 md:w-20 md:h-20" />
                 <div className="flex-1 overflow-hidden">
-                  <h2 className="text-xl md:text-3xl font-black uppercase tracking-tighter truncate">{teams.find(t => t.id === viewingTeamId)!.name}</h2>
+                  <DialogTitle className="text-xl md:text-3xl font-black uppercase tracking-tighter truncate">{teams.find(t => t.id === viewingTeamId)!.name}</DialogTitle>
                   <div className="flex items-center gap-3 mt-2">
                     <span className="flex items-center gap-1 text-[10px] md:text-sm font-black text-accent"><Coins className="w-3 h-3 md:w-4 md:h-4" /> {teams.find(t => t.id === viewingTeamId)!.budget} CR</span>
                     <span className="flex items-center gap-1 text-[10px] md:text-sm font-black text-primary"><Star className="w-3 h-3 md:w-4 md:h-4 fill-current" /> {teams.find(t => t.id === viewingTeamId)!.rating}</span>
