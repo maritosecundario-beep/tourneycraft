@@ -4,7 +4,7 @@
 import { useTournamentStore } from '@/hooks/use-tournament-store';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Trophy, Calendar, Users, Play, ShieldAlert, ShoppingBag, Layers, Target, ChevronRight, Star, Sword, Zap, Info, Coins, LayoutGrid, Sparkles, RefreshCw, Brackets, Group, Trash2, Settings2 } from 'lucide-react';
+import { Trophy, Calendar, Users, Play, ShieldAlert, ShoppingBag, Layers, Target, ChevronRight, Star, Sword, Zap, Info, Coins, LayoutGrid, Sparkles, RefreshCw, Brackets, Group, Trash2, MapPin, UserCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -33,13 +33,21 @@ export default function TournamentDetailPage() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>('');
+  const [userHomeScore, setUserHomeScore] = useState<string>('0');
+  const [userAwayScore, setUserAwayScore] = useState<string>('0');
   const [viewingTeamId, setViewTeamId] = useState<string | null>(null);
+  const [viewingMatchId, setViewingMatchId] = useState<string | null>(null);
 
   const tournament = tournaments.find(t => t.id === id);
 
   const isSeasonOver = useMemo(() => {
     if (!tournament || tournament.matches.length === 0) return false;
     return tournament.matches.every(m => m.isSimulated);
+  }, [tournament]);
+
+  const userGroup = useMemo(() => {
+    if (!tournament || !tournament.managedParticipantId || tournament.leagueType !== 'groups') return null;
+    return tournament.groups?.find(g => g.participantIds.includes(tournament.managedParticipantId!));
   }, [tournament]);
 
   const getStandingsForParticipants = (participantIds: string[]) => {
@@ -90,24 +98,35 @@ export default function TournamentDetailPage() {
   }, [tournament, currentMatchdayMatches]);
 
   const simulateMatchLogic = (m: Match) => {
+    const hTeam = teams.find(t => t.id === m.homeId);
+    const aTeam = teams.find(t => t.id === m.awayId);
+    
+    const hPlayers = players.filter(p => p.teamId === m.homeId);
+    const aPlayers = players.filter(p => p.teamId === m.awayId);
+    
+    const hVal = hPlayers.reduce((acc, p) => acc + p.monetaryValue, 0) + (hTeam?.rating || 50) * 2;
+    const aVal = aPlayers.reduce((acc, p) => acc + p.monetaryValue, 0) + (aTeam?.rating || 50) * 2;
+    
+    // Bias probability by value
+    const total = hVal + aVal;
+    const hProb = hVal / total;
+    
     let hScore = 0, aScore = 0;
     const rule = tournament?.scoringRuleType;
-    const val = tournament?.scoringValue || 9;
+    const maxVal = tournament?.scoringValue || 9;
     
     if (rule === 'bestOfN') {
-      hScore = Math.floor(Math.random() * (val + 1));
-      aScore = val - hScore;
+      const rolls = Array.from({ length: maxVal }, () => Math.random() < hProb ? 'h' : 'a');
+      hScore = rolls.filter(r => r === 'h').length;
+      aScore = maxVal - hScore;
     } else {
-      hScore = Math.floor(Math.random() * 5);
-      aScore = Math.floor(Math.random() * 5);
+      hScore = Math.floor(Math.random() * 5) + (Math.random() < hProb ? 1 : 0);
+      aScore = Math.floor(Math.random() * 5) + (Math.random() > hProb ? 1 : 0);
     }
     
-    const hPlayers = players.filter(p => p.teamId === m.homeId).sort((a, b) => b.monetaryValue - a.monetaryValue);
-    const aPlayers = players.filter(p => p.teamId === m.awayId).sort((a, b) => b.monetaryValue - a.monetaryValue);
-    
     const getSelection = (pList: Player[]) => {
-      if (Math.random() < 0.7) return pList[0]?.id;
-      return pList[1]?.id || pList[0]?.id;
+      const sorted = [...pList].sort((a, b) => b.monetaryValue - a.monetaryValue);
+      return Math.random() < 0.7 ? sorted[0]?.id : sorted[1]?.id || sorted[0]?.id;
     };
 
     return { hScore, aScore, hPlayerId: getSelection(hPlayers), aPlayerId: getSelection(aPlayers) };
@@ -119,79 +138,87 @@ export default function TournamentDetailPage() {
     if (!m || m.isSimulated || !tournament) return;
     const { hScore, aScore, hPlayerId, aPlayerId } = simulateMatchLogic(m);
     resolveMatch(tournament.id, m.id, hScore, aScore, isDual, hPlayerId, aPlayerId);
-    toast({ title: "Partido Simulado" });
   };
 
   const handleSimulateMatchday = () => {
     if (!tournament) return;
-    if (tournament.mode === 'arcade' && arcadeMatch && !arcadeMatch.isSimulated) {
-      setSelectedMatch(arcadeMatch);
-      setIsPreviewOpen(true);
-      return;
-    }
 
-    currentMatchdayMatches.forEach(m => {
+    // Filter matches to simulate only if they belong to user group (if groups exist)
+    const matchesToSimulate = currentMatchdayMatches.filter(m => {
+      if (tournament.mode === 'arcade' && (m.homeId === tournament.managedParticipantId || m.awayId === tournament.managedParticipantId)) return false;
+      if (userGroup) {
+        return userGroup.participantIds.includes(m.homeId);
+      }
+      return true;
+    });
+
+    matchesToSimulate.forEach(m => {
       if (m.isSimulated) return;
       const { hScore, aScore, hPlayerId, aPlayerId } = simulateMatchLogic(m);
       resolveMatch(tournament.id, m.id, hScore, aScore, false, hPlayerId, aPlayerId);
       
+      // Also simulate dual league mirrored match
       if (tournament.dualLeagueEnabled) {
-        const mirror = tournament.dualLeagueMatches.find(x => x.matchday === m.matchday && ((x.homeId === m.awayId && x.awayId === m.homeId) || (x.homeId === m.homeId && x.awayId === m.awayId)));
-        if (mirror && !mirror.isSimulated) {
-          const { hScore: mh, aScore: ma, hPlayerId: hp, aPlayerId: ap } = simulateMatchLogic(mirror);
-          resolveMatch(tournament.id, mirror.id, mh, ma, true, hp, ap);
+        const dualMatch = tournament.dualLeagueMatches.find(dm => dm.matchday === m.matchday && dm.homeId === m.awayId && dm.awayId === m.homeId);
+        if (dualMatch && !dualMatch.isSimulated) {
+          const { hScore: dh, aScore: da, hPlayerId: dhp, aPlayerId: dap } = simulateMatchLogic(dualMatch);
+          resolveMatch(tournament.id, dualMatch.id, dh, da, true, dhp, dap);
         }
       }
     });
 
-    triggerMarketMoves(tournament.id);
-    const nextMatchday = tournament.currentMatchday + 1;
-    const maxMatchday = tournament.matches.length > 0 ? Math.max(...tournament.matches.map(m => m.matchday)) : 0;
-    
-    if (nextMatchday <= maxMatchday) {
-      updateTournament({ ...tournament, currentMatchday: nextMatchday });
+    if (tournament.mode === 'arcade' && arcadeMatch && !arcadeMatch.isSimulated) {
+      setSelectedMatch(arcadeMatch);
+      setIsPreviewOpen(true);
+    } else {
+      triggerMarketMoves(tournament.id);
+      const nextMatchday = tournament.currentMatchday + 1;
+      const maxMatchday = tournament.matches.length > 0 ? Math.max(...tournament.matches.map(m => m.matchday)) : 0;
+      if (nextMatchday <= maxMatchday) {
+        updateTournament({ ...tournament, currentMatchday: nextMatchday });
+      }
+      toast({ title: "Jornada Finalizada" });
     }
-    toast({ title: "Jornada Finalizada", description: "El mercado se ha movido." });
   };
 
   const playArcadeMatch = () => {
     if (!selectedMatch || !selectedPlayerId || !tournament) return;
-    const { hScore, aScore, hPlayerId, aPlayerId } = simulateMatchLogic(selectedMatch);
+    
+    const hScore = parseInt(userHomeScore);
+    const aScore = parseInt(userAwayScore);
     
     const isHome = selectedMatch.homeId === tournament.managedParticipantId;
-    const userHPlayer = isHome ? selectedPlayerId : hPlayerId;
-    const userAPlayer = !isHome ? selectedPlayerId : aPlayerId;
-
-    resolveMatch(tournament.id, selectedMatch.id, hScore, aScore, false, userHPlayer, userAPlayer);
+    const hPlayers = players.filter(p => p.teamId === selectedMatch.homeId);
+    const aPlayers = players.filter(p => p.teamId === selectedMatch.awayId);
     
+    const hP = isHome ? selectedPlayerId : (players.find(p => p.teamId === selectedMatch.homeId)?.id);
+    const aP = !isHome ? selectedPlayerId : (players.find(p => p.teamId === selectedMatch.awayId)?.id);
+
+    resolveMatch(tournament.id, selectedMatch.id, hScore, aScore, false, hP, aP);
+    
+    // Auto-resolve dual match for arcade team
     if (tournament.dualLeagueEnabled) {
-      const mirrorMatch = tournament.dualLeagueMatches.find(m => m.matchday === tournament.currentMatchday && ((m.homeId === selectedMatch.awayId && m.awayId === selectedMatch.homeId) || (m.homeId === selectedMatch.homeId && m.awayId === selectedMatch.awayId)));
-      if (mirrorMatch) {
-        const { hScore: mh, aScore: ma, hPlayerId: hp, aPlayerId: ap } = simulateMatchLogic(mirrorMatch);
-        resolveMatch(tournament.id, mirrorMatch.id, mh, ma, true, hp, ap);
+      const dualMatch = tournament.dualLeagueMatches.find(dm => dm.matchday === tournament.currentMatchday && dm.homeId === selectedMatch.awayId && dm.awayId === selectedMatch.homeId);
+      if (dualMatch) {
+        const { hScore: dh, aScore: da, hPlayerId: dhp, aPlayerId: dap } = simulateMatchLogic(dualMatch);
+        resolveMatch(tournament.id, dualMatch.id, dh, da, true, dhp, dap);
       }
     }
 
+    triggerMarketMoves(tournament.id);
+    const nextMatchday = tournament.currentMatchday + 1;
+    updateTournament({ ...tournament, currentMatchday: nextMatchday });
+    
     setIsPreviewOpen(false);
-    toast({ title: "¡Partido Finalizado!", description: `${hScore} - ${aScore}` });
+    toast({ title: "Resultado Registrado" });
   };
 
-  const handleDeleteTournament = () => {
-    if (confirm("¿Seguro que quieres borrar este universo competitivo?")) {
-      deleteTournament(tournament!.id);
-      router.push('/tournaments');
-      toast({ title: "Universo Eliminado" });
-    }
-  };
-
-  const handleManualGenerate = () => {
-    generateSchedule(tournament!.id);
-    toast({ title: "Calendario Generado", description: "Se han programado todos los encuentros." });
-  };
+  const viewingMatch = useMemo(() => {
+    if (!viewingMatchId || !tournament) return null;
+    return [...tournament.matches, ...tournament.dualLeagueMatches].find(m => m.id === viewingMatchId);
+  }, [viewingMatchId, tournament]);
 
   if (!tournament) return <div className="p-20 text-center font-black">TORNEO NO ENCONTRADO</div>;
-
-  const hasMatches = tournament.matches.length > 0;
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 md:space-y-8 pb-32 px-4 md:px-0">
@@ -202,55 +229,42 @@ export default function TournamentDetailPage() {
           </div>
           <div>
             <h1 className="text-2xl md:text-4xl font-black uppercase tracking-tighter truncate max-w-[200px] md:max-w-none">{tournament.name}</h1>
-            <p className="text-muted-foreground font-bold uppercase text-[10px] tracking-widest mt-1">{tournament.sport} • SEASON {tournament.currentSeason} • JORNADA {tournament.currentMatchday}</p>
+            <p className="text-muted-foreground font-bold uppercase text-[10px] tracking-widest mt-1">
+              {tournament.sport} • SEASON {tournament.currentSeason} • JORNADA {tournament.currentMatchday}
+              {userGroup && ` • CONFERENCIA: ${userGroup.name}`}
+            </p>
           </div>
         </div>
         <div className="flex gap-2 w-full md:w-auto">
-          {!isSeasonOver && hasMatches && (
+          {!isSeasonOver && tournament.matches.length > 0 && (
             <Button onClick={handleSimulateMatchday} size="lg" className="flex-1 md:flex-none h-14 md:h-16 rounded-2xl px-10 font-black shadow-xl shadow-primary/20">
-              <Play className="w-5 h-5 mr-3 fill-current" /> SIGUIENTE JORNADA
+              <Play className="w-5 h-5 mr-3 fill-current" /> {tournament.mode === 'arcade' ? 'JUGAR JORNADA' : 'SIGUIENTE JORNADA'}
             </Button>
           )}
-          <Button variant="outline" size="icon" className="h-14 w-14 rounded-2xl border-destructive/20 text-destructive" onClick={handleDeleteTournament}>
+          <Button variant="outline" size="icon" className="h-14 w-14 rounded-2xl border-destructive/20 text-destructive" onClick={() => { if(confirm("¿Borrar?")) { deleteTournament(tournament.id); router.push('/tournaments'); } }}>
             <Trash2 className="w-6 h-6" />
           </Button>
         </div>
       </header>
 
-      {!hasMatches && (
-        <Card className="border-none bg-yellow-500/10 border-2 border-yellow-500/20 rounded-[2rem] p-8 text-center space-y-6 animate-in fade-in zoom-in">
-          <div className="mx-auto w-16 h-16 bg-yellow-500/20 rounded-full flex items-center justify-center">
-            <Calendar className="text-yellow-500 w-8 h-8" />
-          </div>
-          <div>
-            <h2 className="text-xl md:text-2xl font-black uppercase text-yellow-600">Calendario no programado</h2>
-            <p className="text-sm font-bold text-muted-foreground mt-2">Este torneo aún no tiene encuentros definidos. Genera el calendario para empezar la temporada.</p>
-          </div>
-          <Button onClick={handleManualGenerate} size="lg" className="bg-yellow-500 hover:bg-yellow-600 text-black font-black h-14 px-10 rounded-xl shadow-xl shadow-yellow-500/20">
-            <RefreshCw className="w-5 h-5 mr-2" /> GENERAR CALENDARIO AHORA
-          </Button>
+      {tournament.matches.length === 0 && (
+        <Card className="border-none bg-yellow-500/10 border-2 border-yellow-500/20 rounded-[2rem] p-8 text-center space-y-6">
+          <Calendar className="text-yellow-500 w-12 h-12 mx-auto" />
+          <h2 className="text-2xl font-black uppercase text-yellow-600">Calendario Pendiente</h2>
+          <Button onClick={() => generateSchedule(tournament.id)} className="bg-yellow-500 hover:bg-yellow-600 text-black font-black h-14 px-10 rounded-xl">GENERAR CALENDARIO</Button>
         </Card>
       )}
 
       {isSeasonOver && (
-        <Card className="border-none bg-accent/10 border-2 border-accent/20 rounded-[2rem] md:rounded-[3rem] p-6 md:p-8 animate-in fade-in zoom-in duration-500">
+        <Card className="border-none bg-accent/10 border-2 border-accent/20 rounded-[2rem] p-6 animate-in fade-in zoom-in">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="text-center md:text-left">
-              <h2 className="text-xl md:text-3xl font-black uppercase text-accent mb-2">¡TEMPORADA FINALIZADA!</h2>
-              <p className="font-bold text-muted-foreground uppercase text-[10px]">El comisionado ha cerrado las actas. Es hora de decidir el futuro.</p>
-            </div>
-            <div className="flex flex-wrap gap-3 justify-center w-full md:w-auto">
-              <Button onClick={() => advanceSeason(tournament.id)} className="flex-1 md:flex-none rounded-xl h-12 font-black shadow-lg">
-                <RefreshCw className="w-4 h-4 mr-2" /> NUEVA TEMP.
-              </Button>
+            <h2 className="text-xl md:text-3xl font-black uppercase text-accent">¡TEMPORADA FINALIZADA!</h2>
+            <div className="flex flex-wrap gap-3">
+              <Button onClick={() => advanceSeason(tournament.id)} className="rounded-xl h-12 font-black shadow-lg"><RefreshCw className="w-4 h-4 mr-2" /> NUEVA TEMP.</Button>
               {tournament.format === 'league' && (
                 <>
-                  <Button onClick={() => createKnockoutFromStandings(tournament.id, 'playoff')} variant="secondary" className="flex-1 md:flex-none rounded-xl h-12 font-black">
-                    <Brackets className="w-4 h-4 mr-2" /> PLAYOFFS
-                  </Button>
-                  <Button onClick={() => createKnockoutFromStandings(tournament.id, 'relegation')} variant="destructive" className="flex-1 md:flex-none rounded-xl h-12 font-black">
-                    <ShieldAlert className="w-4 h-4 mr-2" /> DESCENSO
-                  </Button>
+                  <Button onClick={() => createKnockoutFromStandings(tournament.id, 'playoff')} variant="secondary" className="rounded-xl h-12 font-black"><Brackets className="w-4 h-4 mr-2" /> PLAYOFFS</Button>
+                  <Button onClick={() => createKnockoutFromStandings(tournament.id, 'relegation')} variant="destructive" className="rounded-xl h-12 font-black"><ShieldAlert className="w-4 h-4 mr-2" /> DESCENSO</Button>
                 </>
               )}
             </div>
@@ -273,8 +287,8 @@ export default function TournamentDetailPage() {
         <TabsContent value="table" className="space-y-6 md:space-y-8">
           {tournamentStandings.map((group, gIdx) => (
             <Card key={gIdx} className="border-none bg-card shadow-2xl rounded-[1.5rem] md:rounded-[3rem] overflow-hidden">
-              <CardHeader className="bg-muted/10 border-b p-6 md:p-8 flex flex-row items-center gap-3">
-                <Group className="text-primary w-5 h-5 md:w-6 md:h-6" />
+              <CardHeader className="bg-muted/10 border-b p-6 flex flex-row items-center gap-3">
+                <Group className="text-primary w-6 h-6" />
                 <CardTitle className="text-lg md:text-xl font-black uppercase">{group.name}</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
@@ -291,40 +305,22 @@ export default function TournamentDetailPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {group.data.map((item, idx) => {
-                        const isPlayoff = idx < (tournament.playoffSpots || 0);
-                        const isRelegation = idx >= (group.data.length - (tournament.relegationSpots || 0));
-                        return (
-                          <TableRow 
-                            key={item.id} 
-                            className={cn(
-                              "h-14 md:h-16 cursor-pointer hover:bg-primary/5 transition-colors",
-                              tournament.managedParticipantId === item.id && "bg-primary/5 border-l-4 border-l-primary",
-                              isPlayoff && "bg-green-500/5",
-                              isRelegation && "bg-red-500/5"
-                            )} 
-                            onClick={() => setViewTeamId(item.id)}
-                          >
-                            <TableCell className="text-center">
-                              <div className="flex flex-col items-center">
-                                <span className="font-black text-base md:text-lg leading-none">{idx + 1}</span>
-                                {isPlayoff && <span className="text-[7px] font-black text-green-500 uppercase mt-1">PO</span>}
-                                {isRelegation && <span className="text-[7px] font-black text-red-500 uppercase mt-1">DE</span>}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2 md:gap-3">
-                                <CrestIcon shape={item.emblemShape} pattern={item.emblemPattern} c1={item.crestPrimary} c2={item.crestSecondary} size="w-6 h-6 md:w-8 md:h-8" />
-                                <span className="font-bold text-xs md:text-sm truncate max-w-[80px] md:max-w-none">{item.name}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-center font-bold text-xs">{item.played}</TableCell>
-                            <TableCell className={cn("text-center font-bold text-xs", item.gd >= 0 ? "text-green-500" : "text-destructive")}>{item.gd > 0 ? `+${item.gd}` : item.gd}</TableCell>
-                            <TableCell className="text-center font-bold text-accent text-xs">{('budget' in item) ? item.budget : '-'}</TableCell>
-                            <TableCell className="text-center font-black text-lg md:text-xl text-primary">{item.pts}</TableCell>
-                          </TableRow>
-                        );
-                      })}
+                      {group.data.map((item, idx) => (
+                        <TableRow key={item.id} className="h-14 md:h-16 cursor-pointer hover:bg-primary/5 transition-colors" onClick={() => setViewTeamId(item.id)}>
+                          <TableCell className="text-center">
+                            <div className="flex flex-col items-center">
+                              <span className="font-black text-base md:text-lg">{idx + 1}</span>
+                              {idx < (tournament.playoffSpots || 0) && <span className="text-[7px] font-black text-green-500">PO</span>}
+                              {idx >= (group.data.length - (tournament.relegationSpots || 0)) && <span className="text-[7px] font-black text-red-500">DE</span>}
+                            </div>
+                          </TableCell>
+                          <TableCell><div className="flex items-center gap-2 md:gap-3"><CrestIcon shape={item.emblemShape} pattern={item.emblemPattern} c1={item.crestPrimary} c2={item.crestSecondary} size="w-6 h-6 md:w-8 md:h-8" /><span className="font-bold text-xs md:text-sm truncate max-w-[80px] md:max-w-none">{item.name}</span></div></TableCell>
+                          <TableCell className="text-center font-bold text-xs">{item.played}</TableCell>
+                          <TableCell className={cn("text-center font-bold text-xs", item.gd >= 0 ? "text-green-500" : "text-destructive")}>{item.gd > 0 ? `+${item.gd}` : item.gd}</TableCell>
+                          <TableCell className="text-center font-bold text-accent text-xs">{item.budget}</TableCell>
+                          <TableCell className="text-center font-black text-lg md:text-xl text-primary">{item.pts}</TableCell>
+                        </TableRow>
+                      ))}
                     </TableBody>
                   </Table>
                   <ScrollBar orientation="horizontal" />
@@ -334,41 +330,28 @@ export default function TournamentDetailPage() {
           ))}
         </TabsContent>
 
-        <TabsContent value="calendar" className="space-y-6 md:space-y-8">
-          <Card className="border-none bg-card shadow-2xl rounded-[1.5rem] md:rounded-[3rem] overflow-hidden p-6 md:p-8">
-            <header className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-black uppercase">Encuentros Programados</h2>
-              <Button variant="ghost" size="sm" onClick={handleManualGenerate} className="text-accent hover:text-accent hover:bg-accent/10 font-black">
-                <RefreshCw className="w-4 h-4 mr-2" /> RE-GENERAR
-              </Button>
-            </header>
+        <TabsContent value="calendar" className="space-y-6">
+          <Card className="border-none bg-card shadow-2xl rounded-[1.5rem] p-6 md:p-8">
             <ScrollArea className="h-[600px] pr-4">
-              <div className="divide-y divide-muted/10 space-y-8">
-                {Array.from({ length: tournament.matches.length > 0 ? Math.max(...tournament.matches.map(m => m.matchday)) : 0 }).map((_, i) => (
-                  <div key={i} className="pt-8 first:pt-0 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    <h3 className="font-black uppercase text-accent tracking-widest text-[10px] md:text-sm mb-4">JORNADA {i+1}</h3>
+              <div className="space-y-8">
+                {Array.from({ length: Math.max(...tournament.matches.map(m => m.matchday), 0) }).map((_, i) => (
+                  <div key={i}>
+                    <h3 className="font-black uppercase text-accent tracking-widest text-xs mb-4">JORNADA {i+1}</h3>
                     <div className="space-y-3 max-w-2xl mx-auto">
                       {tournament.matches.filter(m => m.matchday === i+1).map(m => {
                         const h = teams.find(t => t.id === m.homeId);
                         const a = teams.find(t => t.id === m.awayId);
                         if(!h || !a) return null;
                         return (
-                          <div key={m.id} className={cn("flex items-center gap-2 md:gap-4 p-3 md:p-4 rounded-xl md:rounded-2xl border shadow-sm", m.isSimulated && "opacity-60")}>
-                            <div className="flex-1 flex items-center gap-2 md:gap-3 overflow-hidden">
-                              <CrestIcon shape={h.emblemShape} pattern={h.emblemPattern} c1={h.crestPrimary} c2={h.crestSecondary} size="w-6 h-6 md:w-8 md:h-8" />
-                              <span className="font-black text-sm md:text-lg">{h.abbreviation}</span>
+                          <div key={m.id} className={cn("flex flex-col p-3 md:p-4 rounded-xl border transition-all cursor-pointer hover:bg-muted/30", m.isSimulated && "opacity-60")} onClick={() => setViewingMatchId(m.id)}>
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2"><MapPin className="w-3 h-3 text-muted-foreground" /><span className="text-[10px] font-bold uppercase text-muted-foreground">{h.venueName}</span></div>
+                              {m.isSimulated && <Badge variant="secondary" className="text-[8px] h-4">FINALIZADO</Badge>}
                             </div>
-                            <div className="flex items-center gap-1 md:gap-2">
-                              <div className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center rounded-lg font-black text-sm md:text-xl bg-muted/50 border">{m.homeScore ?? '-'}</div>
-                              <span className="font-black opacity-30">:</span>
-                              <div className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center rounded-lg font-black text-sm md:text-xl bg-muted/50 border">{m.awayScore ?? '-'}</div>
-                            </div>
-                            <div className="flex-1 flex items-center gap-2 md:gap-3 justify-end overflow-hidden">
-                              <span className="font-black text-sm md:text-lg">{a.abbreviation}</span>
-                              <CrestIcon shape={a.emblemShape} pattern={a.emblemPattern} c1={a.crestPrimary} c2={a.crestSecondary} size="w-6 h-6 md:w-8 md:h-8" />
-                            </div>
-                            <div className="ml-2 border-l pl-2">
-                              {!m.isSimulated && <Button size="icon" variant="ghost" className="text-primary h-8 w-8" onClick={() => handleSimulateSingleMatch(m.id)}><Zap className="w-4 h-4 fill-current" /></Button>}
+                            <div className="flex items-center gap-4">
+                              <div className="flex-1 flex items-center gap-2 md:gap-3"><CrestIcon shape={h.emblemShape} pattern={h.emblemPattern} c1={h.crestPrimary} c2={h.crestSecondary} size="w-6 h-6 md:w-8 md:h-8" /><span className="font-black text-sm md:text-lg">{h.abbreviation}</span></div>
+                              <div className="flex items-center gap-2"><div className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center rounded-lg font-black text-sm md:text-xl bg-muted/50 border">{m.homeScore ?? '-'}</div><span className="opacity-30">:</span><div className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center rounded-lg font-black text-sm md:text-xl bg-muted/50 border">{m.awayScore ?? '-'}</div></div>
+                              <div className="flex-1 flex items-center gap-2 md:gap-3 justify-end"><span className="font-black text-sm md:text-lg">{a.abbreviation}</span><CrestIcon shape={a.emblemShape} pattern={a.emblemPattern} c1={a.crestPrimary} c2={a.crestSecondary} size="w-6 h-6 md:w-8 md:h-8" /></div>
                             </div>
                           </div>
                         );
@@ -376,85 +359,73 @@ export default function TournamentDetailPage() {
                     </div>
                   </div>
                 ))}
-                {!hasMatches && <p className="text-center py-20 text-muted-foreground italic">No hay partidos programados...</p>}
               </div>
             </ScrollArea>
           </Card>
         </TabsContent>
 
-        <TabsContent value="dual" className="space-y-6 md:space-y-8">
-          <Card className="border-none bg-card shadow-2xl rounded-[1.5rem] md:rounded-[3rem] p-6 md:p-8">
-            <header className="mb-6 md:mb-8"><h2 className="text-lg md:text-2xl font-black uppercase flex items-center gap-3"><Layers className="text-accent" /> Liga de Reservas</h2></header>
+        <TabsContent value="dual">
+          <Card className="p-6 md:p-8 rounded-[2rem] shadow-xl">
+            <h2 className="text-xl font-black uppercase mb-6 flex items-center gap-2"><Layers className="text-accent" /> LIGA DE RESERVAS</h2>
             <div className="grid gap-3 max-w-2xl mx-auto">
-              {tournament.dualLeagueMatches.filter(m => m.matchday === tournament.currentMatchday).map(m => {
-                const h = teams.find(t => t.id === m.homeId);
-                const a = teams.find(t => t.id === m.awayId);
-                return (
-                  <div key={m.id} className="flex items-center justify-between p-3 md:p-4 bg-muted/20 rounded-xl md:rounded-2xl border">
-                    <div className="flex items-center gap-2"><CrestIcon shape={h?.emblemShape!} pattern={h?.emblemPattern!} c1={h?.crestPrimary!} c2={h?.crestSecondary!} size="w-6 h-6" /><span className="font-black text-xs md:text-sm">{h?.abbreviation}</span></div>
-                    <div className="flex items-center gap-3 font-mono font-black text-sm md:text-xl"><span>{m.homeScore ?? '-'}</span><span>:</span><span>{m.awayScore ?? '-'}</span></div>
-                    <div className="flex items-center gap-2 justify-end"><span className="font-black text-xs md:text-sm">{a?.abbreviation}</span><CrestIcon shape={a?.emblemShape!} pattern={a?.emblemPattern!} c1={a?.crestPrimary!} c2={a?.crestSecondary!} size="w-6 h-6" /></div>
-                  </div>
-                );
-              })}
-              {tournament.dualLeagueMatches.filter(m => m.matchday === tournament.currentMatchday).length === 0 && (
-                <p className="text-center text-muted-foreground text-xs py-10 italic">No hay partidos de reserva programados para esta jornada.</p>
-              )}
+              {tournament.dualLeagueMatches.filter(m => m.matchday === tournament.currentMatchday).map(m => (
+                <div key={m.id} className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl border">
+                  <span className="font-black text-sm">{teams.find(t => t.id === m.homeId)?.abbreviation}</span>
+                  <div className="flex items-center gap-3 font-black text-xl"><span>{m.homeScore ?? '-'}</span><span>:</span><span>{m.awayScore ?? '-'}</span></div>
+                  <span className="font-black text-sm">{teams.find(t => t.id === m.awayId)?.abbreviation}</span>
+                </div>
+              ))}
             </div>
           </Card>
         </TabsContent>
 
-        <TabsContent value="market" className="space-y-6 md:space-y-8">
-          <Card className="border-none bg-card shadow-2xl rounded-[1.5rem] md:rounded-[3rem] p-6 md:p-8">
-            <header className="mb-6 md:mb-8"><h2 className="text-lg md:text-2xl font-black uppercase flex items-center gap-3"><ShoppingBag className="text-accent" /> Dinámica de Mercado</h2></header>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+        <TabsContent value="market">
+          <Card className="p-6 md:p-8 rounded-[2rem] shadow-xl space-y-6">
+            <header className="flex items-center gap-2"><ShoppingBag className="text-accent" /><h2 className="text-xl font-black uppercase">BOLSA DE VALORES</h2></header>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
-                <h3 className="font-black text-[10px] uppercase text-muted-foreground border-b pb-2">Valores de l'Horta</h3>
+                <h3 className="text-[10px] font-black uppercase text-muted-foreground border-b pb-2">TOP AGENTES</h3>
                 <ScrollArea className="h-[400px]">
                   <div className="grid gap-2 pr-2">
-                    {players.filter(p => tournament.participants.includes(p.teamId || '') || !p.teamId).sort((a,b) => b.monetaryValue - a.monetaryValue).map(p => (
-                      <div key={p.id} className="flex items-center justify-between p-3 md:p-4 bg-muted/20 rounded-xl md:rounded-2xl border">
-                        <div className="overflow-hidden">
-                          <p className="font-black text-xs md:text-sm truncate">{p.name}</p>
-                          <p className="text-[9px] font-bold text-accent uppercase">{teams.find(t => t.id === p.teamId)?.name || 'Agente Libre'}</p>
-                        </div>
-                        <span className="font-black text-xs md:text-sm text-primary">{p.monetaryValue} CR</span>
+                    {players.filter(p => !p.teamId || tournament.participants.includes(p.teamId)).sort((a,b) => b.monetaryValue - a.monetaryValue).map(p => (
+                      <div key={p.id} className="flex items-center justify-between p-3 bg-muted/10 rounded-xl border">
+                        <div><p className="font-black text-xs">{p.name}</p><p className="text-[8px] font-bold text-accent uppercase">{teams.find(t => t.id === p.teamId)?.name || 'Agente Libre'}</p></div>
+                        <span className="font-black text-xs text-primary">{p.monetaryValue} CR</span>
                       </div>
                     ))}
                   </div>
                 </ScrollArea>
               </div>
-              <div className="p-6 bg-accent/5 rounded-2xl md:rounded-3xl border border-accent/20 flex flex-col items-center justify-center text-center">
-                <Sparkles className="w-10 h-10 md:w-12 md:h-12 text-accent mb-4" />
-                <h4 className="text-lg md:text-xl font-black uppercase mb-2">Simulación de Fichajes</h4>
-                <p className="text-[10px] md:text-sm text-muted-foreground">La IA de los clubes rivales realiza ajustes estratégicos tras cada jornada según su presupuesto y rendimiento.</p>
+              <div className="bg-accent/5 p-6 rounded-3xl border border-dashed flex flex-col items-center justify-center text-center">
+                <Sparkles className="w-12 h-12 text-accent mb-4" />
+                <h4 className="text-lg font-black uppercase mb-2">Simulación Dinámica</h4>
+                <p className="text-xs text-muted-foreground italic">El valor de los agentes fluctúa según su rendimiento en pista. Los clubes de la IA realizarán ajustes automáticos tras cada jornada.</p>
               </div>
             </div>
           </Card>
         </TabsContent>
 
-        <TabsContent value="discipline" className="space-y-6 md:space-y-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-            <Card className="rounded-[1.5rem] md:rounded-[3rem] p-6 md:p-8 shadow-2xl">
-              <h2 className="text-lg md:text-xl font-black uppercase text-destructive flex items-center gap-3 mb-6"><ShieldAlert /> Aplicar Sanción</h2>
-              <div className="space-y-4 md:space-y-6">
-                <div className="space-y-2"><Label>Tipo de Multa</Label><Select value={sanctionType} onValueChange={(v: any) => setSanctionType(v)}><SelectTrigger className="h-10 md:h-12 rounded-xl"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="club">Multa Económica (Club)</SelectItem><SelectItem value="player">Suspensión (Agente)</SelectItem></SelectContent></Select></div>
-                <div className="space-y-2"><Label>Infractor</Label><Select onValueChange={setSanctionTargetId}><SelectTrigger className="h-10 md:h-12 rounded-xl"><SelectValue placeholder="Elegir..." /></SelectTrigger><SelectContent>{sanctionType === 'club' ? teams.filter(t => tournament.participants.includes(t.id)).map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>) : players.filter(p => p.teamId && tournament.participants.includes(p.teamId)).map(p => <SelectItem key={p.id} value={p.id}>{p.name} ({teams.find(t => t.id === p.teamId)?.abbreviation})</SelectItem>)}</SelectContent></Select></div>
-                <div className="space-y-2"><Label>Cuantía (CR / Jornadas)</Label><Input type="number" value={sanctionValue} onChange={e => setSanctionValue(Number(e.target.value))} className="h-10 md:h-12 rounded-xl" /></div>
-                <Button variant="destructive" className="w-full h-12 rounded-xl font-black" onClick={() => { if(!sanctionTargetId) return; applySanction(sanctionTargetId, sanctionType === 'club' ? 'team-budget' : 'player-suspension', sanctionValue); toast({ title: "Sanción Aplicada" }); }}>SANCIONAR</Button>
+        <TabsContent value="discipline">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card className="p-6 md:p-8 rounded-[2rem] shadow-xl">
+              <h2 className="text-xl font-black uppercase text-destructive flex items-center gap-2 mb-6"><ShieldAlert /> SANCIONAR</h2>
+              <div className="space-y-4">
+                <Select value={sanctionType} onValueChange={(v: any) => setSanctionType(v)}><SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="club">Multa a Club (CR)</SelectItem><SelectItem value="player">Suspensión Agente (J.)</SelectItem></SelectContent></Select>
+                <Select onValueChange={setSanctionTargetId}><SelectTrigger className="rounded-xl"><SelectValue placeholder="Seleccionar..." /></SelectTrigger><SelectContent>{sanctionType === 'club' ? teams.filter(t => tournament.participants.includes(t.id)).map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>) : players.filter(p => p.teamId && tournament.participants.includes(p.teamId)).map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select>
+                <Input type="number" value={sanctionValue} onChange={e => setSanctionValue(Number(e.target.value))} className="rounded-xl" />
+                <Button variant="destructive" className="w-full h-12 rounded-xl font-black" onClick={() => { if(sanctionTargetId) { applySanction(sanctionTargetId, sanctionType === 'club' ? 'team-budget' : 'player-suspension', sanctionValue); toast({ title: "Sanción Aplicada" }); } }}>CONFIRMAR SANCION</Button>
               </div>
             </Card>
-            <Card className="rounded-[1.5rem] md:rounded-[3rem] p-6 md:p-8 shadow-2xl">
-              <h2 className="text-lg md:text-xl font-black uppercase flex items-center gap-3 mb-6"><ChevronRight className="text-yellow-500" /> Historial</h2>
-              <ScrollArea className="h-[250px] md:h-[300px]">
-                <div className="space-y-3">
+            <Card className="p-6 md:p-8 rounded-[2rem] shadow-xl">
+              <h2 className="text-xl font-black uppercase mb-6">LISTA NEGRA</h2>
+              <ScrollArea className="h-[250px]">
+                <div className="space-y-2">
                   {players.filter(p => p.suspensionMatchdays > 0).map(p => (
-                    <div key={p.id} className="p-3 md:p-4 bg-destructive/10 rounded-xl md:rounded-2xl border border-destructive/20 flex justify-between items-center">
-                      <div><p className="font-black uppercase text-xs md:text-sm">{p.name}</p><p className="text-[9px] font-bold opacity-50 uppercase">{teams.find(t => t.id === p.teamId)?.name}</p></div>
+                    <div key={p.id} className="p-3 bg-destructive/10 rounded-xl border border-destructive/20 flex justify-between items-center">
+                      <p className="font-black uppercase text-xs">{p.name}</p>
                       <Badge variant="destructive" className="font-black text-[10px]">{p.suspensionMatchdays} J.</Badge>
                     </div>
                   ))}
-                  {players.filter(p => p.suspensionMatchdays > 0).length === 0 && <p className="text-center text-muted-foreground text-xs italic py-10">Sin sanciones activas.</p>}
                 </div>
               </ScrollArea>
             </Card>
@@ -463,90 +434,130 @@ export default function TournamentDetailPage() {
       </Tabs>
 
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-        <DialogContent className="max-w-[95vw] md:max-w-2xl rounded-[1.5rem] md:rounded-[3rem] border-none shadow-2xl p-0 overflow-hidden">
+        <DialogContent className="max-w-2xl p-0 overflow-hidden rounded-[2rem] border-none shadow-2xl">
           {arcadeMatch && (
             <div className="flex flex-col">
-              <DialogHeader className="sr-only">
-                <DialogTitle>Previa del Partido Arcade</DialogTitle>
-              </DialogHeader>
-              <div className="bg-primary p-6 md:p-10 text-white flex flex-col md:flex-row items-center gap-6 md:gap-8">
+              <div className="bg-primary p-10 text-white flex flex-col md:flex-row items-center gap-8">
                 {(() => {
-                  const opId = arcadeMatch.homeId === tournament.managedParticipantId ? arcadeMatch.awayId : arcadeMatch.homeId;
-                  const opponent = teams.find(t => t.id === opId);
+                  const opp = teams.find(t => t.id === (selectedMatch?.homeId === tournament.managedParticipantId ? selectedMatch?.awayId : selectedMatch?.homeId));
                   return (
                     <>
-                      <CrestIcon shape={opponent?.emblemShape!} pattern={opponent?.emblemPattern!} c1={opponent?.crestPrimary!} c2={opponent?.crestSecondary!} size="w-20 h-20 md:w-24 md:h-24" />
+                      <CrestIcon shape={opp?.emblemShape!} pattern={opp?.emblemPattern!} c1={opp?.crestPrimary!} c2={opp?.crestSecondary!} size="w-24 h-24" />
                       <div className="text-center md:text-left">
-                        <DialogTitle className="text-2xl md:text-4xl font-black uppercase tracking-tighter">vs {opponent?.name}</DialogTitle>
-                        <p className="text-white/80 font-bold uppercase tracking-widest flex items-center justify-center md:justify-start gap-2 mt-2">
-                          <Target className="w-4 h-4" /> DUELO ARCADE
-                        </p>
+                        <DialogTitle className="text-3xl font-black uppercase">vs {opp?.name}</DialogTitle>
+                        <p className="text-white/80 font-bold uppercase tracking-widest mt-2 flex items-center gap-2"><Target className="w-4 h-4" /> DUELO ARCADE</p>
+                        <p className="text-[10px] mt-2 italic opacity-70">"{opp?.description || 'Club histórico de la comarca.'}"</p>
                       </div>
                     </>
                   );
                 })()}
               </div>
-              <div className="p-6 md:p-10 space-y-6 md:space-y-8">
+              <div className="p-10 space-y-8">
                 <section className="space-y-4">
-                  <h3 className="font-black text-[10px] uppercase text-muted-foreground tracking-widest border-b pb-2">Selecciona tu Líder</h3>
+                  <h3 className="text-[10px] font-black uppercase text-muted-foreground border-b pb-2">Elige tu Jugador Clave</h3>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                     {players.filter(p => p.teamId === tournament.managedParticipantId && p.suspensionMatchdays === 0).map(p => (
-                      <button key={p.id} onClick={() => setSelectedPlayerId(p.id)} className={cn("p-3 md:p-4 rounded-xl md:rounded-2xl border-2 transition-all flex flex-col items-center text-center gap-1", selectedPlayerId === p.id ? "bg-primary/10 border-primary shadow-lg scale-105" : "bg-card border-transparent hover:bg-muted/50")}>
-                        <p className="font-black text-[9px] md:text-[10px] uppercase truncate w-full">{p.name}</p>
+                      <button key={p.id} onClick={() => setSelectedPlayerId(p.id)} className={cn("p-4 rounded-2xl border-2 transition-all text-center", selectedPlayerId === p.id ? "bg-primary/10 border-primary scale-105 shadow-lg" : "bg-card border-transparent hover:bg-muted/50")}>
+                        <p className="font-black text-xs uppercase">{p.name}</p>
                         <p className="text-[9px] font-bold text-primary">{p.monetaryValue} CR</p>
                       </button>
                     ))}
                   </div>
                 </section>
-                <Button disabled={!selectedPlayerId} onClick={playArcadeMatch} className="w-full h-14 md:h-16 rounded-2xl text-lg md:text-xl font-black bg-primary shadow-xl shadow-primary/20"><Sword className="w-6 h-6 mr-3" /> SALTAR A LA PISTA</Button>
+                <section className="space-y-4">
+                  <h3 className="text-[10px] font-black uppercase text-muted-foreground border-b pb-2">Registrar Resultado</h3>
+                  <div className="flex items-center justify-center gap-6">
+                    <div className="text-center space-y-2"><Label className="text-[10px] font-black uppercase">TUS PUNTOS</Label><Input type="number" value={userHomeScore} onChange={e => setUserHomeScore(e.target.value)} className="w-20 h-16 text-3xl font-black text-center rounded-2xl" /></div>
+                    <span className="text-4xl font-black opacity-20">:</span>
+                    <div className="text-center space-y-2"><Label className="text-[10px] font-black uppercase">RIVAL</Label><Input type="number" value={userAwayScore} onChange={e => setUserAwayScore(e.target.value)} className="w-20 h-16 text-3xl font-black text-center rounded-2xl" /></div>
+                  </div>
+                </section>
+                <Button disabled={!selectedPlayerId} onClick={playArcadeMatch} className="w-full h-16 rounded-2xl text-xl font-black bg-primary shadow-xl"><Sword className="w-6 h-6 mr-2" /> FINALIZAR PARTIDO</Button>
               </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!viewingTeamId} onOpenChange={(o) => !o && setViewTeamId(null)}>
-        <DialogContent className="max-w-[95vw] md:max-w-3xl rounded-[1.5rem] md:rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl">
+      <Dialog open={!!viewingTeamId} onOpenChange={o => !o && setViewTeamId(null)}>
+        <DialogContent className="max-w-3xl p-0 overflow-hidden rounded-[2rem] border-none shadow-2xl">
           {teams.find(t => t.id === viewingTeamId) && (
-            <div className="flex flex-col h-[80vh] md:h-auto md:max-h-[85vh]">
-              <DialogHeader className="sr-only">
-                <DialogTitle>Detalles del Club: {teams.find(t => t.id === viewingTeamId)!.name}</DialogTitle>
-              </DialogHeader>
-              <div className="p-6 md:p-8 bg-muted/10 border-b flex items-center gap-4 md:gap-6">
-                <CrestIcon shape={teams.find(t => t.id === viewingTeamId)!.emblemShape} pattern={teams.find(t => t.id === viewingTeamId)!.emblemPattern} c1={teams.find(t => t.id === viewingTeamId)!.crestPrimary} c2={teams.find(t => t.id === viewingTeamId)!.crestSecondary} size="w-16 h-16 md:w-20 md:h-20" />
-                <div className="flex-1 overflow-hidden">
-                  <DialogTitle className="text-xl md:text-3xl font-black uppercase tracking-tighter truncate">{teams.find(t => t.id === viewingTeamId)!.name}</DialogTitle>
-                  <div className="flex items-center gap-3 mt-2">
-                    <span className="flex items-center gap-1 text-[10px] md:text-sm font-black text-accent"><Coins className="w-3 h-3 md:w-4 md:h-4" /> {teams.find(t => t.id === viewingTeamId)!.budget} CR</span>
-                    <span className="flex items-center gap-1 text-[10px] md:text-sm font-black text-primary"><Star className="w-3 h-3 md:w-4 md:h-4 fill-current" /> {teams.find(t => t.id === viewingTeamId)!.rating}</span>
+            <div className="flex flex-col max-h-[85vh]">
+              <div className="p-8 bg-muted/10 border-b flex items-center gap-6">
+                <CrestIcon shape={teams.find(t => t.id === viewingTeamId)!.emblemShape} pattern={teams.find(t => t.id === viewingTeamId)!.emblemPattern} c1={teams.find(t => t.id === viewingTeamId)!.crestPrimary} c2={teams.find(t => t.id === viewingTeamId)!.crestSecondary} size="w-20 h-20" />
+                <div className="flex-1">
+                  <DialogTitle className="text-3xl font-black uppercase tracking-tighter">{teams.find(t => t.id === viewingTeamId)!.name}</DialogTitle>
+                  <div className="flex items-center gap-4 mt-2">
+                    <span className="flex items-center gap-1 text-sm font-black text-accent"><Coins className="w-4 h-4" /> {teams.find(t => t.id === viewingTeamId)!.budget} CR</span>
+                    <span className="flex items-center gap-1 text-sm font-black text-primary"><Star className="w-4 h-4 fill-current" /> {teams.find(t => t.id === viewingTeamId)!.rating}</span>
                   </div>
                 </div>
               </div>
-              <ScrollArea className="flex-1 p-6 md:p-8">
-                <div className="space-y-6 md:space-y-8">
+              <ScrollArea className="flex-1 p-8">
+                <div className="space-y-8">
                   <section className="space-y-2">
-                    <h4 className="text-[9px] md:text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2"><Info className="w-3 h-3" /> Perfil del Club</h4>
-                    <p className="text-xs md:text-sm italic leading-relaxed text-muted-foreground">&quot;{teams.find(t => t.id === viewingTeamId)!.description || "Entidad deportiva histórica de l'Horta."}&quot;</p>
+                    <h4 className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-2"><Info className="w-3 h-3" /> HISTORIA DEL CLUB</h4>
+                    <p className="text-sm italic leading-relaxed text-muted-foreground">"{teams.find(t => t.id === viewingTeamId)!.description || 'Entidad legendaria de l\'Horta.'}"</p>
                   </section>
                   <section className="space-y-4">
-                    <h4 className="text-[9px] md:text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2"><LayoutGrid className="w-3 h-3" /> Jugadores Registrados</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3">
+                    <h4 className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-2"><Users className="w-3 h-3" /> ROSTER ACTIVO</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {players.filter(p => p.teamId === viewingTeamId).map(p => (
-                        <div key={p.id} className="flex items-center justify-between p-3 bg-muted/10 rounded-xl border">
-                          <div className="overflow-hidden">
-                            <p className="font-bold text-xs md:text-sm truncate">{p.name}</p>
-                            <p className="text-[8px] md:text-[9px] font-black uppercase opacity-50">{p.position} • #{p.jerseyNumber}</p>
-                          </div>
-                          <Badge variant="outline" className="font-black text-[9px] h-5">{p.monetaryValue} CR</Badge>
+                        <div key={p.id} className="p-4 bg-muted/10 rounded-2xl border flex items-center justify-between">
+                          <div><p className="font-bold text-sm uppercase">{p.name}</p><p className="text-[9px] font-black opacity-50">{p.position} • #{p.jerseyNumber}</p></div>
+                          <Badge variant="outline" className="font-black text-[9px]">{p.monetaryValue} CR</Badge>
                         </div>
                       ))}
                     </div>
                   </section>
                 </div>
               </ScrollArea>
-              <div className="p-4 md:p-6 border-t bg-muted/5 flex justify-end">
-                <Button onClick={() => setViewTeamId(null)} className="w-full md:w-auto rounded-xl font-black h-12 px-8">CERRAR</Button>
+              <div className="p-6 border-t bg-muted/5 flex justify-end"><Button onClick={() => setViewTeamId(null)} className="rounded-xl h-12 px-8 font-black">CERRAR INFORME</Button></div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!viewingMatchId} onOpenChange={o => !o && setViewingMatchId(null)}>
+        <DialogContent className="max-w-lg p-0 overflow-hidden rounded-[2.5rem] border-none shadow-2xl">
+          {viewingMatch && (
+            <div className="flex flex-col">
+              <div className="bg-muted/10 p-8 border-b text-center">
+                <DialogTitle className="text-xl font-black uppercase mb-2">Detalles del Encuentro</DialogTitle>
+                <div className="flex items-center justify-center gap-2 text-muted-foreground"><MapPin className="w-4 h-4" /><span className="text-xs font-bold uppercase">{teams.find(t => t.id === viewingMatch.homeId)?.venueName}</span></div>
               </div>
+              <div className="p-8 space-y-8">
+                <div className="flex items-center justify-around gap-4">
+                  <div className="text-center space-y-3 flex flex-col items-center">
+                    <CrestIcon shape={teams.find(t => t.id === viewingMatch.homeId)?.emblemShape!} pattern={teams.find(t => t.id === viewingMatch.homeId)?.emblemPattern!} c1={teams.find(t => t.id === viewingMatch.homeId)?.crestPrimary!} c2={teams.find(t => t.id === viewingMatch.homeId)?.crestSecondary!} size="w-16 h-16" />
+                    <span className="font-black text-xs uppercase">{teams.find(t => t.id === viewingMatch.homeId)?.name}</span>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <span className="text-5xl font-black">{viewingMatch.homeScore ?? '-'} : {viewingMatch.awayScore ?? '-'}</span>
+                    <span className="text-[10px] font-black uppercase opacity-30 mt-2">MARCADOR FINAL</span>
+                  </div>
+                  <div className="text-center space-y-3 flex flex-col items-center">
+                    <CrestIcon shape={teams.find(t => t.id === viewingMatch.awayId)?.emblemShape!} pattern={teams.find(t => t.id === viewingMatch.awayId)?.emblemPattern!} c1={teams.find(t => t.id === viewingMatch.awayId)?.crestPrimary!} c2={teams.find(t => t.id === viewingMatch.awayId)?.crestSecondary!} size="w-16 h-16" />
+                    <span className="font-black text-xs uppercase">{teams.find(t => t.id === viewingMatch.awayId)?.name}</span>
+                  </div>
+                </div>
+                {viewingMatch.isSimulated && (
+                  <div className="space-y-4">
+                    <h4 className="text-[10px] font-black uppercase text-center text-muted-foreground tracking-widest border-b pb-2">AGENTES DESTACADOS (MVP)</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10 text-center">
+                        <UserCircle2 className="w-6 h-6 mx-auto mb-2 text-primary" />
+                        <p className="font-black text-[10px] uppercase truncate">{players.find(p => p.id === viewingMatch.homePlayerId)?.name || 'Sin MVP'}</p>
+                      </div>
+                      <div className="p-4 bg-accent/5 rounded-2xl border border-accent/10 text-center">
+                        <UserCircle2 className="w-6 h-6 mx-auto mb-2 text-accent" />
+                        <p className="font-black text-[10px] uppercase truncate">{players.find(p => p.id === viewingMatch.awayPlayerId)?.name || 'Sin MVP'}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="p-6 bg-muted/5 border-t"><Button onClick={() => setViewingMatchId(null)} className="w-full h-12 rounded-xl font-black">VOLVER AL CALENDARIO</Button></div>
             </div>
           )}
         </DialogContent>

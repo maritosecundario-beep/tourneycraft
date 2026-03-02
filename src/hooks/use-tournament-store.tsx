@@ -134,7 +134,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
             }
           }
         }
-        // Rotate for round robin: keep first element fixed, rotate others
         tempParticipants.splice(1, 0, tempParticipants.pop()!);
       }
     };
