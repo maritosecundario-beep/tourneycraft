@@ -15,46 +15,31 @@ service cloud.firestore {
 
     /**
      * User Documents and Subcollections
+     * Se usa una regla recursiva para asegurar que el dueño tenga acceso total 
+     * a su rama de datos (perfil, backups, settings, etc.)
      */
     match /users/{userId} {
-      // Permitir lectura a cualquier usuario autenticado
-      allow get, list: if isSignedIn();
-      // Solo el dueño puede editar su perfil y subcolecciones
-      allow create, update, delete: if isOwner(userId);
-
-      /**
-       * Subcolecciones protegidas por propiedad
-       * Reglas explícitas para evitar errores de herencia
-       */
-      match /backups/{backupId} {
+      allow read, write: if isOwner(userId);
+      
+      match /{allPaths=**} {
         allow read, write: if isOwner(userId);
-      }
-
-      match /settings/{id} { allow read, write: if isOwner(userId); }
-      match /playerAttributes/{id} { allow read, write: if isOwner(userId); }
-      match /playerPositions/{id} { allow read, write: if isOwner(userId); }
-      match /sports/{id} { allow read, write: if isOwner(userId); }
-      match /teams/{id} { allow read, write: if isOwner(userId); }
-      match /players/{id} { allow read, write: if isOwner(userId); }
-      match /tournaments/{id} { 
-        allow read, write: if isOwner(userId); 
-        match /matches/{matchId} { allow read, write: if isOwner(userId); }
       }
     }
 
     /**
      * Public Gallery
+     * Permite lectura global pero solo el dueño puede publicar o editar.
      */
     match /publicTournaments/{tournamentId} {
       allow get, list: if true;
       allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
       allow update, delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
       
-      match /matches/{matchId} {
+      match /{allPaths=**} {
         allow get, list: if true;
-        allow create, update, delete: if isSignedIn() && (
-          (request.resource != null && request.resource.data.tournamentOwnerId == request.auth.uid) ||
-          (resource != null && resource.data.tournamentOwnerId == request.auth.uid)
+        allow write: if isSignedIn() && (
+          (request.resource != null && request.resource.data.ownerId == request.auth.uid) ||
+          (resource != null && resource.data.ownerId == request.auth.uid)
         );
       }
     }

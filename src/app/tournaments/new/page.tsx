@@ -55,7 +55,7 @@ export default function NewTournamentPage() {
   const [playoffSpots, setPlayoffSpots] = useState(16);
   const [relegationSpots, setRelegationSpots] = useState(8);
 
-  // Selector Arcade robusto
+  // Selector Arcade robusto: se actualiza cada vez que cambia la selección de equipos
   const arcadeTeamOptions = useMemo(() => {
     return teams.filter(t => selectedParticipants.includes(t.id));
   }, [teams, selectedParticipants]);
@@ -173,6 +173,7 @@ export default function NewTournamentPage() {
                     <Select 
                       value={managedParticipantId} 
                       onValueChange={setManagedParticipantId}
+                      key={`arcade-select-${selectedParticipants.length}`}
                     >
                       <SelectTrigger className="h-12 rounded-xl border-primary/30">
                         <SelectValue placeholder={arcadeTeamOptions.length > 0 ? "Seleccionar entre inscritos..." : "Inscribe equipos primero"} />

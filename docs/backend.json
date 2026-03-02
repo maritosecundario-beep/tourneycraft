@@ -1,17 +1,16 @@
 {
   "entities": {
     "User": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "User",
       "type": "object",
-      "description": "Represents a user account in the TourneyCraft application.",
+      "description": "Represents a user account.",
       "properties": {
         "id": { "type": "string" },
         "username": { "type": "string" },
-        "email": { "type": "string", "format": "email" },
+        "email": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "username", "email", "createdAt"]
+      "required": ["id", "email"]
     },
     "Backup": {
       "title": "Backup",
@@ -26,8 +25,22 @@
         "ownerId": { "type": "string" }
       }
     },
+    "Tournament": {
+      "title": "Tournament",
+      "type": "object",
+      "description": "A competitive sports event.",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "sport": { "type": "string" },
+        "format": { "type": "string", "enum": ["league", "knockout"] },
+        "participants": { "type": "array", "items": { "type": "string" } },
+        "currentSeason": { "type": "number" },
+        "currentMatchday": { "type": "number" },
+        "ownerId": { "type": "string" }
+      }
+    },
     "Team": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Team",
       "type": "object",
       "properties": {
@@ -35,21 +48,18 @@
         "name": { "type": "string" },
         "abbreviation": { "type": "string" },
         "rating": { "type": "number" },
-        "budget": { "type": "number" },
         "ownerId": { "type": "string" }
-      },
-      "required": ["id", "name", "abbreviation", "ownerId"]
+      }
     },
     "Player": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Player",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "name": { "type": "string" },
-        "ownerId": { "type": "string" }
-      },
-      "required": ["id", "name", "ownerId"]
+        "position": { "type": "string" },
+        "teamId": { "type": "string" }
+      }
     }
   },
   "auth": {
@@ -74,26 +84,10 @@
         }
       },
       {
-        "path": "/users/{userId}/teams/{teamId}",
-        "definition": {
-          "entityName": "Team",
-          "schema": { "$ref": "#/backend/entities/Team" },
-          "description": "Stores teams created and owned by a specific user."
-        }
-      },
-      {
-        "path": "/users/{userId}/players/{playerId}",
-        "definition": {
-          "entityName": "Player",
-          "schema": { "$ref": "#/backend/entities/Player" },
-          "description": "Stores players created and owned by a specific user."
-        }
-      },
-      {
         "path": "/publicTournaments/{tournamentId}",
         "definition": {
           "entityName": "Tournament",
-          "schema": { "type": "object" },
+          "schema": { "$ref": "#/backend/entities/Tournament" },
           "description": "Community shared tournaments."
         }
       }

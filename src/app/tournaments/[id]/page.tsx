@@ -87,8 +87,8 @@ export default function TournamentDetailPage() {
   const tournamentStandings = useMemo(() => {
     if (!tournament) return [];
     if (tournament.leagueType === 'groups' && tournament.groups && tournament.groups.length > 0) {
-      return tournament.groups.map(g => ({
-        id: g.id || `g-${Math.random()}`,
+      return tournament.groups.map((g, idx) => ({
+        id: g.id || `g-${idx}`,
         name: g.name,
         data: getStandingsForParticipants(g.participantIds)
       }));
@@ -121,6 +121,7 @@ export default function TournamentDetailPage() {
     const hVal = hPlayers.reduce((acc, p) => acc + p.monetaryValue, 0) + (hTeam?.rating || 50) * 5;
     const aVal = aPlayers.reduce((acc, p) => acc + p.monetaryValue, 0) + (aTeam?.rating || 50) * 5;
     
+    // Simulación ponderada con ventaja de local del 5%
     let hPower = Math.pow(hVal, 1.8) * 1.05; 
     let aPower = Math.pow(aVal, 1.8);
     
@@ -141,6 +142,7 @@ export default function TournamentDetailPage() {
       aScore = Math.round(base * (1 - hProb) * (1 + Math.random()));
     }
     
+    // CPU selecciona MVP con 70% de probabilidad para el mejor valorado
     const getSelection = (pList: Player[]) => {
       if (pList.length === 0) return undefined;
       const sorted = [...pList].sort((a, b) => b.monetaryValue - a.monetaryValue);
@@ -367,7 +369,7 @@ export default function TournamentDetailPage() {
                             <TableCell className="text-center font-bold text-xs">{item.played}</TableCell>
                             <TableCell className={cn("text-center font-bold text-xs", item.gd >= 0 ? "text-green-500" : "text-destructive")}>{item.gd > 0 ? `+${item.gd}` : item.gd}</TableCell>
                             <TableCell className="text-center font-bold text-accent text-xs">{item.budget}</TableCell>
-                            <TableCell className="text-center font-black text-lg md:text-xl text-primary">{String(item.pts || 0)}</TableCell>
+                            <TableCell className="text-center font-black text-lg md:text-xl text-primary">{String(item.pts ?? 0)}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -406,7 +408,7 @@ export default function TournamentDetailPage() {
                               const a = teams.find(t => t.id === m.awayId);
                               if (!h || !a) return null;
                               return (
-                                <div key={`match-card-${m.id}`} className={cn("flex flex-col p-3 md:p-4 rounded-xl border transition-all cursor-pointer hover:bg-muted/30", m.isSimulated ? "bg-muted/10 opacity-100" : "bg-card")} onClick={() => setViewingMatchId(m.id)}>
+                                <div key={`match-card-${m.id}`} className={cn("flex flex-col p-3 md:p-4 rounded-xl border transition-all cursor-pointer hover:bg-muted/30", m.isSimulated ? "bg-muted/10" : "bg-card")} onClick={() => setViewingMatchId(m.id)}>
                                   <div className="flex items-center justify-between mb-2">
                                     <div className="flex items-center gap-2"><MapPin className="w-3 h-3 text-muted-foreground" /><span className="text-[9px] font-bold uppercase text-muted-foreground truncate max-w-[120px]">{h.venueName}</span></div>
                                     {m.isSimulated && <Badge variant="secondary" className="text-[8px] h-4 bg-green-500/10 text-green-600 border-none">JUGADO</Badge>}
@@ -458,7 +460,7 @@ export default function TournamentDetailPage() {
                         <TableCell><div className="flex items-center gap-2 md:gap-3"><CrestIcon shape={item.emblemShape} pattern={item.emblemPattern} c1={item.crestPrimary} c2={item.crestSecondary} size="w-6 h-6 md:w-8 md:h-8" /><span className="font-bold text-xs md:text-sm truncate">{item.name}</span></div></TableCell>
                         <TableCell className="text-center font-bold text-xs">{item.played}</TableCell>
                         <TableCell className={cn("text-center font-bold text-xs", item.gd >= 0 ? "text-green-500" : "text-destructive")}>{item.gd > 0 ? `+${item.gd}` : item.gd}</TableCell>
-                        <TableCell className="text-center font-black text-lg md:text-xl text-accent">{String(item.pts || 0)}</TableCell>
+                        <TableCell className="text-center font-black text-lg md:text-xl text-accent">{String(item.pts ?? 0)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
