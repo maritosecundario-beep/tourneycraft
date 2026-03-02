@@ -1,188 +1,46 @@
-
 {
   "entities": {
     "User": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "User",
       "type": "object",
-      "description": "Represents a user account in the TourneyCraft application, enabling data ownership, cloud saving, and publishing features.",
+      "description": "Represents a user account in the TourneyCraft application.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the User entity."
-        },
-        "username": {
-          "type": "string",
-          "description": "A unique username chosen by the user for identification."
-        },
-        "email": {
-          "type": "string",
-          "description": "The email address associated with the user's account.",
-          "format": "email"
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the user account was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the user account was last updated.",
-          "format": "date-time"
-        }
+        "id": { "type": "string" },
+        "username": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "username",
-        "email",
-        "createdAt"
-      ]
+      "required": ["id", "username", "email", "createdAt"]
     },
     "Team": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Team",
       "type": "object",
-      "description": "Represents a sports team with its unique characteristics, including visual identity and venue.",
       "properties": {
-        "id": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        },
-        "description": {
-          "type": "string"
-        },
-        "abbreviation": {
-          "type": "string"
-        },
-        "rating": {
-          "type": "number"
-        },
-        "budget": {
-          "type": "number"
-        },
-        "emblemShape": {
-          "type": "string"
-        },
-        "emblemPattern": {
-          "type": "string"
-        },
-        "crestPrimary": {
-          "type": "string"
-        },
-        "crestSecondary": {
-          "type": "string"
-        },
-        "crestTertiary": {
-          "type": "string"
-        },
-        "crestAccent": {
-          "type": "string"
-        },
-        "crestBorderWidth": {
-          "type": "string"
-        },
-        "venueName": {
-          "type": "string"
-        },
-        "venueCapacity": {
-          "type": "number"
-        },
-        "venueSurface": {
-          "type": "string"
-        },
-        "venueSize": {
-          "type": "string"
-        },
-        "ownerId": {
-          "type": "string"
-        }
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "abbreviation": { "type": "string" },
+        "rating": { "type": "number" },
+        "budget": { "type": "number" },
+        "ownerId": { "type": "string" }
       },
-      "required": [
-        "id",
-        "name",
-        "abbreviation",
-        "ownerId"
-      ]
+      "required": ["id", "name", "abbreviation", "ownerId"]
     },
     "Player": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Player",
       "type": "object",
-      "description": "Represents an individual player with personal branding and attributes.",
       "properties": {
-        "id": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        },
-        "description": {
-          "type": "string"
-        },
-        "monetaryValue": {
-          "type": "number"
-        },
-        "jerseyNumber": {
-          "type": "number"
-        },
-        "position": {
-          "type": "string"
-        },
-        "teamId": {
-          "type": "string"
-        },
-        "ownerId": {
-          "type": "string"
-        },
-        "uniformStyle": {
-          "type": "string"
-        },
-        "kitPrimary": {
-          "type": "string"
-        },
-        "kitSecondary": {
-          "type": "string"
-        },
-        "kitTertiary": {
-          "type": "string"
-        },
-        "kitAccent": {
-          "type": "string"
-        },
-        "brand": {
-          "type": "string"
-        },
-        "sponsor": {
-          "type": "string"
-        },
-        "crestPlacement": {
-          "type": "string"
-        },
-        "sponsorPlacement": {
-          "type": "string"
-        },
-        "brandPlacement": {
-          "type": "string"
-        },
-        "crestSize": {
-          "type": "string"
-        }
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "ownerId": { "type": "string" }
       },
-      "required": [
-        "id",
-        "name",
-        "ownerId"
-      ]
+      "required": ["id", "name", "ownerId"]
     }
   },
   "auth": {
-    "providers": [
-      "password",
-      "anonymous",
-      "google.com"
-    ]
+    "providers": ["password", "anonymous", "google.com"]
   },
   "firestore": {
     "structure": [
@@ -190,19 +48,23 @@
         "path": "/users/{userId}",
         "definition": {
           "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
+          "schema": { "$ref": "#/backend/entities/User" },
           "description": "Stores user profiles."
+        }
+      },
+      {
+        "path": "/users/{userId}/backups/{backupId}",
+        "definition": {
+          "entityName": "Backup",
+          "schema": { "type": "object" },
+          "description": "Stores full state snapshots for cloud sync."
         }
       },
       {
         "path": "/users/{userId}/teams/{teamId}",
         "definition": {
           "entityName": "Team",
-          "schema": {
-            "$ref": "#/backend/entities/Team"
-          },
+          "schema": { "$ref": "#/backend/entities/Team" },
           "description": "Stores teams created and owned by a specific user."
         }
       },
@@ -210,9 +72,7 @@
         "path": "/users/{userId}/players/{playerId}",
         "definition": {
           "entityName": "Player",
-          "schema": {
-            "$ref": "#/backend/entities/Player"
-          },
+          "schema": { "$ref": "#/backend/entities/Player" },
           "description": "Stores players created and owned by a specific user."
         }
       }

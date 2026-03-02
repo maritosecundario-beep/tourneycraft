@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -56,7 +55,6 @@ export default function NewTournamentPage() {
   const [playoffSpots, setPlayoffSpots] = useState(8);
   const [relegationSpots, setRelegationSpots] = useState(4);
 
-  // Sync managedParticipantId with selection
   useEffect(() => {
     if (managedParticipantId && !selectedParticipants.includes(managedParticipantId)) {
       setManagedParticipantId('');
@@ -125,6 +123,8 @@ export default function NewTournamentPage() {
     router.push(`/tournaments/${newTourney.id}`);
   };
 
+  const arcadeTeamOptions = teams.filter(t => selectedParticipants.includes(t.id));
+
   return (
     <div className="max-w-5xl mx-auto space-y-6 md:space-y-8 pb-32 px-4 md:px-0">
       <header>
@@ -167,19 +167,23 @@ export default function NewTournamentPage() {
                     <Label className="flex items-center gap-2 font-black text-[10px] uppercase text-primary mb-2">
                       <Target className="w-4 h-4" /> Tu Club de Gestión
                     </Label>
-                    <Select value={managedParticipantId} onValueChange={setManagedParticipantId}>
+                    <Select 
+                      key={`arcade-select-${selectedParticipants.length}`}
+                      value={managedParticipantId} 
+                      onValueChange={setManagedParticipantId}
+                    >
                       <SelectTrigger className="h-10 md:h-12 rounded-xl border-primary/30">
                         <SelectValue placeholder={selectedParticipants.length > 0 ? "Seleccionar entre inscritos..." : "Inscribe equipos primero"} />
                       </SelectTrigger>
                       <SelectContent className="rounded-xl">
-                        {teams.filter(t => selectedParticipants.includes(t.id)).length > 0 ? (
-                          teams.filter(t => selectedParticipants.includes(t.id)).map(t => (
+                        {arcadeTeamOptions.length > 0 ? (
+                          arcadeTeamOptions.map(t => (
                             <SelectItem key={`managed-team-${t.id}`} value={t.id}>{t.name}</SelectItem>
                           ))
                         ) : (
-                          <div className="p-4 text-center text-[10px] font-bold text-muted-foreground uppercase italic">
-                            No has inscrito ningún equipo todavía
-                          </div>
+                          <SelectItem value="placeholder" disabled className="text-center text-[10px] font-bold text-muted-foreground uppercase italic">
+                            No hay equipos inscritos aún
+                          </SelectItem>
                         )}
                       </SelectContent>
                     </Select>
