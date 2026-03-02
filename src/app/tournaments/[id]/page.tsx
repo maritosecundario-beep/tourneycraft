@@ -2,9 +2,9 @@
 "use client";
 
 import { useTournamentStore } from '@/hooks/use-tournament-store';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Trophy, Calendar, Users, Play, ShieldAlert, ShoppingBag, Layers, Target, ChevronRight, Star, Sword, Zap, Info, Coins, LayoutGrid, Sparkles, RefreshCw, Brackets, Group } from 'lucide-react';
+import { Trophy, Calendar, Users, Play, ShieldAlert, ShoppingBag, Layers, Target, ChevronRight, Star, Sword, Zap, Info, Coins, LayoutGrid, Sparkles, RefreshCw, Brackets, Group, Trash2, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -16,13 +16,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { CrestIcon } from '@/components/ui/crest-icon';
 
 export default function TournamentDetailPage() {
   const { id } = useParams();
-  const { tournaments, teams, players, updateTournament, resolveMatch, triggerMarketMoves, advanceSeason, createKnockoutFromStandings, applySanction, settings } = useTournamentStore();
+  const router = useRouter();
+  const { tournaments, teams, players, updateTournament, deleteTournament, resolveMatch, triggerMarketMoves, advanceSeason, createKnockoutFromStandings, applySanction, generateSchedule, settings } = useTournamentStore();
   const { toast } = useToast();
   
   const [sanctionTargetId, setSanctionTargetId] = useState('');
@@ -175,7 +176,22 @@ export default function TournamentDetailPage() {
     toast({ title: "¡Partido Finalizado!", description: `${hScore} - ${aScore}` });
   };
 
+  const handleDeleteTournament = () => {
+    if (confirm("¿Seguro que quieres borrar este universo competitivo?")) {
+      deleteTournament(tournament!.id);
+      router.push('/tournaments');
+      toast({ title: "Universo Eliminado" });
+    }
+  };
+
+  const handleManualGenerate = () => {
+    generateSchedule(tournament!.id);
+    toast({ title: "Calendario Generado", description: "Se han programado todos los encuentros." });
+  };
+
   if (!tournament) return <div className="p-20 text-center font-black">TORNEO NO ENCONTRADO</div>;
+
+  const hasMatches = tournament.matches.length > 0;
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 md:space-y-8 pb-32 px-4 md:px-0">
@@ -189,12 +205,32 @@ export default function TournamentDetailPage() {
             <p className="text-muted-foreground font-bold uppercase text-[10px] tracking-widest mt-1">{tournament.sport} • SEASON {tournament.currentSeason} • JORNADA {tournament.currentMatchday}</p>
           </div>
         </div>
-        {!isSeasonOver && (
-          <Button onClick={handleSimulateMatchday} size="lg" className="w-full md:w-auto h-14 md:h-16 rounded-2xl px-10 font-black shadow-xl shadow-primary/20">
-            <Play className="w-5 h-5 mr-3 fill-current" /> SIGUIENTE JORNADA
+        <div className="flex gap-2 w-full md:w-auto">
+          {!isSeasonOver && hasMatches && (
+            <Button onClick={handleSimulateMatchday} size="lg" className="flex-1 md:flex-none h-14 md:h-16 rounded-2xl px-10 font-black shadow-xl shadow-primary/20">
+              <Play className="w-5 h-5 mr-3 fill-current" /> SIGUIENTE JORNADA
+            </Button>
+          )}
+          <Button variant="outline" size="icon" className="h-14 w-14 rounded-2xl border-destructive/20 text-destructive" onClick={handleDeleteTournament}>
+            <Trash2 className="w-6 h-6" />
           </Button>
-        )}
+        </div>
       </header>
+
+      {!hasMatches && (
+        <Card className="border-none bg-yellow-500/10 border-2 border-yellow-500/20 rounded-[2rem] p-8 text-center space-y-6 animate-in fade-in zoom-in">
+          <div className="mx-auto w-16 h-16 bg-yellow-500/20 rounded-full flex items-center justify-center">
+            <Calendar className="text-yellow-500 w-8 h-8" />
+          </div>
+          <div>
+            <h2 className="text-xl md:text-2xl font-black uppercase text-yellow-600">Calendario no programado</h2>
+            <p className="text-sm font-bold text-muted-foreground mt-2">Este torneo aún no tiene encuentros definidos. Genera el calendario para empezar la temporada.</p>
+          </div>
+          <Button onClick={handleManualGenerate} size="lg" className="bg-yellow-500 hover:bg-yellow-600 text-black font-black h-14 px-10 rounded-xl shadow-xl shadow-yellow-500/20">
+            <RefreshCw className="w-5 h-5 mr-2" /> GENERAR CALENDARIO AHORA
+          </Button>
+        </Card>
+      )}
 
       {isSeasonOver && (
         <Card className="border-none bg-accent/10 border-2 border-accent/20 rounded-[2rem] md:rounded-[3rem] p-6 md:p-8 animate-in fade-in zoom-in duration-500">
@@ -300,6 +336,12 @@ export default function TournamentDetailPage() {
 
         <TabsContent value="calendar" className="space-y-6 md:space-y-8">
           <Card className="border-none bg-card shadow-2xl rounded-[1.5rem] md:rounded-[3rem] overflow-hidden p-6 md:p-8">
+            <header className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-black uppercase">Encuentros Programados</h2>
+              <Button variant="ghost" size="sm" onClick={handleManualGenerate} className="text-accent hover:text-accent hover:bg-accent/10 font-black">
+                <RefreshCw className="w-4 h-4 mr-2" /> RE-GENERAR
+              </Button>
+            </header>
             <ScrollArea className="h-[600px] pr-4">
               <div className="divide-y divide-muted/10 space-y-8">
                 {Array.from({ length: tournament.matches.length > 0 ? Math.max(...tournament.matches.map(m => m.matchday)) : 0 }).map((_, i) => (
@@ -334,11 +376,13 @@ export default function TournamentDetailPage() {
                     </div>
                   </div>
                 ))}
+                {!hasMatches && <p className="text-center py-20 text-muted-foreground italic">No hay partidos programados...</p>}
               </div>
             </ScrollArea>
           </Card>
         </TabsContent>
 
+        {/* ... Rest of the tabs content ... */}
         <TabsContent value="dual" className="space-y-6 md:space-y-8">
           <Card className="border-none bg-card shadow-2xl rounded-[1.5rem] md:rounded-[3rem] p-6 md:p-8">
             <header className="mb-6 md:mb-8"><h2 className="text-lg md:text-2xl font-black uppercase flex items-center gap-3"><Layers className="text-accent" /> Liga de Reservas</h2></header>

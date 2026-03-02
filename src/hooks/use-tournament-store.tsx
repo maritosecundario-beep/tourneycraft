@@ -21,6 +21,7 @@ interface TournamentContextType {
   deletePlayer: (id: string) => void;
   addTournament: (tournament: Tournament) => void;
   updateTournament: (tournament: Tournament) => void;
+  deleteTournament: (id: string) => void;
   updateSettings: (settings: Partial<GlobalSettings>) => void;
   transferPlayer: (playerId: string, toTeamId: string | undefined) => void;
   applySanction: (targetId: string, type: 'team-budget' | 'player-suspension', value: number) => void;
@@ -147,7 +148,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         createMatchesForList(t.participants);
       }
     } else if (t.format === 'knockout') {
-      // For initial knockout, generate first round
       const participants = [...t.participants];
       const matchesPerRound = Math.floor(participants.length / 2);
       for (let i = 0; i < matchesPerRound; i++) {
@@ -359,10 +359,11 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   };
   
   const updateTournament = (t: Tournament) => setTournaments(p => p.map(t2 => t2.id === t.id ? t : t2));
+  const deleteTournament = (id: string) => setTournaments(p => p.filter(t => t.id !== id));
   const updateSettings = (s: Partial<GlobalSettings>) => setSettings(p => ({ ...p, ...s }));
 
   const value = useMemo(() => ({
-    teams, players, tournaments, settings, addTeam, updateTeam, deleteTeam, addPlayer, updatePlayer, deletePlayer, addTournament, updateTournament, updateSettings, importData, transferPlayer, applySanction, generateSchedule, resolveMatch, triggerMarketMoves, advanceSeason, createKnockoutFromStandings
+    teams, players, tournaments, settings, addTeam, updateTeam, deleteTeam, addPlayer, updatePlayer, deletePlayer, addTournament, updateTournament, deleteTournament, updateSettings, importData, transferPlayer, applySanction, generateSchedule, resolveMatch, triggerMarketMoves, advanceSeason, createKnockoutFromStandings
   }), [teams, players, tournaments, settings, generateSchedule, resolveMatch, triggerMarketMoves, transferPlayer, applySanction, importData, advanceSeason, createKnockoutFromStandings, createSchedule]);
 
   return <TournamentContext.Provider value={value}>{children}</TournamentContext.Provider>;
