@@ -3,8 +3,8 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     /**
-     * Reglas Recursivas de Usuario: Acceso total solo para el propietario.
-     * Esto permite backups y sincronización sin errores de jerarquía.
+     * Acceso total y recursivo para el propietario.
+     * Esto permite guardar backups en /users/{userId}/backups/latest sin fallos.
      */
     match /users/{userId}/{allPaths=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;

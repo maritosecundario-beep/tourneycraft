@@ -33,7 +33,7 @@ export function Navbar() {
       console.error("Auth Error:", error);
       let message = "No se pudo completar la autenticación.";
       if (error.code === 'auth/operation-not-allowed') {
-        message = "El proveedor de Google no está habilitado. Actívalo en el Firebase Console.";
+        message = "Habilita Google Auth en tu Firebase Console.";
       } else if (error.code === 'auth/popup-closed-by-user') {
         message = "Has cerrado la ventana de inicio de sesión.";
       }
