@@ -319,7 +319,7 @@ export default function NewTournamentPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {groups.map((group, gIdx) => (
-                  <Card key={`group-setup-${group.id}-${gIdx}`} className="rounded-[2.5rem] border bg-card shadow-2xl overflow-hidden">
+                  <Card key={`group-setup-${group.id || 'g'+gIdx}`} className="rounded-[2.5rem] border bg-card shadow-2xl overflow-hidden">
                     <CardHeader className="bg-muted/10 p-6 flex flex-row justify-between items-center border-b">
                       <div className="flex items-center gap-3">
                         <Badge className="bg-accent text-accent-foreground font-black">{group.participantIds.length}</Badge>

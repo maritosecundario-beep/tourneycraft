@@ -61,9 +61,9 @@ export default function TournamentDetailPage() {
       if (!item) return null;
       
       let played = 0, won = 0, lost = 0, draw = 0, gf = 0, ga = 0, pts = 0;
-      const winPts = Number(tournament.winPoints || 0);
-      const lossPts = Number(tournament.lossPoints || 0);
-      const drawPts = Number(tournament.drawPoints || 0);
+      const winPts = Number(tournament.winPoints) || 0;
+      const lossPts = Number(tournament.lossPoints) || 0;
+      const drawPts = Number(tournament.drawPoints) || 0;
 
       matchList.forEach(m => {
         if (!m.isSimulated || m.homeScore === undefined || m.awayScore === undefined) return;
@@ -336,7 +336,7 @@ export default function TournamentDetailPage() {
         <TabsContent value="table" className="space-y-6 md:space-y-8">
           {tournamentStandings.length > 0 ? (
             tournamentStandings.map((group) => (
-              <Card key={`standings-view-${group.id}`} className="border-none bg-card shadow-2xl rounded-[1.5rem] md:rounded-[3rem] overflow-hidden">
+              <Card key={`standings-view-${group.id || 'main'}`} className="border-none bg-card shadow-2xl rounded-[1.5rem] md:rounded-[3rem] overflow-hidden">
                 <CardHeader className="bg-muted/10 border-b p-6 flex flex-row items-center gap-3">
                   <Group className="text-primary w-6 h-6" />
                   <CardTitle className="text-lg md:text-xl font-black uppercase">{group.name}</CardTitle>
@@ -366,8 +366,8 @@ export default function TournamentDetailPage() {
                             </TableCell>
                             <TableCell><div className="flex items-center gap-2 md:gap-3"><CrestIcon shape={item.emblemShape} pattern={item.emblemPattern} c1={item.crestPrimary} c2={item.crestSecondary} size="w-6 h-6 md:w-8 md:h-8" /><span className="font-bold text-xs md:text-sm truncate max-w-[80px] md:max-w-none">{item.name}</span></div></TableCell>
                             <TableCell className="text-center font-bold text-xs">{item.played}</TableCell>
-                            <TableCell className={cn("text-center font-bold text-xs", item.gd >= 0 ? "text-green-500" : "text-destructive")}>{item.gd > 0 ? `+${item.gd}` : item.gd}</TableCell>
-                            <TableCell className="text-center font-bold text-accent text-xs">{item.budget}</TableCell>
+                            <TableCell className={cn("text-center font-bold text-xs", (item.gd || 0) >= 0 ? "text-green-500" : "text-destructive")}>{(item.gd || 0) > 0 ? `+${item.gd}` : (item.gd || 0)}</TableCell>
+                            <TableCell className="text-center font-bold text-accent text-xs">{item.budget || 0}</TableCell>
                             <TableCell className="text-center font-black text-lg md:text-xl text-primary">{String(item.pts || 0)}</TableCell>
                           </TableRow>
                         ))}
@@ -385,7 +385,7 @@ export default function TournamentDetailPage() {
 
         <TabsContent value="calendar" className="space-y-6">
           {tournamentStandings.map((group) => (
-            <div key={`calendar-group-view-${group.id}`} className="space-y-6">
+            <div key={`calendar-group-view-${group.id || 'main'}`} className="space-y-6">
               <h2 className="text-xl font-black uppercase text-primary flex items-center gap-3 px-4">
                 <Group className="w-5 h-5" /> Calendario {group.name}
               </h2>
@@ -399,7 +399,7 @@ export default function TournamentDetailPage() {
                       );
                       if (matchdayMatches.length === 0) return null;
                       return (
-                        <div key={`matchday-main-view-${group.id}-${i}`}>
+                        <div key={`matchday-main-view-${group.id || 'main'}-${i}`}>
                           <h3 className="font-black uppercase text-accent tracking-widest text-[10px] mb-4 border-b pb-2">JORNADA {i + 1}</h3>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             {matchdayMatches.map(m => {
@@ -458,7 +458,7 @@ export default function TournamentDetailPage() {
                         <TableCell className="text-center font-black text-base">{idx + 1}</TableCell>
                         <TableCell><div className="flex items-center gap-2 md:gap-3"><CrestIcon shape={item.emblemShape} pattern={item.emblemPattern} c1={item.crestPrimary} c2={item.crestSecondary} size="w-6 h-6 md:w-8 md:h-8" /><span className="font-bold text-xs md:text-sm truncate">{item.name}</span></div></TableCell>
                         <TableCell className="text-center font-bold text-xs">{item.played}</TableCell>
-                        <TableCell className={cn("text-center font-bold text-xs", item.gd >= 0 ? "text-green-500" : "text-destructive")}>{item.gd > 0 ? `+${item.gd}` : item.gd}</TableCell>
+                        <TableCell className={cn("text-center font-bold text-xs", (item.gd || 0) >= 0 ? "text-green-500" : "text-destructive")}>{(item.gd || 0) > 0 ? `+${item.gd}` : (item.gd || 0)}</TableCell>
                         <TableCell className="text-center font-black text-lg md:text-xl text-accent">{String(item.pts || 0)}</TableCell>
                       </TableRow>
                     ))}
@@ -575,7 +575,7 @@ export default function TournamentDetailPage() {
                     <>
                       <CrestIcon shape={opp?.emblemShape!} pattern={opp?.emblemPattern!} c1={opp?.crestPrimary!} c2={opp?.crestSecondary!} size="w-24 h-24" />
                       <div className="text-center md:text-left flex-1">
-                        <DialogTitle className="text-3xl font-black uppercase">vs {opp?.name}</DialogTitle>
+                        <h2 className="text-3xl font-black uppercase">vs {opp?.name}</h2>
                         <div className="flex flex-wrap justify-center md:justify-start gap-2 mt-3">
                           <Badge variant="secondary" className="bg-white/20 text-white border-none font-black">POS: #{oppStats?.pos || '?'}</Badge>
                           <Badge variant="secondary" className="bg-white/20 text-white border-none font-black uppercase text-[8px]">{opp?.venueName}</Badge>
@@ -645,10 +645,10 @@ export default function TournamentDetailPage() {
               <div className="p-8 bg-muted/10 border-b flex items-center gap-6">
                 <CrestIcon shape={teams.find(t => t.id === viewingTeamId)!.emblemShape} pattern={teams.find(t => t.id === viewingTeamId)!.emblemPattern} c1={teams.find(t => t.id === viewingTeamId)!.crestPrimary} c2={teams.find(t => t.id === viewingTeamId)!.crestSecondary} size="w-20 h-20" />
                 <div className="flex-1">
-                  <DialogTitle className="text-3xl font-black uppercase tracking-tighter">{teams.find(t => t.id === viewingTeamId)!.name}</DialogTitle>
+                  <h2 className="text-3xl font-black uppercase tracking-tighter">{teams.find(t => t.id === viewingTeamId)!.name}</h2>
                   <div className="flex items-center gap-4 mt-2">
-                    <span className="flex items-center gap-1 text-sm font-black text-accent"><Coins className="w-4 h-4" /> {teams.find(t => t.id === viewingTeamId)!.budget} CR</span>
-                    <span className="flex items-center gap-1 text-sm font-black text-primary"><Star className="w-4 h-4 fill-current" /> {teams.find(t => t.id === viewingTeamId)!.rating}</span>
+                    <span className="flex items-center gap-1 text-sm font-black text-accent"><Coins className="w-4 h-4" /> {teams.find(t => t.id === viewingTeamId)!.budget || 0} CR</span>
+                    <span className="flex items-center gap-1 text-sm font-black text-primary"><Star className="w-4 h-4 fill-current" /> {teams.find(t => t.id === viewingTeamId)!.rating || 0}</span>
                   </div>
                 </div>
               </div>
@@ -664,7 +664,7 @@ export default function TournamentDetailPage() {
                       {players.filter(p => p.teamId === viewingTeamId).map(p => (
                         <div key={`roster-view-p-info-${p.id}`} className="p-4 bg-muted/10 rounded-2xl border flex items-center justify-between">
                           <div><p className="font-bold text-sm uppercase">{p.name}</p><p className="text-[9px] font-black opacity-50">{p.position} • #{p.jerseyNumber}</p></div>
-                          <Badge variant="outline" className="font-black text-[9px]">{p.monetaryValue} CR</Badge>
+                          <Badge variant="outline" className="font-black text-[9px]">{p.monetaryValue || 0} CR</Badge>
                         </div>
                       ))}
                     </div>
@@ -682,7 +682,7 @@ export default function TournamentDetailPage() {
           {viewingMatch && (
             <div className="flex flex-col bg-card">
               <div className="bg-muted/10 p-8 border-b text-center">
-                <DialogTitle className="text-xl font-black uppercase mb-2">Informe del Encuentro</DialogTitle>
+                <h3 className="text-xl font-black uppercase mb-2">Informe del Encuentro</h3>
                 <div className="flex items-center justify-center gap-2 text-muted-foreground"><MapPin className="w-4 h-4" /><span className="text-xs font-bold uppercase">{teams.find(t => t.id === viewingMatch.homeId)?.venueName}</span></div>
               </div>
               <div className="p-8 space-y-8">
