@@ -112,7 +112,7 @@ export default function TournamentDetailPage() {
     const hVal = hPlayers.reduce((acc, p) => acc + p.monetaryValue, 0) + (hTeam?.rating || 50) * 5;
     const aVal = aPlayers.reduce((acc, p) => acc + p.monetaryValue, 0) + (aTeam?.rating || 50) * 5;
     
-    // Bias exponencial + Ventaja de Local (5% extra de poder para el local)
+    // Bias exponencial robusto + Ventaja de Local (5% extra de poder para el local)
     let hPower = Math.pow(hVal, 1.8) * 1.05;
     let aPower = Math.pow(aVal, 1.8);
     
@@ -214,7 +214,6 @@ export default function TournamentDetailPage() {
     
     const isHome = selectedMatch.homeId === tournament.managedParticipantId;
     
-    // Obtener MVP del rival (CPU)
     const oppId = isHome ? selectedMatch.awayId : selectedMatch.homeId;
     const oppPlayers = players.filter(p => p.teamId === oppId);
     const sortedOpp = [...oppPlayers].sort((a,b) => b.monetaryValue - a.monetaryValue);
@@ -264,7 +263,7 @@ export default function TournamentDetailPage() {
             <Trophy className="text-white w-8 h-8 md:w-10 md:h-10" />
           </div>
           <div>
-            <DialogTitle className="text-2xl md:text-4xl font-black uppercase tracking-tighter truncate max-w-[200px] md:max-w-none">{tournament.name}</DialogTitle>
+            <h1 className="text-2xl md:text-4xl font-black uppercase tracking-tighter truncate max-w-[200px] md:max-w-none">{tournament.name}</h1>
             <p className="text-muted-foreground font-bold uppercase text-[10px] tracking-widest mt-1">
               {tournament.sport} • SEASON {tournament.currentSeason} • JORNADA {tournament.currentMatchday}
               {userGroup && ` • CONFERENCIA: ${userGroup.name}`}
@@ -291,7 +290,7 @@ export default function TournamentDetailPage() {
       {tournament.matches.length === 0 && (
         <Card className="border-none bg-yellow-500/10 border-2 border-yellow-500/20 rounded-[2rem] p-8 text-center space-y-6">
           <Calendar className="text-yellow-500 w-12 h-12 mx-auto" />
-          <DialogTitle className="text-2xl font-black uppercase text-yellow-600">Calendario Pendiente</DialogTitle>
+          <h2 className="text-2xl font-black uppercase text-yellow-600">Calendario Pendiente</h2>
           <Button onClick={() => generateSchedule(tournament.id)} className="bg-yellow-500 hover:bg-yellow-600 text-black font-black h-14 px-10 rounded-xl">GENERAR CALENDARIO AHORA</Button>
         </Card>
       )}
@@ -467,31 +466,29 @@ export default function TournamentDetailPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="discipline">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card className="p-6 md:p-8 rounded-[2rem] shadow-xl">
-              <h2 className="text-xl font-black uppercase text-destructive flex items-center gap-2 mb-6"><ShieldAlert /> SANCIONAR</h2>
-              <div className="space-y-4">
-                <Select value={sanctionType} onValueChange={(v: any) => setSanctionType(v)}><SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="club">Multa a Club (CR)</SelectItem><SelectItem value="player">Suspensión Agente (J.)</SelectItem></SelectContent></Select>
-                <Select onValueChange={setSanctionTargetId}><SelectTrigger className="rounded-xl"><SelectValue placeholder="Seleccionar..." /></SelectTrigger><SelectContent>{sanctionType === 'club' ? teams.filter(t => tournament.participants.includes(t.id)).map(t => <SelectItem key={`sanction-t-${t.id}`} value={t.id}>{t.name}</SelectItem>) : players.filter(p => p.teamId && tournament.participants.includes(p.teamId)).map(p => <SelectItem key={`sanction-p-${p.id}`} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select>
-                <Input type="number" value={sanctionValue} onChange={e => setSanctionValue(Number(e.target.value))} className="rounded-xl" />
-                <Button variant="destructive" className="w-full h-12 rounded-xl font-black" onClick={() => { if(sanctionTargetId) { applySanction(sanctionTargetId, sanctionType === 'club' ? 'team-budget' : 'player-suspension', sanctionValue); toast({ title: "Sanción Aplicada" }); } }}>CONFIRMAR SANCION</Button>
+        <TabsContent value="discipline" className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card className="p-6 md:p-8 rounded-[2rem] shadow-xl">
+            <h2 className="text-xl font-black uppercase text-destructive flex items-center gap-2 mb-6"><ShieldAlert /> SANCIONAR</h2>
+            <div className="space-y-4">
+              <Select value={sanctionType} onValueChange={(v: any) => setSanctionType(v)}><SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="club">Multa a Club (CR)</SelectItem><SelectItem value="player">Suspensión Agente (J.)</SelectItem></SelectContent></Select>
+              <Select onValueChange={setSanctionTargetId}><SelectTrigger className="rounded-xl"><SelectValue placeholder="Seleccionar..." /></SelectTrigger><SelectContent>{sanctionType === 'club' ? teams.filter(t => tournament.participants.includes(t.id)).map(t => <SelectItem key={`sanction-t-${t.id}`} value={t.id}>{t.name}</SelectItem>) : players.filter(p => p.teamId && tournament.participants.includes(p.teamId)).map(p => <SelectItem key={`sanction-p-${p.id}`} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select>
+              <Input type="number" value={sanctionValue} onChange={e => setSanctionValue(Number(e.target.value))} className="rounded-xl" />
+              <Button variant="destructive" className="w-full h-12 rounded-xl font-black" onClick={() => { if(sanctionTargetId) { applySanction(sanctionTargetId, sanctionType === 'club' ? 'team-budget' : 'player-suspension', sanctionValue); toast({ title: "Sanción Aplicada" }); } }}>CONFIRMAR SANCION</Button>
+            </div>
+          </Card>
+          <Card className="p-6 md:p-8 rounded-[2rem] shadow-xl">
+            <h2 className="text-xl font-black uppercase mb-6">LISTA NEGRA</h2>
+            <ScrollArea className="h-[250px]">
+              <div className="space-y-2">
+                {players.filter(p => p.suspensionMatchdays > 0).map(p => (
+                  <div key={`blacklist-${p.id}`} className="p-3 bg-destructive/10 rounded-xl border border-destructive/20 flex justify-between items-center">
+                    <p className="font-black uppercase text-xs">{p.name}</p>
+                    <Badge variant="destructive" className="font-black text-[10px]">{p.suspensionMatchdays} J.</Badge>
+                  </div>
+                ))}
               </div>
-            </Card>
-            <Card className="p-6 md:p-8 rounded-[2rem] shadow-xl">
-              <h2 className="text-xl font-black uppercase mb-6">LISTA NEGRA</h2>
-              <ScrollArea className="h-[250px]">
-                <div className="space-y-2">
-                  {players.filter(p => p.suspensionMatchdays > 0).map(p => (
-                    <div key={`blacklist-${p.id}`} className="p-3 bg-destructive/10 rounded-xl border border-destructive/20 flex justify-between items-center">
-                      <p className="font-black uppercase text-xs">{p.name}</p>
-                      <Badge variant="destructive" className="font-black text-[10px]">{p.suspensionMatchdays} J.</Badge>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            </Card>
-          </div>
+            </ScrollArea>
+          </Card>
         </TabsContent>
       </Tabs>
 

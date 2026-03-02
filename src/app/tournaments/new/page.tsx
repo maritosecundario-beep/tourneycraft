@@ -18,7 +18,6 @@ import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CrestIcon } from '@/components/ui/crest-icon';
 import { Badge } from '@/components/ui/badge';
-import { DialogTitle } from '@/components/ui/dialog';
 
 export default function NewTournamentPage() {
   const router = useRouter();
@@ -221,7 +220,7 @@ export default function NewTournamentPage() {
           <Card className="border-none bg-card shadow-2xl rounded-[1.5rem] md:rounded-[3rem] p-6 md:p-8 space-y-6 md:space-y-8">
             <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
-                <h2 className="text-lg md:text-xl font-black uppercase flex items-center gap-2"><Users className="text-primary" /> Inscripción de Equipos ({selectedParticipants.length})</h2>
+                <CardTitle className="text-lg md:text-xl font-black uppercase flex items-center gap-2"><Users className="text-primary" /> Inscripción de Equipos ({selectedParticipants.length})</CardTitle>
                 <p className="text-[10px] text-muted-foreground font-bold mt-1 uppercase">Selecciona qué entidades participarán en este universo.</p>
               </div>
               <div className="flex gap-2 w-full md:w-auto">
