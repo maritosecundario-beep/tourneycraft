@@ -42,7 +42,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   const [players, setPlayers] = useState<Player[]>([]);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [settings, setSettings] = useState<GlobalSettings>(defaultSettings);
-  const [isLoaded, setIsLoading] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
   
   const { user } = useUser();
   const db = useFirestore();
@@ -65,7 +65,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       setTournaments(hortaData.tournaments as any[]); 
       setSettings(defaultSettings);
     }
-    setIsLoading(true);
+    setIsLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -77,18 +77,14 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         
         // Sincronización en la nube SOLO si hay usuario y DB lista
         if (user?.uid && db) {
-          try {
-            const userDocRef = doc(db, 'users', user.uid, 'backups', 'latest');
-            setDocumentNonBlocking(userDocRef, {
-              ...dataToSave,
-              updatedAt: new Date().toISOString(),
-              ownerId: user.uid
-            }, { merge: true });
-          } catch (err) {
-            console.error("Cloud Sync Silent Fail:", err);
-          }
+          const userDocRef = doc(db, 'users', user.uid, 'backups', 'latest');
+          setDocumentNonBlocking(userDocRef, {
+            ...dataToSave,
+            updatedAt: new Date().toISOString(),
+            ownerId: user.uid
+          }, { merge: true });
         }
-      }, 1500); // Debounce de 1.5s para evitar exceder cuotas
+      }, 2000); // Debounce de 2s para ahorrar cuota Spark
       return () => clearTimeout(timer);
     }
   }, [teams, players, tournaments, settings, isLoaded, user?.uid, db]);
@@ -158,26 +154,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
               return team;
             }));
           }
-          if (homePlayerId) {
-            setPlayers(pPrev => pPrev.map(p => {
-              if (p.id === homePlayerId) {
-                const perfFactor = (homeScore / (homeScore + awayScore || 1)) * 1.5;
-                const valueChange = Math.round((p.monetaryValue || 0) * (perfFactor - 0.5) * 0.05);
-                return { ...p, monetaryValue: Math.max(1, (p.monetaryValue || 0) + valueChange) };
-              }
-              return p;
-            }));
-          }
-          if (awayPlayerId) {
-            setPlayers(pPrev => pPrev.map(p => {
-              if (p.id === awayPlayerId) {
-                const perfFactor = (awayScore / (homeScore + awayScore || 1)) * 1.5;
-                const valueChange = Math.round((p.monetaryValue || 0) * (perfFactor - 0.5) * 0.05);
-                return { ...p, monetaryValue: Math.max(1, (p.monetaryValue || 0) + valueChange) };
-              }
-              return p;
-            }));
-          }
           return { ...m, homeScore, awayScore, isSimulated: true, homePlayerId, awayPlayerId };
         }
         return m;
@@ -201,18 +177,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
           if (index !== -1) updatedPlayers[index].teamId = undefined;
         }
       });
-      const freeAgents = updatedPlayers.filter(p => !p.teamId);
-      if (freeAgents.length > 0) {
-        aiTeams.forEach(team => {
-          if (Math.random() > 0.9) {
-            const candidate = freeAgents[Math.floor(Math.random() * freeAgents.length)];
-            if ((team.budget || 0) >= (candidate.monetaryValue || 0)) {
-              const index = updatedPlayers.findIndex(p => p.id === candidate.id);
-              if (index !== -1) updatedPlayers[index].teamId = team.id;
-            }
-          }
-        });
-      }
       return updatedPlayers;
     });
   }, [teams, tournaments]);
