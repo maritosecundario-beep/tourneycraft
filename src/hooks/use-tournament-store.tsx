@@ -126,7 +126,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
             if (t.dualLeagueEnabled) {
               dualSchedule.push({ 
                 id: `dual-${mId}`, 
-                homeId: away, 
+                homeId: away, // Inverted for dual league
                 awayId: home, 
                 matchday, 
                 isSimulated: false 
@@ -175,22 +175,24 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         if (m.id === matchId) {
           const winnerId = homeScore > awayScore ? m.homeId : awayScore > homeScore ? m.awayId : undefined;
           
-          setTeams(tPrev => tPrev.map(team => {
-            if (team.id === m.homeId || team.id === m.awayId) {
-              const isHome = team.id === m.homeId;
-              const isWin = (isHome && homeScore > awayScore) || (!isHome && awayScore > homeScore);
-              const isLoss = (isHome && awayScore > homeScore) || (!isHome && homeScore > awayScore);
-              const isDraw = homeScore === awayScore;
-              
-              let change = 0;
-              if (isWin) change = t.winReward;
-              else if (isLoss) change = -t.lossPenalty;
-              else if (isDraw) change = t.drawReward;
-              
-              return { ...team, budget: Math.max(0, team.budget + change) };
-            }
-            return team;
-          }));
+          if (!isDual) {
+            setTeams(tPrev => tPrev.map(team => {
+              if (team.id === m.homeId || team.id === m.awayId) {
+                const isHome = team.id === m.homeId;
+                const isWin = (isHome && homeScore > awayScore) || (!isHome && awayScore > homeScore);
+                const isLoss = (isHome && awayScore > homeScore) || (!isHome && homeScore > awayScore);
+                const isDraw = homeScore === awayScore;
+                
+                let change = 0;
+                if (isWin) change = t.winReward;
+                else if (isLoss) change = -t.lossPenalty;
+                else if (isDraw) change = t.drawReward;
+                
+                return { ...team, budget: Math.max(0, team.budget + change) };
+              }
+              return team;
+            }));
+          }
 
           if (homePlayerId) {
             setPlayers(pPrev => pPrev.map(p => {
@@ -224,23 +226,28 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const triggerMarketMoves = useCallback((tournamentId: string) => {
-    if (Math.random() > 0.3) return;
+    // Probabilidad de movimiento tras jornada: 40%
+    if (Math.random() > 0.4) return;
 
     setPlayers(prevPlayers => {
       const updatedPlayers = [...prevPlayers];
       const t = tournaments.find(x => x.id === tournamentId);
       if (!t) return updatedPlayers;
 
+      // IA Teams only (not the user managed one)
       const aiTeams = teams.filter(tm => tm.id !== t.managedParticipantId && t.participants.includes(tm.id));
 
       aiTeams.forEach(team => {
         const teamPlayers = updatedPlayers.filter(p => p.teamId === team.id);
+        
+        // Probabilidad de despido si hay plantilla amplia (80%)
         if (teamPlayers.length > 3 && Math.random() > 0.8) {
           const index = updatedPlayers.findIndex(p => p.id === teamPlayers[0].id);
           if (index !== -1) updatedPlayers[index].teamId = undefined;
         }
       });
 
+      // Probabilidad de fichaje de agentes libres (10%)
       const freeAgents = updatedPlayers.filter(p => !p.teamId);
       if (freeAgents.length > 0) {
         aiTeams.forEach(team => {
