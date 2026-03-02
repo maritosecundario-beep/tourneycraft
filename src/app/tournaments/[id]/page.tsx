@@ -37,8 +37,8 @@ export default function TournamentDetailPage() {
   const tournament = tournaments.find(t => t.id === id);
 
   const isSeasonOver = useMemo(() => {
-    if (!tournament) return false;
-    return tournament.matches.length > 0 && tournament.matches.every(m => m.isSimulated);
+    if (!tournament || tournament.matches.length === 0) return false;
+    return tournament.matches.every(m => m.isSimulated);
   }, [tournament]);
 
   const getStandingsForParticipants = (participantIds: string[]) => {
@@ -135,7 +135,7 @@ export default function TournamentDetailPage() {
       resolveMatch(tournament.id, m.id, hScore, aScore, false, hPlayerId, aPlayerId);
       
       if (tournament.dualLeagueEnabled) {
-        const mirror = tournament.dualLeagueMatches.find(x => x.matchday === m.matchday && (x.homeId === m.awayId && x.awayId === m.homeId));
+        const mirror = tournament.dualLeagueMatches.find(x => x.matchday === m.matchday && ((x.homeId === m.awayId && x.awayId === m.homeId) || (x.homeId === m.homeId && x.awayId === m.awayId)));
         if (mirror && !mirror.isSimulated) {
           const { hScore: mh, aScore: ma, hPlayerId: hp, aPlayerId: ap } = simulateMatchLogic(mirror);
           resolveMatch(tournament.id, mirror.id, mh, ma, true, hp, ap);
@@ -164,7 +164,7 @@ export default function TournamentDetailPage() {
     resolveMatch(tournament.id, selectedMatch.id, hScore, aScore, false, userHPlayer, userAPlayer);
     
     if (tournament.dualLeagueEnabled) {
-      const mirrorMatch = tournament.dualLeagueMatches.find(m => m.matchday === tournament.currentMatchday && (m.homeId === selectedMatch.awayId && m.awayId === selectedMatch.homeId));
+      const mirrorMatch = tournament.dualLeagueMatches.find(m => m.matchday === tournament.currentMatchday && ((m.homeId === selectedMatch.awayId && m.awayId === selectedMatch.homeId) || (m.homeId === selectedMatch.homeId && m.awayId === selectedMatch.awayId)));
       if (mirrorMatch) {
         const { hScore: mh, aScore: ma, hPlayerId: hp, aPlayerId: ap } = simulateMatchLogic(mirrorMatch);
         resolveMatch(tournament.id, mirrorMatch.id, mh, ma, true, hp, ap);
@@ -477,7 +477,7 @@ export default function TournamentDetailPage() {
                 <div className="space-y-6 md:space-y-8">
                   <section className="space-y-2">
                     <h4 className="text-[9px] md:text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2"><Info className="w-3 h-3" /> Perfil del Club</h4>
-                    <p className="text-xs md:text-sm italic leading-relaxed text-muted-foreground">"{teams.find(t => t.id === viewingTeamId)!.description || 'Entidad deportiva histórica de l'Horta.'}"</p>
+                    <p className="text-xs md:text-sm italic leading-relaxed text-muted-foreground">&quot;{teams.find(t => t.id === viewingTeamId)!.description || "Entidad deportiva histórica de l'Horta."}&quot;</p>
                   </section>
                   <section className="space-y-4">
                     <h4 className="text-[9px] md:text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2"><LayoutGrid className="w-3 h-3" /> Jugadores Registrados</h4>

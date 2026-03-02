@@ -33,6 +33,7 @@ export default function NewTournamentPage() {
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
   const [dualLeagueEnabled, setDualLeagueEnabled] = useState(false);
   const [managedParticipantId, setManagedParticipantId] = useState('');
+  const [aiDescription, setAiDescription] = useState('');
   
   const [groups, setGroups] = useState<TournamentGroup[]>([
     { id: 'g1', name: 'Horta Sud', participantIds: [] },
@@ -99,7 +100,7 @@ export default function NewTournamentPage() {
       managedParticipantId: mode === 'arcade' ? managedParticipantId : undefined,
       scoringRuleType: scoringType, scoringValue,
       participants: selectedParticipants, 
-      groups: leagueType === 'groups' ? groups : undefined,
+      groups: (format === 'league' && leagueType === 'groups') ? groups : undefined,
       dualLeagueEnabled, dualLeagueMatches: [], winReward, lossPenalty, drawReward,
       winPoints, lossPoints, drawPoints,
       variability, matches: [], playoffSpots, relegationSpots, currentSeason: 1, currentMatchday: 1,
@@ -338,7 +339,7 @@ export default function NewTournamentPage() {
                 value={aiDescription} 
                 onChange={(e) => {
                   setAiDescription(e.target.value);
-                  setName(e.target.value.split(' ').slice(0, 3).join(' ')); // Basic mock auto-name
+                  setName(e.target.value.split(' ').slice(0, 3).join(' ')); 
                 }} 
               />
               <Button 
