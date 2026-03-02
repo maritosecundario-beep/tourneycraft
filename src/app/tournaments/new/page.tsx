@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTournamentStore } from '@/hooks/use-tournament-store';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Trophy, Users, Coins, Target, Brackets, ShieldAlert, Group, Plus, X, Wand2, Info, ChevronRight, AlertCircle } from 'lucide-react';
+import { Trophy, Users, Coins, Target, Brackets, ShieldAlert, Group, Plus, X, Wand2, Info, ChevronRight, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { TournamentMode, TournamentFormat, ScoringRuleType, TournamentEntryType, LeagueType, TournamentGroup } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -33,7 +33,7 @@ export default function NewTournamentPage() {
   const [groupIsolation, setGroupIsolation] = useState(true);
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
   const [dualLeagueEnabled, setDualLeagueEnabled] = useState(false);
-  const [managedParticipantId, setManagedParticipantId] = useState('');
+  const [managedParticipantId, setManagedParticipantId] = useState<string>('');
   const [aiDescription, setAiDescription] = useState('');
   
   const [groups, setGroups] = useState<TournamentGroup[]>([
@@ -55,6 +55,13 @@ export default function NewTournamentPage() {
   
   const [playoffSpots, setPlayoffSpots] = useState(8);
   const [relegationSpots, setRelegationSpots] = useState(4);
+
+  // Sync managedParticipantId with selection
+  useEffect(() => {
+    if (managedParticipantId && !selectedParticipants.includes(managedParticipantId)) {
+      setManagedParticipantId('');
+    }
+  }, [selectedParticipants, managedParticipantId]);
 
   const addGroup = () => {
     const newId = `g${groups.length + 1}`;
@@ -83,14 +90,19 @@ export default function NewTournamentPage() {
 
   const handleCreateManual = () => {
     if (!name || selectedParticipants.length < 2) {
-      toast({ title: "Error", description: "Nombre y al menos 2 participantes requeridos.", variant: "destructive" });
+      toast({ title: "Error de Configuración", description: "Se requiere un nombre y al menos 2 equipos inscritos.", variant: "destructive" });
+      return;
+    }
+
+    if (mode === 'arcade' && !managedParticipantId) {
+      toast({ title: "Selección de Club", description: "Debes elegir qué club quieres gestionar en el modo Arcade.", variant: "destructive" });
       return;
     }
 
     if (format === 'league' && leagueType === 'groups') {
       const allAssigned = selectedParticipants.every(pId => groups.some(g => g.participantIds.includes(pId)));
       if (!allAssigned) {
-        toast({ title: "Asignación Incompleta", description: "Todos los equipos seleccionados deben estar asignados a un grupo.", variant: "destructive" });
+        toast({ title: "Distribución Incompleta", description: "Todos los equipos inscritos deben estar asignados a una conferencia.", variant: "destructive" });
         return;
       }
     }
@@ -109,7 +121,7 @@ export default function NewTournamentPage() {
     };
 
     addTournament(newTourney as any);
-    toast({ title: "Competición Creada", description: "Se ha generado el calendario base." });
+    toast({ title: "Universo Iniciado", description: "El Big Bang del torneo ha ocurrido con éxito." });
     router.push(`/tournaments/${newTourney.id}`);
   };
 
@@ -139,32 +151,55 @@ export default function NewTournamentPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2"><Label>Deporte</Label><Input value={sport} onChange={e => setSport(e.target.value)} className="h-10 md:h-12 rounded-xl" /></div>
                   <div className="space-y-2">
-                    <Label>Modo</Label>
+                    <Label>Modo de Juego</Label>
                     <Select value={mode} onValueChange={(v: any) => setMode(v)}>
                       <SelectTrigger className="h-10 md:h-12 rounded-xl"><SelectValue /></SelectTrigger>
-                      <SelectContent><SelectItem value="normal">Simulación</SelectItem><SelectItem value="arcade">Arcade</SelectItem></SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                {mode === 'arcade' && (
-                  <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                    <Label className="flex items-center gap-2"><Target className="w-4 h-4 text-accent" /> Tu Equipo (Arcade)</Label>
-                    <Select value={managedParticipantId} onValueChange={setManagedParticipantId}>
-                      <SelectTrigger className="h-10 md:h-12 rounded-xl"><SelectValue placeholder="Selecciona..." /></SelectTrigger>
-                      <SelectContent>
-                        {teams.filter(t => selectedParticipants.includes(t.id)).map(t => (
-                          <SelectItem key={`managed-${t.id}`} value={t.id}>{t.name}</SelectItem>
-                        ))}
+                      <SelectContent className="rounded-xl">
+                        <SelectItem value="normal">Simulación Total</SelectItem>
+                        <SelectItem value="arcade">Modo Arcade (Controlas Club)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+                
+                {mode === 'arcade' && (
+                  <div className="space-y-2 p-4 bg-primary/5 border-2 border-primary/20 rounded-2xl animate-in fade-in slide-in-from-top-2">
+                    <Label className="flex items-center gap-2 font-black text-[10px] uppercase text-primary mb-2">
+                      <Target className="w-4 h-4" /> Tu Club de Gestión
+                    </Label>
+                    <Select value={managedParticipantId} onValueChange={setManagedParticipantId}>
+                      <SelectTrigger className="h-10 md:h-12 rounded-xl border-primary/30">
+                        <SelectValue placeholder={selectedParticipants.length > 0 ? "Seleccionar entre inscritos..." : "Inscribe equipos primero"} />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl">
+                        {teams.filter(t => selectedParticipants.includes(t.id)).length > 0 ? (
+                          teams.filter(t => selectedParticipants.includes(t.id)).map(t => (
+                            <SelectItem key={`managed-team-${t.id}`} value={t.id}>{t.name}</SelectItem>
+                          ))
+                        ) : (
+                          <div className="p-4 text-center text-[10px] font-bold text-muted-foreground uppercase italic">
+                            No has inscrito ningún equipo todavía
+                          </div>
+                        )}
+                      </SelectContent>
+                    </Select>
+                    {managedParticipantId && (
+                      <div className="mt-3 flex items-center gap-2 text-[10px] font-bold text-primary bg-primary/10 p-2 rounded-lg">
+                        <CheckCircle2 className="w-3 h-3" /> CLUB ASIGNADO: {teams.find(t => t.id === managedParticipantId)?.name}
+                      </div>
+                    )}
+                  </div>
                 )}
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Formato</Label>
                     <Select value={format} onValueChange={(v: any) => setFormat(v)}>
                       <SelectTrigger className="h-10 md:h-12 rounded-xl"><SelectValue /></SelectTrigger>
-                      <SelectContent><SelectItem value="league">Liga</SelectItem><SelectItem value="knockout">Eliminatoria</SelectItem></SelectContent>
+                      <SelectContent className="rounded-xl">
+                        <SelectItem value="league">Liga Regular</SelectItem>
+                        <SelectItem value="knockout">Eliminatoria Directa</SelectItem>
+                      </SelectContent>
                     </Select>
                   </div>
                   {format === 'league' && (
@@ -172,7 +207,10 @@ export default function NewTournamentPage() {
                       <Label>Tipo de Liga</Label>
                       <Select value={leagueType} onValueChange={(v: any) => setLeagueType(v)}>
                         <SelectTrigger className="h-10 md:h-12 rounded-xl"><SelectValue /></SelectTrigger>
-                        <SelectContent><SelectItem value="single-table">Tabla Única</SelectItem><SelectItem value="groups">Grupos/Conferencias</SelectItem></SelectContent>
+                        <SelectContent className="rounded-xl">
+                          <SelectItem value="single-table">Tabla Única Global</SelectItem>
+                          <SelectItem value="groups">Conferencias / Grupos</SelectItem>
+                        </SelectContent>
                       </Select>
                     </div>
                   )}
@@ -180,7 +218,7 @@ export default function NewTournamentPage() {
                 <div className="flex items-center justify-between p-3 md:p-4 bg-muted/20 rounded-2xl border">
                   <div className="space-y-0.5">
                     <Label className="font-black uppercase text-[10px]">Liga Dual (Espejo)</Label>
-                    <p className="text-[9px] text-muted-foreground">Genera partidos de reservas en paralelo.</p>
+                    <p className="text-[9px] text-muted-foreground">Simula partidos de reservas en paralelo.</p>
                   </div>
                   <Switch checked={dualLeagueEnabled} onCheckedChange={setDualLeagueEnabled} />
                 </div>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from 'next/link';
@@ -32,10 +33,12 @@ export function Navbar() {
       console.error("Auth Error:", error);
       let message = "No se pudo completar la autenticación.";
       if (error.code === 'auth/operation-not-allowed') {
-        message = "El inicio de sesión con Google NO está habilitado.";
+        message = "El proveedor de Google no está habilitado en el Firebase Console. Por favor, actívalo en Auth > Sign-in method.";
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        message = "Has cerrado la ventana de inicio de sesión antes de terminar.";
       }
       toast({ 
-        title: "Error de inicio de sesión", 
+        title: "Error de Acceso", 
         description: message, 
         variant: "destructive" 
       });
