@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CrestIcon } from '@/components/ui/crest-icon';
 import { Badge } from '@/components/ui/badge';
+import { DialogTitle } from '@/components/ui/dialog';
 
 export default function NewTournamentPage() {
   const router = useRouter();
@@ -153,7 +154,7 @@ export default function NewTournamentPage() {
                       <SelectTrigger className="h-10 md:h-12 rounded-xl"><SelectValue placeholder="Selecciona..." /></SelectTrigger>
                       <SelectContent>
                         {teams.filter(t => selectedParticipants.includes(t.id)).map(t => (
-                          <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                          <SelectItem key={`managed-${t.id}`} value={t.id}>{t.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -230,12 +231,12 @@ export default function NewTournamentPage() {
             </header>
             <ScrollArea className="h-[300px] md:h-[400px]">
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 pr-4">
-                {teams.map(team => {
+                {teams.map((team, idx) => {
                   const isSelected = selectedParticipants.includes(team.id);
                   const isAssigned = groups.some(g => g.participantIds.includes(team.id));
                   return (
                     <button 
-                      key={team.id} 
+                      key={`team-select-${team.id}-${idx}`} 
                       onClick={() => setSelectedParticipants(prev => isSelected ? prev.filter(id => id !== team.id) : [...prev, team.id])}
                       className={cn(
                         "p-4 rounded-xl md:rounded-2xl border-2 transition-all text-left flex flex-col gap-2 relative",
@@ -280,8 +281,8 @@ export default function NewTournamentPage() {
               </header>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
-                {groups.map((group) => (
-                  <Card key={group.id} className="rounded-[2rem] border bg-card shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+                {groups.map((group, gIdx) => (
+                  <Card key={`group-config-${group.id}-${gIdx}`} className="rounded-[2rem] border bg-card shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <CardHeader className="bg-muted/10 p-6 flex flex-row justify-between items-center border-b">
                       <div className="flex items-center gap-3">
                         <Badge className="bg-accent text-accent-foreground font-black">{group.participantIds.length}</Badge>
@@ -304,10 +305,10 @@ export default function NewTournamentPage() {
                               <p className="text-[10px] font-black uppercase">Sin equipos asignados</p>
                             </div>
                           )}
-                          {group.participantIds.map(pId => {
+                          {group.participantIds.map((pId, pIdx) => {
                             const team = teams.find(t => t.id === pId);
                             return (
-                              <Badge key={pId} variant="secondary" className="bg-primary/10 text-primary border-primary/20 px-4 py-2 rounded-xl flex items-center gap-3 hover:bg-primary/20 transition-colors">
+                              <Badge key={`assigned-${group.id}-${pId}-${pIdx}`} variant="secondary" className="bg-primary/10 text-primary border-primary/20 px-4 py-2 rounded-xl flex items-center gap-3 hover:bg-primary/20 transition-colors">
                                 <CrestIcon shape={team?.emblemShape!} pattern={team?.emblemPattern!} c1={team?.crestPrimary!} c2={team?.crestSecondary!} size="w-4 h-4" />
                                 <span className="text-[10px] font-black uppercase truncate max-w-[100px]">{team?.name}</span>
                                 <button onClick={() => removeFromGroup(pId)} className="hover:text-destructive transition-colors"><X className="w-3 h-3" /></button>
@@ -326,11 +327,11 @@ export default function NewTournamentPage() {
                           <SelectContent className="rounded-xl">
                             {selectedParticipants
                               .filter(pId => !group.participantIds.includes(pId))
-                              .map(pId => {
+                              .map((pId, sIdx) => {
                                 const team = teams.find(t => t.id === pId);
                                 const isOtherGroup = groups.some(g => g.id !== group.id && g.participantIds.includes(pId));
                                 return (
-                                  <SelectItem key={pId} value={pId} className="rounded-lg">
+                                  <SelectItem key={`avail-${group.id}-${pId}-${sIdx}`} value={pId} className="rounded-lg">
                                     <div className="flex items-center justify-between w-full gap-2">
                                       <span>{team?.name}</span>
                                       {isOtherGroup && <Badge variant="outline" className="text-[8px] opacity-50 ml-2">OTRO GRUPO</Badge>}

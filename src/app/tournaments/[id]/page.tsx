@@ -117,7 +117,7 @@ export default function TournamentDetailPage() {
     let aPower = Math.pow(aVal, 1.8);
     
     const total = hPower + aPower;
-    const hProb = hPower / total;
+    const hProb = hPower / (total || 1);
     
     let hScore = 0, aScore = 0;
     const rule = tournament?.scoringRuleType;
@@ -264,7 +264,7 @@ export default function TournamentDetailPage() {
             <Trophy className="text-white w-8 h-8 md:w-10 md:h-10" />
           </div>
           <div>
-            <h1 className="text-2xl md:text-4xl font-black uppercase tracking-tighter truncate max-w-[200px] md:max-w-none">{tournament.name}</h1>
+            <DialogTitle className="text-2xl md:text-4xl font-black uppercase tracking-tighter truncate max-w-[200px] md:max-w-none">{tournament.name}</DialogTitle>
             <p className="text-muted-foreground font-bold uppercase text-[10px] tracking-widest mt-1">
               {tournament.sport} • SEASON {tournament.currentSeason} • JORNADA {tournament.currentMatchday}
               {userGroup && ` • CONFERENCIA: ${userGroup.name}`}
@@ -328,7 +328,7 @@ export default function TournamentDetailPage() {
         <TabsContent value="table" className="space-y-6 md:space-y-8">
           {tournamentStandings.length > 0 ? (
             tournamentStandings.map((group) => (
-              <Card key={group.id} className="border-none bg-card shadow-2xl rounded-[1.5rem] md:rounded-[3rem] overflow-hidden">
+              <Card key={`standings-${group.id}`} className="border-none bg-card shadow-2xl rounded-[1.5rem] md:rounded-[3rem] overflow-hidden">
                 <CardHeader className="bg-muted/10 border-b p-6 flex flex-row items-center gap-3">
                   <Group className="text-primary w-6 h-6" />
                   <CardTitle className="text-lg md:text-xl font-black uppercase">{group.name}</CardTitle>
@@ -348,7 +348,7 @@ export default function TournamentDetailPage() {
                       </TableHeader>
                       <TableBody>
                         {group.data.map((item: any, idx: number) => (
-                          <TableRow key={item.id} className="h-14 md:h-16 cursor-pointer hover:bg-primary/5 transition-colors" onClick={() => setViewTeamId(item.id)}>
+                          <TableRow key={`row-${group.id}-${item.id}-${idx}`} className="h-14 md:h-16 cursor-pointer hover:bg-primary/5 transition-colors" onClick={() => setViewTeamId(item.id)}>
                             <TableCell className="text-center">
                               <div className="flex flex-col items-center">
                                 <span className="font-black text-base md:text-lg">{idx + 1}</span>
@@ -380,7 +380,7 @@ export default function TournamentDetailPage() {
             <Button variant="ghost" size="sm" onClick={() => generateSchedule(tournament.id)} className="text-[10px] font-black uppercase"><RefreshCw className="w-3 h-3 mr-2" /> Re-generar Fixture</Button>
           </div>
           {tournamentStandings.map((group) => (
-            <div key={group.id} className="space-y-6">
+            <div key={`calendar-group-${group.id}`} className="space-y-6">
               <h2 className="text-xl font-black uppercase text-primary flex items-center gap-3 px-4">
                 <Group className="w-5 h-5" /> Calendario {group.name}
               </h2>
@@ -394,7 +394,7 @@ export default function TournamentDetailPage() {
                       );
                       if (matchdayMatches.length === 0) return null;
                       return (
-                        <div key={i}>
+                        <div key={`matchday-${group.id}-${i}`}>
                           <h3 className="font-black uppercase text-accent tracking-widest text-[10px] mb-4 border-b pb-2">JORNADA {i + 1}</h3>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             {matchdayMatches.map(m => {
@@ -431,7 +431,7 @@ export default function TournamentDetailPage() {
             <h2 className="text-xl font-black uppercase mb-6 flex items-center gap-2"><Layers className="text-accent" /> LIGA DE RESERVAS (DUAL)</h2>
             <div className="grid gap-3 max-w-2xl mx-auto">
               {tournament.dualLeagueMatches.filter(m => m.matchday === tournament.currentMatchday).map(m => (
-                <div key={m.id} className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl border">
+                <div key={`dual-match-${m.id}`} className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl border">
                   <span className="font-black text-sm">{teams.find(t => t.id === m.homeId)?.abbreviation}</span>
                   <div className="flex items-center gap-3 font-black text-xl"><span>{m.homeScore ?? '-'}</span><span>:</span><span>{m.awayScore ?? '-'}</span></div>
                   <span className="font-black text-sm">{teams.find(t => t.id === m.awayId)?.abbreviation}</span>
@@ -450,7 +450,7 @@ export default function TournamentDetailPage() {
                 <ScrollArea className="h-[400px]">
                   <div className="grid gap-2 pr-2">
                     {players.filter(p => !p.teamId || tournament.participants.includes(p.teamId)).sort((a,b) => b.monetaryValue - a.monetaryValue).map(p => (
-                      <div key={p.id} className="flex items-center justify-between p-3 bg-muted/10 rounded-xl border">
+                      <div key={`market-player-${p.id}`} className="flex items-center justify-between p-3 bg-muted/10 rounded-xl border">
                         <div><p className="font-black text-xs">{p.name}</p><p className="text-[8px] font-bold text-accent uppercase">{teams.find(t => t.id === p.teamId)?.name || 'Agente Libre'}</p></div>
                         <span className="font-black text-xs text-primary">{p.monetaryValue} CR</span>
                       </div>
@@ -473,7 +473,7 @@ export default function TournamentDetailPage() {
               <h2 className="text-xl font-black uppercase text-destructive flex items-center gap-2 mb-6"><ShieldAlert /> SANCIONAR</h2>
               <div className="space-y-4">
                 <Select value={sanctionType} onValueChange={(v: any) => setSanctionType(v)}><SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="club">Multa a Club (CR)</SelectItem><SelectItem value="player">Suspensión Agente (J.)</SelectItem></SelectContent></Select>
-                <Select onValueChange={setSanctionTargetId}><SelectTrigger className="rounded-xl"><SelectValue placeholder="Seleccionar..." /></SelectTrigger><SelectContent>{sanctionType === 'club' ? teams.filter(t => tournament.participants.includes(t.id)).map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>) : players.filter(p => p.teamId && tournament.participants.includes(p.teamId)).map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select>
+                <Select onValueChange={setSanctionTargetId}><SelectTrigger className="rounded-xl"><SelectValue placeholder="Seleccionar..." /></SelectTrigger><SelectContent>{sanctionType === 'club' ? teams.filter(t => tournament.participants.includes(t.id)).map(t => <SelectItem key={`sanction-t-${t.id}`} value={t.id}>{t.name}</SelectItem>) : players.filter(p => p.teamId && tournament.participants.includes(p.teamId)).map(p => <SelectItem key={`sanction-p-${p.id}`} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select>
                 <Input type="number" value={sanctionValue} onChange={e => setSanctionValue(Number(e.target.value))} className="rounded-xl" />
                 <Button variant="destructive" className="w-full h-12 rounded-xl font-black" onClick={() => { if(sanctionTargetId) { applySanction(sanctionTargetId, sanctionType === 'club' ? 'team-budget' : 'player-suspension', sanctionValue); toast({ title: "Sanción Aplicada" }); } }}>CONFIRMAR SANCION</Button>
               </div>
@@ -483,7 +483,7 @@ export default function TournamentDetailPage() {
               <ScrollArea className="h-[250px]">
                 <div className="space-y-2">
                   {players.filter(p => p.suspensionMatchdays > 0).map(p => (
-                    <div key={p.id} className="p-3 bg-destructive/10 rounded-xl border border-destructive/20 flex justify-between items-center">
+                    <div key={`blacklist-${p.id}`} className="p-3 bg-destructive/10 rounded-xl border border-destructive/20 flex justify-between items-center">
                       <p className="font-black uppercase text-xs">{p.name}</p>
                       <Badge variant="destructive" className="font-black text-[10px]">{p.suspensionMatchdays} J.</Badge>
                     </div>
@@ -527,8 +527,8 @@ export default function TournamentDetailPage() {
                               <Badge className="bg-white text-primary font-black">{bestOppPlayer.position}</Badge>
                             </div>
                             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                              {bestOppPlayer.attributes.slice(0, 10).map(attr => (
-                                <div key={attr.name} className="text-center">
+                              {bestOppPlayer.attributes.map((attr, ai) => (
+                                <div key={`${attr.name}-${ai}`} className="text-center">
                                   <p className="text-[7px] font-black uppercase opacity-60">{attr.name.substring(0, 5)}</p>
                                   <p className="text-xs font-black">{attr.value}</p>
                                 </div>
@@ -548,7 +548,7 @@ export default function TournamentDetailPage() {
                   </h3>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                     {players.filter(p => p.teamId === tournament.managedParticipantId && p.suspensionMatchdays === 0).map(p => (
-                      <button key={p.id} onClick={() => setSelectedPlayerId(p.id)} className={cn("p-4 rounded-2xl border-2 transition-all text-center", selectedPlayerId === p.id ? "bg-primary/10 border-primary scale-105 shadow-lg" : "bg-muted/20 border-transparent hover:bg-muted/50")}>
+                      <button key={`selection-p-${p.id}`} onClick={() => setSelectedPlayerId(p.id)} className={cn("p-4 rounded-2xl border-2 transition-all text-center", selectedPlayerId === p.id ? "bg-primary/10 border-primary scale-105 shadow-lg" : "bg-muted/20 border-transparent hover:bg-muted/50")}>
                         <p className="font-black text-xs uppercase truncate">{p.name}</p>
                         <p className="text-[9px] font-bold text-primary">{p.monetaryValue} CR</p>
                       </button>
@@ -598,7 +598,7 @@ export default function TournamentDetailPage() {
                     <h4 className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-2"><Users className="w-3 h-3" /> Jugadores Registrados</h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {players.filter(p => p.teamId === viewingTeamId).map(p => (
-                        <div key={p.id} className="p-4 bg-muted/10 rounded-2xl border flex items-center justify-between">
+                        <div key={`roster-p-${p.id}`} className="p-4 bg-muted/10 rounded-2xl border flex items-center justify-between">
                           <div><p className="font-bold text-sm uppercase">{p.name}</p><p className="text-[9px] font-black opacity-50">{p.position} • #{p.jerseyNumber}</p></div>
                           <Badge variant="outline" className="font-black text-[9px]">{p.monetaryValue} CR</Badge>
                         </div>
