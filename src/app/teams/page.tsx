@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -6,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { Search, Trash2, Pencil, Sparkles, Shield, Star, Coins, UserPlus, LayoutGrid, Users, UserCircle2, Info, ChevronRight } from 'lucide-react';
+import { Search, Trash2, Pencil, Sparkles, Shield, Star, Coins, UserPlus, LayoutGrid, Users, UserCircle2, Info, ChevronRight, ArrowLeftRight } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/hooks/use-toast';
@@ -40,7 +41,7 @@ const ColorPicker = ({ label, value, onChange }: { label: string, value: string,
 );
 
 export default function TeamsPage() {
-  const { teams, players, settings, addTeam, updateTeam, deleteTeam, transferPlayer, addPlayer } = useTournamentStore();
+  const { teams, players, settings, addTeam, updateTeam, deleteTeam, transferPlayer, addPlayer, deletePlayer } = useTournamentStore();
   const { toast } = useToast();
   const [search, setSearch] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -49,6 +50,12 @@ export default function TeamsPage() {
   const [playerTargetTeamId, setPlayerTargetTeamId] = useState<string | null>(null);
   const [viewingRosterTeamId, setViewingRosterTeamId] = useState<string | null>(null);
   
+  // Manual Transfer State
+  const [isTransferCenterOpen, setIsTransferCenterOpen] = useState(false);
+  const [tSource, setTSource] = useState<string>('free');
+  const [tPlayer, setTPlayer] = useState<string>('');
+  const [tDest, setTDest] = useState<string>('');
+
   // Team Form State
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -188,102 +195,107 @@ export default function TeamsPage() {
           </h1>
           <p className="text-muted-foreground text-xs md:text-sm">Gestiona tus franquicias y su economía regional.</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if(!open) setEditingTeam(null); }}>
-          <DialogTrigger asChild><Button className="font-black rounded-xl h-10 md:h-12 shadow-lg shadow-primary/20 text-xs md:text-sm">FUNDAR CLUB</Button></DialogTrigger>
-          <DialogContent className="max-w-[95vw] md:max-w-[800px] p-0 overflow-hidden rounded-[1.5rem] md:rounded-[2.5rem] border-none shadow-2xl">
-            <div className="p-4 md:p-6 bg-muted/20 border-b">
-              <DialogTitle className="font-black uppercase text-sm md:text-base">Club Identity Studio</DialogTitle>
-            </div>
-            <Tabs defaultValue="base" className="w-full flex flex-col h-[80vh] md:h-[70vh]">
-              <TabsList className="grid grid-cols-3 rounded-none h-12 md:h-14 border-b bg-card p-1">
-                <TabsTrigger value="base" className="rounded-lg md:rounded-xl text-xs">General</TabsTrigger>
-                <TabsTrigger value="crest" className="rounded-lg md:rounded-xl text-xs">Heráldica</TabsTrigger>
-                <TabsTrigger value="venue" className="rounded-lg md:rounded-xl text-xs">Sede</TabsTrigger>
-              </TabsList>
-              
-              <div className="flex-1 overflow-y-auto p-4 md:p-6 scrollbar-hide">
-                <TabsContent value="base" className="space-y-6 mt-0">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2"><Label>Nombre del Club</Label><Input value={name} onChange={e => setName(e.target.value)} className="h-10 md:h-12 rounded-xl" /></div>
-                    <div className="space-y-2"><Label>Siglas (3 car.)</Label><Input maxLength={3} value={abbreviation} onChange={e => setAbbreviation(e.target.value)} className="h-10 md:h-12 rounded-xl" /></div>
-                    <div className="space-y-2 md:col-span-2">
-                      <Label>Descripción / Historia</Label>
-                      <Textarea value={description} onChange={e => setDescription(e.target.value)} className="min-h-[80px] md:min-h-[100px] rounded-xl" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2 p-4 bg-muted/10 rounded-2xl border">
-                      <div className="flex justify-between items-center mb-2"><Label>Rating Global</Label><span className="font-black text-primary">{rating}</span></div>
-                      <Slider value={[rating]} onValueChange={v => setRating(v[0])} max={100} min={1} />
-                    </div>
-                    <div className="space-y-2 p-4 bg-muted/10 rounded-2xl border">
-                      <Label className="flex items-center gap-2"><Coins className="w-4 h-4 text-accent" /> Presupuesto ({settings.currency})</Label>
-                      <Input type="number" value={budget} onChange={e => setBudget(Number(e.target.value))} className="h-10 mt-2 rounded-lg" />
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="crest" className="space-y-8 mt-0">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-start">
-                    <div className="aspect-square bg-muted/20 rounded-3xl flex items-center justify-center border-2 border-dashed border-accent/20">
-                      <CrestIcon shape={crestShape} pattern={crestPattern} c1={crestC1} c2={crestC2} c3={crestC3} c4={crestC4} border={crestBorder} size="w-32 h-32 md:w-40 h-40" />
-                    </div>
-                    <div className="space-y-6">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Forma Base</Label>
-                          <Select value={crestShape} onValueChange={(v: any) => setCrestShape(v)}>
-                            <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
-                            <SelectContent>{['shield','circle','hexagon','diamond','modern','star','crown','eagle','lion'].map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Patrón</Label>
-                          <Select value={crestPattern} onValueChange={(v: any) => setCrestPattern(v)}>
-                            <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
-                            <SelectContent>{['none','vertical-split','horizontal-split','diagonal-split','cross','saltire','quarters'].map(p => <SelectItem key={p} value={p} className="capitalize">{p}</SelectItem>)}</SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <ColorPicker label="Base" value={crestC1} onChange={setCrestC1} />
-                        <ColorPicker label="Patrón" value={crestC2} onChange={setCrestC2} />
-                        <ColorPicker label="Borde" value={crestC3} onChange={setCrestC3} />
-                        <ColorPicker label="Acento" value={crestC4 || ''} onChange={setCrestC4} />
+        <div className="flex gap-2">
+          <Button variant="outline" className="font-black rounded-xl h-10 md:h-12 border-primary text-primary" onClick={() => setIsTransferCenterOpen(true)}>
+            <ArrowLeftRight className="w-4 h-4 mr-2" /> TRASPASOS
+          </Button>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if(!open) setEditingTeam(null); }}>
+            <DialogTrigger asChild><Button className="font-black rounded-xl h-10 md:h-12 shadow-lg shadow-primary/20 text-xs md:text-sm">FUNDAR CLUB</Button></DialogTrigger>
+            <DialogContent className="max-w-[95vw] md:max-w-[800px] p-0 overflow-hidden rounded-[1.5rem] md:rounded-[2.5rem] border-none shadow-2xl">
+              <div className="p-4 md:p-6 bg-muted/20 border-b">
+                <DialogTitle className="font-black uppercase text-sm md:text-base">Club Identity Studio</DialogTitle>
+              </div>
+              <Tabs defaultValue="base" className="w-full flex flex-col h-[80vh] md:h-[70vh]">
+                <TabsList className="grid grid-cols-3 rounded-none h-12 md:h-14 border-b bg-card p-1">
+                  <TabsTrigger value="base" className="rounded-lg md:rounded-xl text-xs">General</TabsTrigger>
+                  <TabsTrigger value="crest" className="rounded-lg md:rounded-xl text-xs">Heráldica</TabsTrigger>
+                  <TabsTrigger value="venue" className="rounded-lg md:rounded-xl text-xs">Sede</TabsTrigger>
+                </TabsList>
+                
+                <div className="flex-1 overflow-y-auto p-4 md:p-6 scrollbar-hide">
+                  <TabsContent value="base" className="space-y-6 mt-0">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2"><Label>Nombre del Club</Label><Input value={name} onChange={e => setName(e.target.value)} className="h-10 md:h-12 rounded-xl" /></div>
+                      <div className="space-y-2"><Label>Siglas (3 car.)</Label><Input maxLength={3} value={abbreviation} onChange={e => setAbbreviation(e.target.value)} className="h-10 md:h-12 rounded-xl" /></div>
+                      <div className="space-y-2 md:col-span-2">
+                        <Label>Descripción / Historia</Label>
+                        <Textarea value={description} onChange={e => setDescription(e.target.value)} className="min-h-[80px] md:min-h-[100px] rounded-xl" />
                       </div>
                     </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="venue" className="space-y-6 mt-0">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                    <div className="space-y-2"><Label>Nombre de la Sede</Label><Input value={venueName} onChange={e => setVenueName(e.target.value)} className="h-10 md:h-12 rounded-xl" /></div>
-                    <div className="space-y-2"><Label>Aforo Máximo</Label><Input type="number" value={venueCapacity} onChange={e => setVenueCapacity(Number(e.target.value))} className="h-10 md:h-12 rounded-xl" /></div>
-                    <div className="space-y-2">
-                      <Label>Superficie</Label>
-                      <Select value={venueSurface} onValueChange={(v: any) => setVenueSurface(v)}>
-                        <SelectTrigger className="h-10 md:h-12 rounded-xl"><SelectValue /></SelectTrigger>
-                        <SelectContent>{['grass','artificial','clay','hardcourt','parquet','ice','sand'].map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent>
-                      </Select>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2 p-4 bg-muted/10 rounded-2xl border">
+                        <div className="flex justify-between items-center mb-2"><Label>Rating Global</Label><span className="font-black text-primary">{rating}</span></div>
+                        <Slider value={[rating]} onValueChange={v => setRating(v[0])} max={100} min={1} />
+                      </div>
+                      <div className="space-y-2 p-4 bg-muted/10 rounded-2xl border">
+                        <Label className="flex items-center gap-2"><Coins className="w-4 h-4 text-accent" /> Presupuesto ({settings.currency})</Label>
+                        <Input type="number" value={budget} onChange={e => setBudget(Number(e.target.value))} className="h-10 mt-2 rounded-lg" />
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Escala</Label>
-                      <Select value={venueSize} onValueChange={(v: any) => setVenueSize(v)}>
-                        <SelectTrigger className="h-10 md:h-12 rounded-xl"><SelectValue /></SelectTrigger>
-                        <SelectContent>{['small','medium','large','monumental'].map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </TabsContent>
-              </div>
+                  </TabsContent>
 
-              <div className="p-4 bg-muted/20 border-t flex justify-end gap-3">
-                <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="rounded-xl h-10 md:h-12 px-4 md:px-8 font-black text-xs md:text-sm">CANCELAR</Button>
-                <Button onClick={handleSaveTeam} className="rounded-xl h-10 md:h-12 px-4 md:px-8 font-black shadow-lg shadow-primary/20 text-xs md:text-sm">GUARDAR CLUB</Button>
-              </div>
-            </Tabs>
-          </DialogContent>
-        </Dialog>
+                  <TabsContent value="crest" className="space-y-8 mt-0">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-start">
+                      <div className="aspect-square bg-muted/20 rounded-3xl flex items-center justify-center border-2 border-dashed border-accent/20">
+                        <CrestIcon shape={crestShape} pattern={crestPattern} c1={crestC1} c2={crestC2} c3={crestC3} c4={crestC4} border={crestBorder} size="w-32 h-32 md:w-40 h-40" />
+                      </div>
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Forma Base</Label>
+                            <Select value={crestShape} onValueChange={(v: any) => setCrestShape(v)}>
+                              <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
+                              <SelectContent>{['shield','circle','hexagon','diamond','modern','star','crown','eagle','lion'].map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Patrón</Label>
+                            <Select value={crestPattern} onValueChange={(v: any) => setCrestPattern(v)}>
+                              <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
+                              <SelectContent>{['none','vertical-split','horizontal-split','diagonal-split','cross','saltire','quarters'].map(p => <SelectItem key={p} value={p} className="capitalize">{p}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <ColorPicker label="Base" value={crestC1} onChange={setCrestC1} />
+                          <ColorPicker label="Patrón" value={crestC2} onChange={setCrestC2} />
+                          <ColorPicker label="Borde" value={crestC3} onChange={setCrestC3} />
+                          <ColorPicker label="Acento" value={crestC4 || ''} onChange={setCrestC4} />
+                        </div>
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="venue" className="space-y-6 mt-0">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                      <div className="space-y-2"><Label>Nombre de la Sede</Label><Input value={venueName} onChange={e => setVenueName(e.target.value)} className="h-10 md:h-12 rounded-xl" /></div>
+                      <div className="space-y-2"><Label>Aforo Máximo</Label><Input type="number" value={venueCapacity} onChange={e => setVenueCapacity(Number(e.target.value))} className="h-10 md:h-12 rounded-xl" /></div>
+                      <div className="space-y-2">
+                        <Label>Superficie</Label>
+                        <Select value={venueSurface} onValueChange={(v: any) => setVenueSurface(v)}>
+                          <SelectTrigger className="h-10 md:h-12 rounded-xl"><SelectValue /></SelectTrigger>
+                          <SelectContent>{['grass','artificial','clay','hardcourt','parquet','ice','sand'].map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Escala</Label>
+                        <Select value={venueSize} onValueChange={(v: any) => setVenueSize(v)}>
+                          <SelectTrigger className="h-10 md:h-12 rounded-xl"><SelectValue /></SelectTrigger>
+                          <SelectContent>{['small','medium','large','monumental'].map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </TabsContent>
+                </div>
+
+                <div className="p-4 bg-muted/20 border-t flex justify-end gap-3">
+                  <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="rounded-xl h-10 md:h-12 px-4 md:px-8 font-black text-xs md:text-sm">CANCELAR</Button>
+                  <Button onClick={handleSaveTeam} className="rounded-xl h-10 md:h-12 px-4 md:px-8 font-black shadow-lg shadow-primary/20 text-xs md:text-sm">GUARDAR CLUB</Button>
+                </div>
+              </Tabs>
+            </DialogContent>
+          </Dialog>
+        </div>
       </header>
 
       <div className="px-2 md:px-0">
@@ -331,12 +343,12 @@ export default function TeamsPage() {
                 </Button>
                 <Dialog>
                   <DialogTrigger asChild>
-                    <Button variant="outline" className="h-9 md:h-11 rounded-xl font-black border-accent text-accent text-[10px] md:text-sm"><Users className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" /> TRASPASOS</Button>
+                    <Button variant="outline" className="h-9 md:h-11 rounded-xl font-black border-accent text-accent text-[10px] md:text-sm"><Users className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" /> MERCADO</Button>
                   </DialogTrigger>
                   <DialogContent className="rounded-[1.5rem] md:rounded-[2rem] max-w-[90vw] md:max-w-lg">
-                    <DialogHeader><DialogTitle className="font-black uppercase text-sm md:text-base">Mercado de Traspasos</DialogTitle></DialogHeader>
+                    <DialogHeader><DialogTitle className="font-black uppercase text-sm md:text-base">Agentes Libres para {team.name}</DialogTitle></DialogHeader>
                     <div className="space-y-4 py-4">
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase">Fichar para {team.name}</p>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase">Fichar agentes sin club</p>
                       <ScrollArea className="h-[250px] md:h-[300px] pr-2">
                         <div className="grid gap-2">
                           {players.filter(p => !p.teamId).map(p => (
@@ -367,6 +379,79 @@ export default function TeamsPage() {
           </Card>
         ))}
       </div>
+
+      {/* Manual Transfer Center */}
+      <Dialog open={isTransferCenterOpen} onOpenChange={setIsTransferCenterOpen}>
+        <DialogContent className="max-w-[95vw] md:max-w-2xl rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl">
+          <div className="bg-primary p-6 text-white border-b">
+            <DialogTitle className="text-xl md:text-2xl font-black uppercase flex items-center gap-3">
+              <ArrowLeftRight className="w-6 h-6" /> Oficina de Traspasos
+            </DialogTitle>
+          </div>
+          <div className="p-6 md:p-10 grid grid-cols-1 md:grid-cols-2 gap-8 bg-card">
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">1. Selección de Origen</Label>
+                <Select value={tSource} onValueChange={(v) => { setTSource(v); setTPlayer(''); }}>
+                  <SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Origen..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="free">Agentes Libres</SelectItem>
+                    {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">2. Elegir Agente</Label>
+                <Select value={tPlayer} onValueChange={setTPlayer}>
+                  <SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Agente..." /></SelectTrigger>
+                  <SelectContent>
+                    {players.filter(p => tSource === 'free' ? !p.teamId : p.teamId === tSource).map(p => (
+                      <SelectItem key={p.id} value={p.id}>{p.name} ({p.monetaryValue} {settings.currency})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">3. Destino del Contrato</Label>
+                <Select value={tDest} onValueChange={setTDest}>
+                  <SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Destino..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="free">Agente Libre (Despido)</SelectItem>
+                    {teams.filter(t => t.id !== tSource).map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="pt-4">
+                <Button 
+                  className="w-full h-16 rounded-2xl font-black text-lg shadow-xl shadow-primary/20" 
+                  disabled={!tPlayer || !tDest}
+                  onClick={() => {
+                    const p = players.find(x => x.id === tPlayer);
+                    const target = tDest === 'free' ? undefined : teams.find(x => x.id === tDest);
+                    if (target && tSource === 'free' && target.budget < (p?.monetaryValue || 0)) {
+                      toast({ title: "Fondos Insuficientes", variant: "destructive" });
+                      return;
+                    }
+                    transferPlayer(tPlayer, tDest === 'free' ? undefined : tDest);
+                    toast({ title: "Traspaso Realizado", description: "El universo ha sido reequilibrado." });
+                    setTPlayer('');
+                  }}
+                >
+                  EJECUTAR OPERACIÓN
+                </Button>
+              </div>
+            </div>
+          </div>
+          <div className="p-4 bg-muted/30 border-t flex justify-end">
+            <Button variant="ghost" onClick={() => setIsTransferCenterOpen(false)} className="rounded-xl font-black uppercase text-[10px]">Cerrar Oficina</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isPlayerDialogOpen} onOpenChange={setIsPlayerDialogOpen}>
         <DialogContent className="rounded-[1.5rem] md:rounded-[2.5rem] max-w-[95vw] md:max-w-[800px] p-0 overflow-hidden border-none shadow-2xl">
