@@ -36,8 +36,8 @@ export default function NewTournamentPage() {
   const [aiDescription, setAiDescription] = useState('');
   
   const [groups, setGroups] = useState<TournamentGroup[]>([
-    { id: 'g1', name: 'Horta Sud', participantIds: [] },
-    { id: 'g2', name: 'Horta Nord', participantIds: [] }
+    { id: 'g1', name: 'Conferencia Sud', participantIds: [] },
+    { id: 'g2', name: 'Conferencia Nord', participantIds: [] }
   ]);
   
   const [scoringType, setScoringType] = useState<ScoringRuleType>('bestOfN');
@@ -55,7 +55,6 @@ export default function NewTournamentPage() {
   const [playoffSpots, setPlayoffSpots] = useState(16);
   const [relegationSpots, setRelegationSpots] = useState(8);
 
-  // Selector Arcade robusto: se actualiza cada vez que cambia la selección de equipos
   const arcadeTeamOptions = useMemo(() => {
     return teams.filter(t => selectedParticipants.includes(t.id));
   }, [teams, selectedParticipants]);
@@ -173,18 +172,18 @@ export default function NewTournamentPage() {
                     <Select 
                       value={managedParticipantId} 
                       onValueChange={setManagedParticipantId}
-                      key={`arcade-select-${selectedParticipants.length}`}
+                      key={`arcade-select-trigger-${selectedParticipants.join(',')}`}
                     >
                       <SelectTrigger className="h-12 rounded-xl border-primary/30">
-                        <SelectValue placeholder={arcadeTeamOptions.length > 0 ? "Seleccionar entre inscritos..." : "Inscribe equipos primero"} />
+                        <SelectValue placeholder={arcadeTeamOptions.length > 0 ? "Seleccionar club..." : "Inscribe equipos primero"} />
                       </SelectTrigger>
                       <SelectContent className="rounded-xl">
                         {arcadeTeamOptions.length > 0 ? (
                           arcadeTeamOptions.map(t => (
-                            <SelectItem key={`managed-team-${t.id}`} value={t.id}>{t.name}</SelectItem>
+                            <SelectItem key={`managed-team-opt-${t.id}`} value={t.id}>{t.name}</SelectItem>
                           ))
                         ) : (
-                          <SelectItem value="placeholder" disabled className="text-center text-[10px] font-bold text-muted-foreground uppercase italic p-4">
+                          <SelectItem value="none" disabled className="text-center text-[10px] font-bold text-muted-foreground uppercase italic p-4">
                             No hay equipos inscritos aún
                           </SelectItem>
                         )}
@@ -220,7 +219,7 @@ export default function NewTournamentPage() {
                 <div className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl border">
                   <div className="space-y-0.5">
                     <Label className="font-black uppercase text-[10px]">Liga Dual (Espejo)</Label>
-                    <p className="text-[9px] text-muted-foreground">Simula canteras en paralelo.</p>
+                    <p className="text-[9px] text-muted-foreground">Simula canteras en paralelo e invertido.</p>
                   </div>
                   <Switch checked={dualLeagueEnabled} onCheckedChange={setDualLeagueEnabled} />
                 </div>
@@ -275,7 +274,7 @@ export default function NewTournamentPage() {
                   const isAssigned = groups.some(g => g.participantIds.includes(team.id));
                   return (
                     <button 
-                      key={`team-select-${team.id}-${idx}`} 
+                      key={`team-reg-${team.id}-${idx}`} 
                       onClick={() => setSelectedParticipants(prev => isSelected ? prev.filter(id => id !== team.id) : [...prev, team.id])}
                       className={cn(
                         "p-4 rounded-2xl border-2 transition-all text-left flex flex-col gap-2 relative",
@@ -320,7 +319,7 @@ export default function NewTournamentPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {groups.map((group, gIdx) => (
-                  <Card key={`group-config-${group.id}-${gIdx}`} className="rounded-[2.5rem] border bg-card shadow-2xl overflow-hidden">
+                  <Card key={`group-setup-${group.id}-${gIdx}`} className="rounded-[2.5rem] border bg-card shadow-2xl overflow-hidden">
                     <CardHeader className="bg-muted/10 p-6 flex flex-row justify-between items-center border-b">
                       <div className="flex items-center gap-3">
                         <Badge className="bg-accent text-accent-foreground font-black">{group.participantIds.length}</Badge>
@@ -346,7 +345,7 @@ export default function NewTournamentPage() {
                           {group.participantIds.map((pId, pIdx) => {
                             const team = teams.find(t => t.id === pId);
                             return (
-                              <Badge key={`assigned-${group.id}-${pId}-${pIdx}`} variant="secondary" className="bg-primary/10 text-primary border-primary/20 px-4 py-2 rounded-xl flex items-center gap-3">
+                              <Badge key={`assigned-pill-${group.id}-${pId}-${pIdx}`} variant="secondary" className="bg-primary/10 text-primary border-primary/20 px-4 py-2 rounded-xl flex items-center gap-3">
                                 <CrestIcon shape={team?.emblemShape!} pattern={team?.emblemPattern!} c1={team?.crestPrimary!} c2={team?.crestSecondary!} size="w-4 h-4" />
                                 <span className="text-[10px] font-black uppercase truncate max-w-[100px]">{team?.name}</span>
                                 <button onClick={() => removeFromGroup(pId)} className="hover:text-destructive transition-colors"><X className="w-3 h-3" /></button>
@@ -368,7 +367,7 @@ export default function NewTournamentPage() {
                               .map((pId, sIdx) => {
                                 const team = teams.find(t => t.id === pId);
                                 return (
-                                  <SelectItem key={`avail-${group.id}-${pId}-${sIdx}`} value={pId}>
+                                  <SelectItem key={`avail-opt-${group.id}-${pId}-${sIdx}`} value={pId}>
                                     {team?.name}
                                   </SelectItem>
                                 );

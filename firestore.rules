@@ -3,43 +3,30 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * Helper Functions
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    /**
-     * User Documents and Subcollections
-     * Se usa una regla recursiva para asegurar que el dueño tenga acceso total 
-     * a su rama de datos (perfil, backups, settings, etc.)
+     * Reglas de Usuario: Acceso total y recursivo a la rama propia.
+     * Permite guardar backups, ajustes y perfiles sin fallos de jerarquía.
      */
     match /users/{userId} {
-      allow read, write: if isOwner(userId);
+      allow read, write: if request.auth != null && request.auth.uid == userId;
       
       match /{allPaths=**} {
-        allow read, write: if isOwner(userId);
+        allow read, write: if request.auth != null && request.auth.uid == userId;
       }
     }
 
     /**
-     * Public Gallery
-     * Permite lectura global pero solo el dueño puede publicar o editar.
+     * Galería de la Comunidad: Lectura global, escritura solo para el creador.
      */
     match /publicTournaments/{tournamentId} {
-      allow get, list: if true;
-      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow read: if true;
+      allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
       
       match /{allPaths=**} {
-        allow get, list: if true;
-        allow write: if isSignedIn() && (
-          (request.resource != null && request.resource.data.ownerId == request.auth.uid) ||
-          (resource != null && resource.data.ownerId == request.auth.uid)
+        allow read: if true;
+        allow write: if request.auth != null && (
+          (resource != null && resource.data.ownerId == request.auth.uid) ||
+          (request.resource != null && request.resource.data.ownerId == request.auth.uid)
         );
       }
     }
