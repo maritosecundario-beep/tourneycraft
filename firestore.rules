@@ -17,13 +17,14 @@ service cloud.firestore {
      * User Documents and Subcollections
      */
     match /users/{userId} {
-      // Permitir lectura a cualquier usuario autenticado (para la galería/nombres)
+      // Permitir lectura a cualquier usuario autenticado
       allow get, list: if isSignedIn();
-      // Solo el dueño puede crear/editar su perfil
+      // Solo el dueño puede editar su perfil y subcolecciones
       allow create, update, delete: if isOwner(userId);
 
       /**
        * Subcolecciones protegidas por propiedad
+       * Reglas explícitas para evitar errores de herencia
        */
       match /backups/{backupId} {
         allow read, write: if isOwner(userId);
@@ -51,7 +52,10 @@ service cloud.firestore {
       
       match /matches/{matchId} {
         allow get, list: if true;
-        allow create, update, delete: if isSignedIn() && request.resource.data.tournamentOwnerId == request.auth.uid;
+        allow create, update, delete: if isSignedIn() && (
+          (request.resource != null && request.resource.data.tournamentOwnerId == request.auth.uid) ||
+          (resource != null && resource.data.tournamentOwnerId == request.auth.uid)
+        );
       }
     }
   }

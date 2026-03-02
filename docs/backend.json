@@ -13,6 +13,19 @@
       },
       "required": ["id", "username", "email", "createdAt"]
     },
+    "Backup": {
+      "title": "Backup",
+      "type": "object",
+      "description": "Cloud snapshot of the user's sports universe.",
+      "properties": {
+        "teams": { "type": "array" },
+        "players": { "type": "array" },
+        "tournaments": { "type": "array" },
+        "settings": { "type": "object" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "ownerId": { "type": "string" }
+      }
+    },
     "Team": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Team",
@@ -56,7 +69,7 @@
         "path": "/users/{userId}/backups/{backupId}",
         "definition": {
           "entityName": "Backup",
-          "schema": { "type": "object" },
+          "schema": { "$ref": "#/backend/entities/Backup" },
           "description": "Stores full state snapshots for cloud sync."
         }
       },
@@ -74,6 +87,14 @@
           "entityName": "Player",
           "schema": { "$ref": "#/backend/entities/Player" },
           "description": "Stores players created and owned by a specific user."
+        }
+      },
+      {
+        "path": "/publicTournaments/{tournamentId}",
+        "definition": {
+          "entityName": "Tournament",
+          "schema": { "type": "object" },
+          "description": "Community shared tournaments."
         }
       }
     ]

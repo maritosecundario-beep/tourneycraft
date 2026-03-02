@@ -1,10 +1,9 @@
-
 "use client";
 
 import { useTournamentStore } from '@/hooks/use-tournament-store';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Trophy, Calendar, Users, Play, ShieldAlert, ShoppingBag, Layers, Target, ChevronRight, Star, Sword, Zap, Info, Coins, LayoutGrid, Sparkles, RefreshCw, Brackets, Group, Trash2, MapPin, UserCircle2, Activity, Globe, Share2 } from 'lucide-react';
+import { Trophy, Calendar, Users, Play, ShieldAlert, ShoppingBag, Layers, Target, ChevronRight, Star, Sword, Zap, Info, Coins, LayoutGrid, Sparkles, RefreshCw, Brackets, Group, Trash2, MapPin, UserCircle2, Activity, Globe, Share2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -55,7 +54,7 @@ export default function TournamentDetailPage() {
 
   const getStandingsForParticipants = (participantIds: string[], isDual: boolean = false) => {
     if (!tournament) return [];
-    const matchList = isDual ? tournament.dualLeagueMatches : tournament.matches;
+    const matchList = isDual ? (tournament.dualLeagueMatches || []) : (tournament.matches || []);
     
     return participantIds.map(pId => {
       const item = teams.find(t => t.id === pId) || players.find(p => p.id === pId);
@@ -168,7 +167,7 @@ export default function TournamentDetailPage() {
       resolveMatch(tournament.id, m.id, hScore, aScore, false, hPlayerId, aPlayerId);
       
       if (tournament.dualLeagueEnabled) {
-        const dualMatch = tournament.dualLeagueMatches.find(dm => dm.matchday === m.matchday && dm.homeId === m.awayId && dm.awayId === m.homeId);
+        const dualMatch = (tournament.dualLeagueMatches || []).find(dm => dm.matchday === m.matchday && dm.homeId === m.awayId && dm.awayId === m.homeId);
         if (dualMatch && !dualMatch.isSimulated) {
           const { hScore: dh, aScore: da, hPlayerId: dhp, aPlayerId: dap } = simulateMatchLogic(dualMatch);
           resolveMatch(tournament.id, dualMatch.id, dh, da, true, dhp, dap);
@@ -182,7 +181,7 @@ export default function TournamentDetailPage() {
     } else {
       triggerMarketMoves(tournament.id);
       const nextMatchday = tournament.currentMatchday + 1;
-      const maxMatchday = tournament.matches.length > 0 ? Math.max(...tournament.matches.map(m => m.matchday)) : 0;
+      const maxMatchday = (tournament.matches || []).length > 0 ? Math.max(...tournament.matches.map(m => m.matchday)) : 0;
       if (nextMatchday <= maxMatchday) {
         updateTournament({ ...tournament, currentMatchday: nextMatchday });
       }
@@ -193,7 +192,7 @@ export default function TournamentDetailPage() {
   const simulateOtherGroups = () => {
     if (!tournament || !userGroup) return;
     
-    const otherGroupsMatches = tournament.matches.filter(m => {
+    const otherGroupsMatches = (tournament.matches || []).filter(m => {
       const isUserMatch = userGroup.participantIds.includes(m.homeId) || userGroup.participantIds.includes(m.awayId);
       return !isUserMatch && !m.isSimulated;
     });
@@ -203,7 +202,7 @@ export default function TournamentDetailPage() {
       resolveMatch(tournament.id, m.id, hScore, aScore, false, hPlayerId, aPlayerId);
       
       if (tournament.dualLeagueEnabled) {
-        const dualMatch = tournament.dualLeagueMatches.find(dm => dm.matchday === m.matchday && dm.homeId === m.awayId && dm.awayId === m.homeId);
+        const dualMatch = (tournament.dualLeagueMatches || []).find(dm => dm.matchday === m.matchday && dm.homeId === m.awayId && dm.awayId === m.homeId);
         if (dualMatch && !dualMatch.isSimulated) {
           const { hScore: dh, aScore: da, hPlayerId: dhp, aPlayerId: dap } = simulateMatchLogic(dualMatch);
           resolveMatch(tournament.id, dualMatch.id, dh, da, true, dhp, dap);
@@ -248,7 +247,7 @@ export default function TournamentDetailPage() {
     resolveMatch(tournament.id, selectedMatch.id, hScore, aScore, false, hP, aP);
     
     if (tournament.dualLeagueEnabled) {
-      const dualMatch = tournament.dualLeagueMatches.find(dm => dm.matchday === tournament.currentMatchday && dm.homeId === selectedMatch.awayId && dm.awayId === selectedMatch.homeId);
+      const dualMatch = (tournament.dualLeagueMatches || []).find(dm => dm.matchday === tournament.currentMatchday && dm.homeId === selectedMatch.awayId && dm.awayId === selectedMatch.homeId);
       if (dualMatch) {
         const { hScore: dh, aScore: da, hPlayerId: dhp, aPlayerId: dap } = simulateMatchLogic(dualMatch);
         resolveMatch(tournament.id, dualMatch.id, dh, da, true, dhp, dap);
@@ -265,7 +264,7 @@ export default function TournamentDetailPage() {
 
   const viewingMatch = useMemo(() => {
     if (!viewingMatchId || !tournament) return null;
-    return [...tournament.matches, ...tournament.dualLeagueMatches].find(m => m.id === viewingMatchId);
+    return [...(tournament.matches || []), ...(tournament.dualLeagueMatches || [])].find(m => m.id === viewingMatchId);
   }, [viewingMatchId, tournament]);
 
   const getTeamStanding = (teamId: string) => {
@@ -302,7 +301,7 @@ export default function TournamentDetailPage() {
               <Zap className="w-4 h-4 mr-2" /> OTROS GRUPOS
             </Button>
           )}
-          {!isSeasonOver && tournament.matches.length > 0 && (
+          {!isSeasonOver && (tournament.matches || []).length > 0 && (
             <Button onClick={handleSimulateMatchday} size="lg" className="flex-1 md:flex-none h-14 md:h-16 rounded-2xl px-10 font-black shadow-xl shadow-primary/20">
               <Play className="w-5 h-5 mr-3 fill-current" /> {tournament.mode === 'arcade' ? 'JUGAR JORNADA' : 'SIGUIENTE JORNADA'}
             </Button>
@@ -313,7 +312,7 @@ export default function TournamentDetailPage() {
         </div>
       </header>
 
-      {tournament.matches.length === 0 && (
+      {(tournament.matches || []).length === 0 && (
         <Card className="border-none bg-yellow-500/10 border-2 border-yellow-500/20 rounded-[2rem] p-8 text-center space-y-6">
           <Calendar className="text-yellow-500 w-12 h-12 mx-auto" />
           <h2 className="text-2xl font-black uppercase text-yellow-600">Calendario Pendiente</h2>
@@ -355,7 +354,7 @@ export default function TournamentDetailPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {group.data.map((item: any, idx: number) => (
+                        {(group.data || []).map((item: any, idx: number) => (
                           <TableRow key={`row-main-${group.id}-${item.id}`} className="h-14 md:h-16 cursor-pointer hover:bg-primary/5 transition-colors" onClick={() => setViewTeamId(item.id)}>
                             <TableCell className="text-center">
                               <div className="flex flex-col items-center">
@@ -392,10 +391,10 @@ export default function TournamentDetailPage() {
               <Card className="border-none bg-card shadow-2xl rounded-[1.5rem] p-6 md:p-8">
                 <ScrollArea className="h-[600px] pr-4">
                   <div className="space-y-12">
-                    {Array.from({ length: Math.max(...tournament.matches.map(m => m.matchday), 0) }).map((_, i) => {
-                      const matchdayMatches = tournament.matches.filter(m => 
+                    {Array.from({ length: Math.max(...(tournament.matches || []).map(m => m.matchday), 0) }).map((_, i) => {
+                      const matchdayMatches = (tournament.matches || []).filter(m => 
                         m.matchday === i + 1 && 
-                        (group.id === 'general' || group.data.some((t: any) => t.id === m.homeId))
+                        (group.id === 'general' || (group.data || []).some((t: any) => t.id === m.homeId))
                       );
                       if (matchdayMatches.length === 0) return null;
                       return (
@@ -453,7 +452,7 @@ export default function TournamentDetailPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {dualStandings.map((item: any, idx: number) => (
+                    {(dualStandings || []).map((item: any, idx: number) => (
                       <TableRow key={`row-dual-${item.id}`} className="h-14 md:h-16">
                         <TableCell className="text-center font-black text-base">{idx + 1}</TableCell>
                         <TableCell><div className="flex items-center gap-2 md:gap-3"><CrestIcon shape={item.emblemShape} pattern={item.emblemPattern} c1={item.crestPrimary} c2={item.crestSecondary} size="w-6 h-6 md:w-8 md:h-8" /><span className="font-bold text-xs md:text-sm truncate">{item.name}</span></div></TableCell>
@@ -476,8 +475,8 @@ export default function TournamentDetailPage() {
             <Card className="border-none bg-card shadow-2xl rounded-[1.5rem] p-6 md:p-8">
               <ScrollArea className="h-[600px] pr-4">
                 <div className="space-y-12">
-                  {Array.from({ length: Math.max(...tournament.dualLeagueMatches.map(m => m.matchday), 0) }).map((_, i) => {
-                    const matchdayMatches = tournament.dualLeagueMatches.filter(m => m.matchday === i + 1);
+                  {Array.from({ length: Math.max(...(tournament.dualLeagueMatches || []).map(m => m.matchday), 0) }).map((_, i) => {
+                    const matchdayMatches = (tournament.dualLeagueMatches || []).filter(m => m.matchday === i + 1);
                     if (matchdayMatches.length === 0) return null;
                     return (
                       <div key={`matchday-dual-${i}`}>
@@ -515,7 +514,7 @@ export default function TournamentDetailPage() {
                 <h3 className="text-[10px] font-black uppercase text-muted-foreground border-b pb-2">TOP AGENTES</h3>
                 <ScrollArea className="h-[400px]">
                   <div className="grid gap-2 pr-2">
-                    {players.filter(p => !p.teamId || tournament.participants.includes(p.teamId)).sort((a,b) => b.monetaryValue - a.monetaryValue).map(p => (
+                    {players.filter(p => !p.teamId || (tournament.participants || []).includes(p.teamId)).sort((a,b) => b.monetaryValue - a.monetaryValue).map(p => (
                       <div key={`market-item-${p.id}`} className="flex items-center justify-between p-3 bg-muted/10 rounded-xl border">
                         <div><p className="font-black text-xs">{p.name}</p><p className="text-[8px] font-bold text-accent uppercase">{teams.find(t => t.id === p.teamId)?.name || 'Agente Libre'}</p></div>
                         <span className="font-black text-xs text-primary">{p.monetaryValue} CR</span>
@@ -538,7 +537,7 @@ export default function TournamentDetailPage() {
             <h2 className="text-xl font-black uppercase text-destructive flex items-center gap-2 mb-6"><ShieldAlert /> SANCIONAR</h2>
             <div className="space-y-4">
               <Select value={sanctionType} onValueChange={(v: any) => setSanctionType(v)}><SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="club">Multa a Club (CR)</SelectItem><SelectItem value="player">Suspensión Agente (J.)</SelectItem></SelectContent></Select>
-              <Select onValueChange={setSanctionTargetId}><SelectTrigger className="rounded-xl"><SelectValue placeholder="Seleccionar..." /></SelectTrigger><SelectContent>{sanctionType === 'club' ? teams.filter(t => tournament.participants.includes(t.id)).map(t => <SelectItem key={`sanction-target-t-${t.id}`} value={t.id}>{t.name}</SelectItem>) : players.filter(p => p.teamId && tournament.participants.includes(p.teamId)).map(p => <SelectItem key={`sanction-target-p-${p.id}`} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select>
+              <Select onValueChange={setSanctionTargetId}><SelectTrigger className="rounded-xl"><SelectValue placeholder="Seleccionar..." /></SelectTrigger><SelectContent>{sanctionType === 'club' ? teams.filter(t => (tournament.participants || []).includes(t.id)).map(t => <SelectItem key={`sanction-target-t-${t.id}`} value={t.id}>{t.name}</SelectItem>) : players.filter(p => p.teamId && (tournament.participants || []).includes(p.teamId)).map(p => <SelectItem key={`sanction-target-p-${p.id}`} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select>
               <Input type="number" value={sanctionValue} onChange={e => setSanctionValue(Number(e.target.value))} className="rounded-xl" />
               <Button variant="destructive" className="w-full h-12 rounded-xl font-black" onClick={() => { if(sanctionTargetId) { applySanction(sanctionTargetId, sanctionType === 'club' ? 'team-budget' : 'player-suspension', sanctionValue); toast({ title: "Sanción Aplicada" }); } }}>CONFIRMAR SANCION</Button>
             </div>
@@ -580,7 +579,7 @@ export default function TournamentDetailPage() {
                           <Badge variant="secondary" className="bg-white/20 text-white border-none font-black">POS: #{oppStats?.pos || '?'}</Badge>
                           <Badge variant="secondary" className="bg-white/20 text-white border-none font-black uppercase text-[8px]">{opp?.venueName}</Badge>
                         </div>
-                        <p className="text-[10px] mt-4 italic opacity-80 leading-relaxed">"{opp?.description || 'Entidad deportiva legendaria de l\'Horta.'}"</p>
+                        <p className="text-[10px] mt-4 italic opacity-80 leading-relaxed">"{opp?.description || "Entidad deportiva histórica de l'Horta."}"</p>
                         {bestOppPlayer && (
                           <div className="mt-4 p-4 bg-black/20 rounded-2xl border border-white/10 space-y-3">
                             <div className="flex justify-between items-center border-b border-white/10 pb-2">
@@ -656,7 +655,7 @@ export default function TournamentDetailPage() {
                 <div className="space-y-8">
                   <section className="space-y-2">
                     <h4 className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-2"><Info className="w-3 h-3" /> Perfil del Club</h4>
-                    <p className="text-xs md:text-sm italic leading-relaxed text-muted-foreground">"{teams.find(t => t.id === viewingTeamId)!.description || 'Entidad deportiva histórica de l\'Horta.'}"</p>
+                    <p className="text-xs md:text-sm italic leading-relaxed text-muted-foreground">"{teams.find(t => t.id === viewingTeamId)!.description || "Entidad deportiva histórica de l'Horta."}"</p>
                   </section>
                   <section className="space-y-4">
                     <h4 className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-2"><Users className="w-3 h-3" /> Jugadores Registrados</h4>
