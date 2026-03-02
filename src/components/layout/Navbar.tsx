@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Trophy, Users, UserPlus, Settings, LayoutDashboard, Database, LogIn, LogOut, MoreHorizontal, Sparkles, Globe } from 'lucide-react';
+import { Trophy, Users, UserPlus, Settings, LayoutDashboard, Database, LogIn, LogOut, MoreHorizontal, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUser, useAuth } from '@/firebase';
 import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
@@ -57,7 +57,6 @@ export function Navbar() {
 
   const navItems = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-    { name: 'Comunidad', href: '/gallery', icon: Globe },
     { name: 'AI Studio', href: '/ai-studio', icon: Sparkles, highlight: true },
     { name: 'Clubs', href: '/teams', icon: Users },
     { name: 'Agentes', href: '/players', icon: UserPlus },
@@ -65,7 +64,7 @@ export function Navbar() {
   ];
 
   const moreItems = [
-    { name: 'Data Sync', href: '/backups', icon: Database },
+    { name: 'Cloud Sync', href: '/backups', icon: Database },
     { name: 'Ajustes', href: '/settings', icon: Settings },
   ];
 
@@ -140,12 +139,12 @@ export function Navbar() {
                     </Avatar>
                     <div className="overflow-hidden">
                       <p className="text-[11px] font-black truncate uppercase tracking-tight">{user.displayName}</p>
-                      <p className="text-[9px] text-accent uppercase font-black tracking-widest">Conectado</p>
+                      <p className="text-[9px] text-accent uppercase font-black tracking-widest">Sincronizado</p>
                     </div>
                   </div>
                   <Button variant="ghost" size="sm" className="w-full justify-start h-8 px-2 hover:bg-destructive/10 hover:text-destructive" onClick={handleLogout}>
                     <LogOut className="w-4 h-4 mr-2" />
-                    <span className="text-xs font-bold">Cerrar Sesión</span>
+                    <span className="text-xs font-bold">Desconectar</span>
                   </Button>
                 </div>
               ) : (
@@ -160,7 +159,7 @@ export function Navbar() {
       </nav>
 
       <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-card border-t border-border flex items-center justify-around px-2 z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
-        {navItems.filter(i => i.name !== 'Torneos' && i.name !== 'Comunidad').map((item) => {
+        {navItems.map((item) => {
           const isActive = pathname === item.href;
           const Icon = item.icon;
           return (
@@ -191,14 +190,6 @@ export function Navbar() {
               <SheetTitle className="text-left text-xl font-black uppercase tracking-tighter">Opciones</SheetTitle>
             </SheetHeader>
             <div className="grid grid-cols-2 gap-3">
-              <Link href="/gallery" className="flex flex-col items-center gap-3 p-6 bg-muted/30 rounded-3xl border border-border/50 hover:bg-muted/50 transition-colors">
-                <Globe className="w-6 h-6 text-accent" />
-                <span className="font-black text-xs uppercase tracking-tight text-foreground">Comunidad</span>
-              </Link>
-              <Link href="/tournaments" className="flex flex-col items-center gap-3 p-6 bg-muted/30 rounded-3xl border border-border/50 hover:bg-muted/50 transition-colors">
-                <Trophy className="w-6 h-6 text-primary" />
-                <span className="font-black text-xs uppercase tracking-tight text-foreground">Torneos</span>
-              </Link>
               {moreItems.map((item) => (
                 <Link 
                   key={item.href} 
@@ -221,7 +212,7 @@ export function Navbar() {
                       </Avatar>
                       <div className="overflow-hidden">
                         <p className="font-black text-sm uppercase truncate max-w-[120px]">{user.displayName}</p>
-                        <p className="text-[10px] text-accent font-black uppercase tracking-widest">Cuenta Vinculada</p>
+                        <p className="text-[10px] text-accent font-black uppercase tracking-widest">Google Cloud Activo</p>
                       </div>
                     </div>
                     <Button variant="outline" size="sm" className="rounded-xl font-bold border-destructive/50 text-destructive hover:bg-destructive/10" onClick={handleLogout}>

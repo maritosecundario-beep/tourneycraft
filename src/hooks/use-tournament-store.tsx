@@ -2,10 +2,10 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { Team, Player, Tournament, GlobalSettings, Match, TournamentGroup } from '@/lib/types';
+import { Team, Player, Tournament, GlobalSettings, Match } from '@/lib/types';
 import { useUser, useFirestore } from '@/firebase';
-import { doc, collection, query, limit, getDocs } from 'firebase/firestore';
-import { setDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { doc } from 'firebase/firestore';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import hortaData from '@/data/horta-league.json';
 
 interface TournamentContextType {
@@ -29,9 +29,6 @@ interface TournamentContextType {
   generateSchedule: (tournamentId: string) => void;
   resolveMatch: (tournamentId: string, matchId: string, homeScore: number, awayScore: number, isDual: boolean, homePlayerId?: string, awayPlayerId?: string) => void;
   triggerMarketMoves: (tournamentId: string) => void;
-  advanceSeason: (tournamentId: string) => void;
-  createKnockoutFromStandings: (tournamentId: string, type: 'playoff' | 'relegation') => void;
-  publishTournament: (tournamentId: string) => Promise<void>;
 }
 
 const defaultSettings: GlobalSettings = {
@@ -147,18 +144,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       } else {
         createMatchesForList(t.participants);
       }
-    } else if (t.format === 'knockout') {
-      const participants = [...t.participants];
-      const matchesPerRound = Math.floor(participants.length / 2);
-      for (let i = 0; i < matchesPerRound; i++) {
-        schedule.push({ 
-          id: `${t.id}-ko-${matchIdCounter++}`, 
-          homeId: participants[i * 2], 
-          awayId: participants[i * 2 + 1], 
-          matchday: 1, 
-          isSimulated: false 
-        });
-      }
     }
 
     return { ...t, matches: schedule, dualLeagueMatches: dualSchedule, currentMatchday: 1 };
@@ -174,8 +159,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       
       const updateMatches = (matches: Match[]) => matches.map(m => {
         if (m.id === matchId) {
-          const winnerId = homeScore > awayScore ? m.homeId : awayScore > homeScore ? m.awayId : undefined;
-          
           if (!isDual) {
             setTeams(tPrev => tPrev.map(team => {
               if (team.id === m.homeId || team.id === m.awayId) {
@@ -185,11 +168,11 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
                 const isDraw = homeScore === awayScore;
                 
                 let change = 0;
-                if (isWin) change = t.winReward;
-                else if (isLoss) change = -t.lossPenalty;
-                else if (isDraw) change = t.drawReward;
+                if (isWin) change = (t.winReward || 0);
+                else if (isLoss) change = -(t.lossPenalty || 0);
+                else if (isDraw) change = (t.drawReward || 0);
                 
-                return { ...team, budget: Math.max(0, team.budget + change) };
+                return { ...team, budget: Math.max(0, (team.budget || 0) + change) };
               }
               return team;
             }));
@@ -199,8 +182,8 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
             setPlayers(pPrev => pPrev.map(p => {
               if (p.id === homePlayerId) {
                 const perfFactor = (homeScore / (homeScore + awayScore || 1)) * 1.5;
-                const valueChange = Math.round(p.monetaryValue * (perfFactor - 0.5) * 0.05);
-                return { ...p, monetaryValue: Math.max(1, p.monetaryValue + valueChange) };
+                const valueChange = Math.round((p.monetaryValue || 0) * (perfFactor - 0.5) * 0.05);
+                return { ...p, monetaryValue: Math.max(1, (p.monetaryValue || 0) + valueChange) };
               }
               return p;
             }));
@@ -209,14 +192,14 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
             setPlayers(pPrev => pPrev.map(p => {
               if (p.id === awayPlayerId) {
                 const perfFactor = (awayScore / (homeScore + awayScore || 1)) * 1.5;
-                const valueChange = Math.round(p.monetaryValue * (perfFactor - 0.5) * 0.05);
-                return { ...p, monetaryValue: Math.max(1, p.monetaryValue + valueChange) };
+                const valueChange = Math.round((p.monetaryValue || 0) * (perfFactor - 0.5) * 0.05);
+                return { ...p, monetaryValue: Math.max(1, (p.monetaryValue || 0) + valueChange) };
               }
               return p;
             }));
           }
 
-          return { ...m, homeScore, awayScore, isSimulated: true, homePlayerId, awayPlayerId, winnerId };
+          return { ...m, homeScore, awayScore, isSimulated: true, homePlayerId, awayPlayerId };
         }
         return m;
       });
@@ -249,7 +232,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         aiTeams.forEach(team => {
           if (Math.random() > 0.9) {
             const candidate = freeAgents[Math.floor(Math.random() * freeAgents.length)];
-            if (team.budget >= candidate.monetaryValue) {
+            if ((team.budget || 0) >= (candidate.monetaryValue || 0)) {
               const index = updatedPlayers.findIndex(p => p.id === candidate.id);
               if (index !== -1) updatedPlayers[index].teamId = team.id;
             }
@@ -261,63 +244,14 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     });
   }, [teams, tournaments]);
 
-  const advanceSeason = useCallback((tournamentId: string) => {
-    setTournaments(prev => prev.map(t => {
-      if (t.id !== tournamentId) return t;
-      const updated = { ...t, currentSeason: t.currentSeason + 1, currentMatchday: 1, matches: [], dualLeagueMatches: [] };
-      return createSchedule(updated);
-    }));
-  }, [createSchedule]);
-
-  const createKnockoutFromStandings = useCallback((tournamentId: string, type: 'playoff' | 'relegation') => {
-    const t = tournaments.find(x => x.id === tournamentId);
-    if (!t) return;
-
-    const participants = t.participants;
-    const items = t.entryType === 'teams' ? teams.filter(tm => participants.includes(tm.id)) : players.filter(pl => participants.includes(pl.id));
-    
-    const standings = items.map(item => {
-      let pts = 0;
-      t.matches.forEach(m => {
-        if (!m.isSimulated || m.homeScore === undefined) return;
-        if (m.homeId === item.id || m.awayId === item.id) {
-          const isHome = m.homeId === item.id;
-          const myScore = isHome ? m.homeScore : m.awayScore;
-          const opScore = isHome ? m.awayScore : m.homeScore;
-          if (myScore > opScore) pts += t.winPoints;
-          else if (myScore === opScore) pts += t.drawPoints;
-          else pts += t.lossPoints;
-        }
-      });
-      return { id: item.id, pts };
-    }).sort((a, b) => b.pts - a.pts);
-
-    const count = type === 'playoff' ? t.playoffSpots : t.relegationSpots;
-    const selectedIds = type === 'playoff' ? standings.slice(0, count).map(s => s.id) : standings.slice(-count).map(s => s.id);
-
-    const newTourney: Tournament = {
-      ...t,
-      id: Math.random().toString(36).substr(2, 9),
-      name: `${t.name} - ${type === 'playoff' ? 'PLAYOFF' : 'DESCENSO'} S${t.currentSeason}`,
-      format: 'knockout',
-      participants: selectedIds,
-      matches: [],
-      currentMatchday: 1,
-      currentSeason: 1
-    };
-
-    const scheduledTourney = createSchedule(newTourney);
-    setTournaments(prev => [...prev, scheduledTourney]);
-  }, [tournaments, teams, players, createSchedule]);
-
   const transferPlayer = useCallback((playerId: string, toTeamId: string | undefined) => {
     setPlayers(prev => prev.map(p => {
       if (p.id === playerId) {
         const oldTeamId = p.teamId;
-        const playerVal = p.monetaryValue;
+        const playerVal = (p.monetaryValue || 0);
         setTeams(tPrev => tPrev.map(t => {
-          if (t.id === toTeamId) return { ...t, budget: Math.max(0, t.budget - playerVal) };
-          if (t.id === oldTeamId) return { ...t, budget: t.budget + playerVal };
+          if (t.id === toTeamId) return { ...t, budget: Math.max(0, (t.budget || 0) - playerVal) };
+          if (t.id === oldTeamId) return { ...t, budget: (t.budget || 0) + playerVal };
           return t;
         }));
         return { ...p, teamId: toTeamId };
@@ -328,30 +262,11 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
 
   const applySanction = useCallback((targetId: string, type: 'team-budget' | 'player-suspension', value: number) => {
     if (type === 'team-budget') {
-      setTeams(prev => prev.map(t => t.id === targetId ? { ...t, budget: Math.max(0, t.budget - value) } : t));
+      setTeams(prev => prev.map(t => t.id === targetId ? { ...t, budget: Math.max(0, (t.budget || 0) - value) } : t));
     } else {
-      setPlayers(prev => prev.map(p => p.id === targetId ? { ...p, suspensionMatchdays: p.suspensionMatchdays + value } : p));
+      setPlayers(prev => prev.map(p => p.id === targetId ? { ...p, suspensionMatchdays: (p.suspensionMatchdays || 0) + value } : p));
     }
   }, []);
-
-  const publishTournament = useCallback(async (tournamentId: string) => {
-    if (!db || !user) return;
-    const t = tournaments.find(x => x.id === tournamentId);
-    if (!t) return;
-
-    const publicCol = collection(db, 'publicTournaments');
-    await addDocumentNonBlocking(publicCol, {
-      ...t,
-      ownerId: user.uid,
-      ownerName: user.displayName,
-      publishedAt: new Date().toISOString(),
-      // Guardamos instantánea de equipos y jugadores participantes
-      snapshot: {
-        teams: teams.filter(tm => t.participants.includes(tm.id)),
-        players: players.filter(pl => pl.teamId && t.participants.includes(pl.teamId))
-      }
-    });
-  }, [db, user, tournaments, teams, players]);
 
   const importData = useCallback((data: any, merge: boolean) => {
     if (merge) {
@@ -384,8 +299,8 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   const updateSettings = (s: Partial<GlobalSettings>) => setSettings(p => ({ ...p, ...s }));
 
   const value = useMemo(() => ({
-    teams, players, tournaments, settings, addTeam, updateTeam, deleteTeam, addPlayer, updatePlayer, deletePlayer, addTournament, updateTournament, deleteTournament, updateSettings, importData, transferPlayer, applySanction, generateSchedule, resolveMatch, triggerMarketMoves, advanceSeason, createKnockoutFromStandings, publishTournament
-  }), [teams, players, tournaments, settings, generateSchedule, resolveMatch, triggerMarketMoves, transferPlayer, applySanction, importData, advanceSeason, createKnockoutFromStandings, publishTournament, createSchedule]);
+    teams, players, tournaments, settings, addTeam, updateTeam, deleteTeam, addPlayer, updatePlayer, deletePlayer, addTournament, updateTournament, deleteTournament, updateSettings, importData, transferPlayer, applySanction, generateSchedule, resolveMatch, triggerMarketMoves
+  }), [teams, players, tournaments, settings, generateSchedule, resolveMatch, triggerMarketMoves, transferPlayer, applySanction, importData, createSchedule]);
 
   return <TournamentContext.Provider value={value}>{children}</TournamentContext.Provider>;
 }

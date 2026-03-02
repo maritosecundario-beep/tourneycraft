@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -24,71 +25,19 @@
         "updatedAt": { "type": "string", "format": "date-time" },
         "ownerId": { "type": "string" }
       }
-    },
-    "Tournament": {
-      "title": "Tournament",
-      "type": "object",
-      "description": "A competitive sports event.",
-      "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" },
-        "sport": { "type": "string" },
-        "format": { "type": "string", "enum": ["league", "knockout"] },
-        "participants": { "type": "array", "items": { "type": "string" } },
-        "currentSeason": { "type": "number" },
-        "currentMatchday": { "type": "number" },
-        "ownerId": { "type": "string" }
-      }
-    },
-    "Team": {
-      "title": "Team",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" },
-        "abbreviation": { "type": "string" },
-        "rating": { "type": "number" },
-        "ownerId": { "type": "string" }
-      }
-    },
-    "Player": {
-      "title": "Player",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" },
-        "position": { "type": "string" },
-        "teamId": { "type": "string" }
-      }
     }
   },
   "auth": {
-    "providers": ["password", "anonymous", "google.com"]
+    "providers": ["google.com"]
   },
   "firestore": {
     "structure": [
-      {
-        "path": "/users/{userId}",
-        "definition": {
-          "entityName": "User",
-          "schema": { "$ref": "#/backend/entities/User" },
-          "description": "Stores user profiles."
-        }
-      },
       {
         "path": "/users/{userId}/backups/{backupId}",
         "definition": {
           "entityName": "Backup",
           "schema": { "$ref": "#/backend/entities/Backup" },
           "description": "Stores full state snapshots for cloud sync."
-        }
-      },
-      {
-        "path": "/publicTournaments/{tournamentId}",
-        "definition": {
-          "entityName": "Tournament",
-          "schema": { "$ref": "#/backend/entities/Tournament" },
-          "description": "Community shared tournaments."
         }
       }
     ]
