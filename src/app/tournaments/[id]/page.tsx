@@ -84,7 +84,7 @@ export default function TournamentDetailPage() {
     if (!tournament) return [];
     if (tournament.leagueType === 'groups' && tournament.groups && tournament.groups.length > 0) {
       return tournament.groups.map(g => ({
-        id: g.id,
+        id: g.id || `g-${Math.random()}`,
         name: g.name,
         data: getStandingsForParticipants(g.participantIds)
       }));
@@ -327,7 +327,7 @@ export default function TournamentDetailPage() {
         <TabsContent value="table" className="space-y-6 md:space-y-8">
           {tournamentStandings.length > 0 ? (
             tournamentStandings.map((group) => (
-              <Card key={`standings-${group.id}`} className="border-none bg-card shadow-2xl rounded-[1.5rem] md:rounded-[3rem] overflow-hidden">
+              <Card key={`standings-${group.id || Math.random()}`} className="border-none bg-card shadow-2xl rounded-[1.5rem] md:rounded-[3rem] overflow-hidden">
                 <CardHeader className="bg-muted/10 border-b p-6 flex flex-row items-center gap-3">
                   <Group className="text-primary w-6 h-6" />
                   <CardTitle className="text-lg md:text-xl font-black uppercase">{group.name}</CardTitle>
@@ -379,7 +379,7 @@ export default function TournamentDetailPage() {
             <Button variant="ghost" size="sm" onClick={() => generateSchedule(tournament.id)} className="text-[10px] font-black uppercase"><RefreshCw className="w-3 h-3 mr-2" /> Re-generar Fixture</Button>
           </div>
           {tournamentStandings.map((group) => (
-            <div key={`calendar-group-${group.id}`} className="space-y-6">
+            <div key={`calendar-group-${group.id || Math.random()}`} className="space-y-6">
               <h2 className="text-xl font-black uppercase text-primary flex items-center gap-3 px-4">
                 <Group className="w-5 h-5" /> Calendario {group.name}
               </h2>
