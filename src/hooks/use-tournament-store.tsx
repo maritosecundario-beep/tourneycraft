@@ -35,7 +35,10 @@ const defaultSettings: GlobalSettings = {
 
 const TournamentContext = createContext<TournamentContextType | undefined>(undefined);
 
-// Función auxiliar mejorada para limpiar datos antes de Firestore
+/**
+ * Función de saneamiento profundo para evitar que valores 'undefined' lleguen a Firestore,
+ * lo cual provoca errores de tipo "Internal Server Error" o fallos de permisos.
+ */
 const sanitizeData = (data: any): any => {
   return JSON.parse(JSON.stringify(data, (key, value) => {
     if (value === undefined) return null;
@@ -54,7 +57,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   const user = useUser();
   const db = useFirestore();
 
-  // Carga inicial
+  // Carga inicial desde LocalStorage o JSON por defecto
   useEffect(() => {
     const saved = localStorage.getItem('tourneycraft-store');
     if (saved) {
@@ -65,7 +68,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         setTournaments(parsed.tournaments || hortaData.tournaments);
         setSettings(parsed.settings || defaultSettings);
       } catch (e) {
-        console.error("Store Load Error:", e);
+        console.error("Error al cargar datos locales:", e);
       }
     } else {
       setTeams(hortaData.teams as any[]);
@@ -76,7 +79,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     setIsLoaded(true);
   }, []);
 
-  // Guardado local y Sincronización en la nube (Plan Spark Friendly)
+  // Sincronización automática con LocalStorage y Firebase (Debounce de 5s)
   useEffect(() => {
     if (isLoaded) {
       document.body.className = settings.theme;
@@ -93,7 +96,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
           const userDocRef = doc(db, 'users', user.uid, 'backups', 'latest');
           setDocumentNonBlocking(userDocRef, sanitized, { merge: true });
         }
-      }, 5000); // Debounce de 5s para evitar spam a Firestore
+      }, 5000);
       return () => clearTimeout(timer);
     }
   }, [teams, players, tournaments, settings, isLoaded, user?.uid, db]);
@@ -224,6 +227,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
 
 export function useTournamentStore() {
   const context = useContext(TournamentContext);
-  if (!context) throw new Error('useTournamentStore must be used within a TournamentProvider');
+  if (!context) throw new Error('useTournamentStore debe usarse dentro de un TournamentProvider');
   return context;
 }
