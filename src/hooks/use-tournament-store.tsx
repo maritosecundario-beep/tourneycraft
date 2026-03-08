@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { Team, Player, Tournament, GlobalSettings, Match } from '@/lib/types';
-import { useUser, useFirestore } from '@/firebase';
+import { useUser, useFirestore } from '@/firebase/provider';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import hortaData from '@/data/horta-league.json';
@@ -44,7 +44,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   const [settings, setSettings] = useState<GlobalSettings>(defaultSettings);
   const [isLoaded, setIsLoaded] = useState(false);
   
-  const { user } = useUser();
+  const user = useUser();
   const db = useFirestore();
 
   useEffect(() => {

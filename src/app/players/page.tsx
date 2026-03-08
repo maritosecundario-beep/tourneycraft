@@ -228,6 +228,7 @@ export default function PlayersPage() {
       name, description, monetaryValue: value, jerseyNumber: number, position,
       attributes: Object.entries(attributes).map(([k, v]) => ({ name: k, value: v })),
       teamId: editingPlayer ? editingPlayer.teamId : undefined,
+      suspensionMatchdays: editingPlayer ? editingPlayer.suspensionMatchdays : 0,
       uniformStyle: kitStyle, kitPrimary: kitC1, kitSecondary: kitC2, 
       kitTertiary: kitC3, kitAccent: kitC4, brand, sponsor,
       crestPlacement: crestPos, sponsorPlacement: sponsorPos, 

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Trophy, Users, UserPlus, Settings, LayoutDashboard, Database, LogIn, LogOut, MoreHorizontal, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useUser, useAuth } from '@/firebase';
+import { useUser, useAuth } from '@/firebase/provider';
 import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -14,7 +14,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 
 export function Navbar() {
   const pathname = usePathname();
-  const { user, isUserLoading } = useUser();
+  const user = useUser();
   const auth = useAuth();
   const { toast } = useToast();
 
@@ -128,7 +128,6 @@ export function Navbar() {
         </div>
 
         <div className="px-4 mt-auto">
-          {!isUserLoading && (
             <div className="p-4 bg-muted/30 rounded-2xl border border-border/50">
               {user ? (
                 <div className="flex flex-col gap-3">
@@ -154,7 +153,6 @@ export function Navbar() {
                 </Button>
               )}
             </div>
-          )}
         </div>
       </nav>
 
@@ -202,8 +200,7 @@ export function Navbar() {
               ))}
             </div>
             <div className="mt-8 pt-8 border-t border-border">
-              {!isUserLoading && (
-                user ? (
+                {user ? (
                   <div className="flex items-center justify-between bg-muted/20 p-4 rounded-3xl">
                     <div className="flex items-center gap-3">
                       <Avatar className="h-12 w-12 border-2 border-primary/50 shadow-lg">
@@ -224,7 +221,7 @@ export function Navbar() {
                     <LogIn className="w-5 h-5 mr-3" /> CONECTAR GOOGLE
                   </Button>
                 )
-              )}
+              }
             </div>
           </SheetContent>
         </Sheet>

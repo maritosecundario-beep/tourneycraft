@@ -7,14 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Download, Upload, Trash2, Cloud, AlertTriangle, CheckCircle2, PlusCircle, RefreshCw, ClipboardCopy, ClipboardPaste } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRef, useState } from 'react';
-import { useUser } from '@/firebase';
+import { useUser } from '@/firebase/provider';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 export default function BackupsPage() {
   const { teams, players, tournaments, settings, importData } = useTournamentStore();
   const { toast } = useToast();
-  const { user } = useUser();
+  const user = useUser();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [pendingData, setPendingData] = useState<any>(null);

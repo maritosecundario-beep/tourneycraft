@@ -309,7 +309,7 @@ export default function TournamentDetailPage() {
                       {(group.data || []).map((item: any, idx: number) => (
                         <TableRow key={`row-st-${item.id || idx}`} className="h-14 md:h-16 cursor-pointer hover:bg-primary/5 transition-colors" onClick={() => setViewTeamId(item.id)}>
                           <TableCell className="text-center"><span className="font-black text-base md:text-lg">{idx + 1}</span></TableCell>
-                          <TableCell><div className="flex items-center gap-2 md:gap-3"><CrestIcon shape={item.emblemShape} pattern={item.emblemPattern} c1={item.crestPrimary} c2={item.crestSecondary} size="w-6 h-6 md:w-8 md:h-8" /><span className="font-bold text-xs md:text-sm truncate max-w-[80px] md:max-w-none">{item.name}</span></div></TableCell>
+                          <TableCell><div className="flex items-center gap-2 md:gap-3"><CrestIcon shape={item.emblemShape} pattern={item.emblemPattern} c1={item.crestPrimary} c2={item.crestSecondary} c3={item.crestTertiary || item.crestPrimary} size="w-6 h-6 md:w-8 md:h-8" /><span className="font-bold text-xs md:text-sm truncate max-w-[80px] md:max-w-none">{item.name}</span></div></TableCell>
                           <TableCell className="text-center font-bold text-xs">{item.played || 0}</TableCell>
                           <TableCell className={cn("text-center font-bold text-xs", (item.gd || 0) >= 0 ? "text-green-500" : "text-destructive")}>{(item.gd || 0) > 0 ? `+${item.gd}` : (item.gd || 0)}</TableCell>
                           <TableCell className="text-center font-bold text-accent text-xs">{item.budget || 0}</TableCell>
@@ -350,9 +350,9 @@ export default function TournamentDetailPage() {
                                     {m.isSimulated && <Badge variant="secondary" className="text-[8px] h-4 bg-green-500/10 text-green-600 border-none">JUGADO</Badge>}
                                   </div>
                                   <div className="flex items-center gap-4">
-                                    <div className="flex-1 flex items-center gap-2 md:gap-3"><CrestIcon shape={h.emblemShape} pattern={h.emblemPattern} c1={h.crestPrimary} c2={h.crestSecondary} size="w-6 h-6 md:w-8 md:h-8" /><span className="font-black text-sm md:text-base">{h.abbreviation}</span></div>
+                                    <div className="flex-1 flex items-center gap-2 md:gap-3"><CrestIcon shape={h.emblemShape} pattern={h.emblemPattern} c1={h.crestPrimary} c2={h.crestSecondary} c3={h.crestTertiary || h.crestPrimary} size="w-6 h-6 md:w-8 md:h-8" /><span className="font-black text-sm md:text-base">{h.abbreviation}</span></div>
                                     <div className="flex items-center gap-2"><div className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center rounded-lg font-black text-sm md:text-lg bg-muted/50 border">{m.homeScore ?? '-'}</div><span className="opacity-30">:</span><div className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center rounded-lg font-black text-sm md:text-lg bg-muted/50 border">{m.awayScore ?? '-'}</div></div>
-                                    <div className="flex-1 flex items-center gap-2 md:gap-3 justify-end"><span className="font-black text-sm md:text-base">{a.abbreviation}</span><CrestIcon shape={a.emblemShape} pattern={a.emblemPattern} c1={a.crestPrimary} c2={a.crestSecondary} size="w-6 h-6 md:w-8 md:h-8" /></div>
+                                    <div className="flex-1 flex items-center gap-2 md:gap-3 justify-end"><span className="font-black text-sm md:text-base">{a.abbreviation}</span><CrestIcon shape={a.emblemShape} pattern={a.emblemPattern} c1={a.crestPrimary} c2={a.crestSecondary} c3={a.crestTertiary || a.crestPrimary} size="w-6 h-6 md:w-8 md:h-8" /></div>
                                   </div>
                                 </div>
                               );
@@ -393,7 +393,7 @@ export default function TournamentDetailPage() {
                     {(dualStandings || []).map((item: any, idx: number) => (
                       <TableRow key={`row-dual-${item.id || idx}`} className="h-14 md:h-16">
                         <TableCell className="text-center font-black text-base">{idx + 1}</TableCell>
-                        <TableCell><div className="flex items-center gap-2 md:gap-3"><CrestIcon shape={item.emblemShape} pattern={item.emblemPattern} c1={item.crestPrimary} c2={item.crestSecondary} size="w-6 h-6 md:w-8 md:h-8" /><span className="font-bold text-xs md:text-sm truncate">{item.name}</span></div></TableCell>
+                        <TableCell><div className="flex items-center gap-2 md:gap-3"><CrestIcon shape={item.emblemShape} pattern={item.emblemPattern} c1={item.crestPrimary} c2={item.crestSecondary} c3={item.crestTertiary || item.crestPrimary} size="w-6 h-6 md:w-8 md:h-8" /><span className="font-bold text-xs md:text-sm truncate">{item.name}</span></div></TableCell>
                         <TableCell className="text-center font-bold text-xs">{item.played || 0}</TableCell>
                         <TableCell className={cn("text-center font-bold text-xs", (item.gd || 0) >= 0 ? "text-green-500" : "text-destructive")}>{(item.gd || 0) > 0 ? `+${item.gd}` : (item.gd || 0)}</TableCell>
                         <TableCell className="text-center font-black text-lg md:text-xl text-accent">{item.pts || 0}</TableCell>
@@ -458,14 +458,15 @@ export default function TournamentDetailPage() {
                   const oppStats = getTeamStanding(oppId || '');
                   const oppPlayers = players.filter(p => p.teamId === oppId);
                   const bestOppPlayer = [...oppPlayers].sort((a,b) => (b.monetaryValue || 0) - (a.monetaryValue || 0))[0];
+                  if (!opp) return null;
                   return (
                     <>
-                      <CrestIcon shape={opp?.emblemShape!} pattern={opp?.emblemPattern!} c1={opp?.crestPrimary!} c2={opp?.crestSecondary!} size="w-24 h-24" />
+                      <CrestIcon shape={opp.emblemShape} pattern={opp.emblemPattern} c1={opp.crestPrimary} c2={opp.crestSecondary} c3={opp.crestTertiary || opp.crestPrimary} size="w-24 h-24" />
                       <div className="text-center md:text-left flex-1">
-                        <h2 className="text-3xl font-black uppercase">vs {opp?.name}</h2>
+                        <h2 className="text-3xl font-black uppercase">vs {opp.name}</h2>
                         <div className="flex flex-wrap justify-center md:justify-start gap-2 mt-3">
                           <Badge variant="secondary" className="bg-white/20 text-white border-none font-black">POS: #{oppStats?.pos || '?'}</Badge>
-                          <Badge variant="secondary" className="bg-white/20 text-white border-none font-black uppercase text-[8px]">{opp?.venueName}</Badge>
+                          <Badge variant="secondary" className="bg-white/20 text-white border-none font-black uppercase text-[8px]">{opp.venueName}</Badge>
                         </div>
                         {bestOppPlayer && (
                           <div className="mt-4 p-4 bg-black/20 rounded-2xl border border-white/10 space-y-3">
@@ -508,26 +509,30 @@ export default function TournamentDetailPage() {
       <Dialog open={!!viewingTeamId} onOpenChange={o => !o && setViewTeamId(null)}>
         <DialogContent className="max-w-3xl p-0 overflow-hidden rounded-[2rem] border-none shadow-2xl">
           <div className="p-6 bg-muted/20 border-b flex justify-between items-center"><DialogTitle className="font-black uppercase">Perfil del Club</DialogTitle></div>
-          {teams.find(t => t.id === viewingTeamId) && (
-            <div className="flex flex-col max-h-[80vh] bg-card">
-              <div className="p-8 bg-muted/10 border-b flex items-center gap-6">
-                <CrestIcon shape={teams.find(t => t.id === viewingTeamId)!.emblemShape} pattern={teams.find(t => t.id === viewingTeamId)!.emblemPattern} c1={teams.find(t => t.id === viewingTeamId)!.crestPrimary} c2={teams.find(t => t.id === viewingTeamId)!.crestSecondary} size="w-20 h-20" />
-                <div className="flex-1">
-                  <h2 className="text-3xl font-black uppercase tracking-tighter">{teams.find(t => t.id === viewingTeamId)!.name}</h2>
-                  <div className="flex items-center gap-4 mt-2"><span className="flex items-center gap-1 text-sm font-black text-accent"><Coins className="w-4 h-4" /> {teams.find(t => t.id === viewingTeamId)!.budget || 0} CR</span><span className="flex items-center gap-1 text-sm font-black text-primary"><Target className="w-4 h-4" /> {teams.find(t => t.id === viewingTeamId)!.rating || 0}</span></div>
+          {(() => {
+            const team = teams.find(t => t.id === viewingTeamId);
+            if (!team) return null;
+            return (
+              <div className="flex flex-col max-h-[80vh] bg-card">
+                <div className="p-8 bg-muted/10 border-b flex items-center gap-6">
+                  <CrestIcon shape={team.emblemShape} pattern={team.emblemPattern} c1={team.crestPrimary} c2={team.crestSecondary} c3={team.crestTertiary || team.crestPrimary} size="w-20 h-20" />
+                  <div className="flex-1">
+                    <h2 className="text-3xl font-black uppercase tracking-tighter">{team.name}</h2>
+                    <div className="flex items-center gap-4 mt-2"><span className="flex items-center gap-1 text-sm font-black text-accent"><Coins className="w-4 h-4" /> {team.budget || 0} CR</span><span className="flex items-center gap-1 text-sm font-black text-primary"><Target className="w-4 h-4" /> {team.rating || 0}</span></div>
+                  </div>
                 </div>
+                <ScrollArea className="flex-1 p-8">
+                  <div className="space-y-8">
+                    <section className="space-y-4">
+                      <h4 className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-2"><Users className="w-3 h-3" /> Jugadores</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{players.filter(p => p.teamId === viewingTeamId).map(p => (<div key={`roster-${p.id}`} className="p-4 bg-muted/10 rounded-2xl border flex items-center justify-between"><div><p className="font-bold text-sm uppercase">{p.name}</p><p className="text-[9px] font-black opacity-50">{p.position} • #{p.jerseyNumber}</p></div><Badge variant="outline" className="font-black text-[9px]">{p.monetaryValue || 0} CR</Badge></div>))}</div>
+                    </section>
+                  </div>
+                </ScrollArea>
+                <div className="p-6 border-t bg-muted/5 flex justify-end"><Button onClick={() => setViewTeamId(null)} className="rounded-xl h-12 px-8 font-black">CERRAR</Button></div>
               </div>
-              <ScrollArea className="flex-1 p-8">
-                <div className="space-y-8">
-                  <section className="space-y-4">
-                    <h4 className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-2"><Users className="w-3 h-3" /> Jugadores</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{players.filter(p => p.teamId === viewingTeamId).map(p => (<div key={`roster-${p.id}`} className="p-4 bg-muted/10 rounded-2xl border flex items-center justify-between"><div><p className="font-bold text-sm uppercase">{p.name}</p><p className="text-[9px] font-black opacity-50">{p.position} • #{p.jerseyNumber}</p></div><Badge variant="outline" className="font-black text-[9px]">{p.monetaryValue || 0} CR</Badge></div>))}</div>
-                  </section>
-                </div>
-              </ScrollArea>
-              <div className="p-6 border-t bg-muted/5 flex justify-end"><Button onClick={() => setViewTeamId(null)} className="rounded-xl h-12 px-8 font-black">CERRAR</Button></div>
-            </div>
-          )}
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>
