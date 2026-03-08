@@ -3,16 +3,16 @@ service cloud.firestore {
   match /databases/{database}/documents {
     /**
      * Regla Maestra de Usuario:
-     * Cada usuario tiene control TOTAL sobre su propia rama de datos.
-     * El {uid} en el path debe coincidir exactamente con el ID del usuario autenticado.
+     * El usuario tiene acceso total y recursivo a cualquier documento dentro de su propia rama.
+     * Esto permite guardar /users/{uid}/backups/latest y cualquier otra subcolección de forma segura.
      */
-    match /users/{uid} {
+    match /users/{uid}/{allPaths=**} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
-      
-      // Permitir acceso recursivo a todas las subcolecciones (backups, torneos, etc.)
-      match /{allPaths=**} {
-        allow read, write: if request.auth != null && request.auth.uid == uid;
-      }
+    }
+    
+    // Bloqueo total del resto de la base de datos por seguridad
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

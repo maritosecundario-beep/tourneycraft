@@ -23,11 +23,9 @@ interface TournamentContextType {
   deleteTournament: (id: string) => void;
   updateSettings: (settings: Partial<GlobalSettings>) => void;
   transferPlayer: (playerId: string, toTeamId: string | undefined) => void;
-  applySanction: (targetId: string, type: 'team-budget' | 'player-suspension', value: number) => void;
   importData: (data: any, merge: boolean) => void;
   generateSchedule: (tournamentId: string) => void;
   resolveMatch: (tournamentId: string, matchId: string, homeScore: number, awayScore: number, isDual: boolean, homePlayerId?: string, awayPlayerId?: string) => void;
-  triggerMarketMoves: (tournamentId: string) => void;
 }
 
 const defaultSettings: GlobalSettings = {
@@ -36,6 +34,15 @@ const defaultSettings: GlobalSettings = {
 };
 
 const TournamentContext = createContext<TournamentContextType | undefined>(undefined);
+
+// Función auxiliar para limpiar undefined (Firebase no los permite) y asegurar números
+const sanitizeData = (data: any): any => {
+  return JSON.parse(JSON.stringify(data, (key, value) => {
+    if (value === undefined) return null;
+    if (typeof value === 'number' && isNaN(value)) return 0;
+    return value;
+  }));
+};
 
 export function TournamentProvider({ children }: { children: React.ReactNode }) {
   const [teams, setTeams] = useState<Team[]>([]);
@@ -47,14 +54,15 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   const user = useUser();
   const db = useFirestore();
 
+  // Carga inicial
   useEffect(() => {
     const saved = localStorage.getItem('tourneycraft-store');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        setTeams(parsed.teams || []);
-        setPlayers(parsed.players || []);
-        setTournaments(parsed.tournaments || []);
+        setTeams(parsed.teams || hortaData.teams);
+        setPlayers(parsed.players || hortaData.players);
+        setTournaments(parsed.tournaments || hortaData.tournaments);
         setSettings(parsed.settings || defaultSettings);
       } catch (e) {
         console.error("Store Load Error:", e);
@@ -68,23 +76,24 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     setIsLoaded(true);
   }, []);
 
+  // Guardado local y Sincronización en la nube (Plan Spark Friendly)
   useEffect(() => {
     if (isLoaded) {
       document.body.className = settings.theme;
       const timer = setTimeout(() => {
-        const dataToSave = { teams, players, tournaments, settings };
-        localStorage.setItem('tourneycraft-store', JSON.stringify(dataToSave));
+        const rawData = { teams, players, tournaments, settings };
+        localStorage.setItem('tourneycraft-store', JSON.stringify(rawData));
         
-        // Sincronización en la nube SOLO si hay usuario y DB lista
         if (user?.uid && db) {
-          const userDocRef = doc(db, 'users', user.uid, 'backups', 'latest');
-          setDocumentNonBlocking(userDocRef, {
-            ...dataToSave,
+          const sanitized = sanitizeData({
+            ...rawData,
             updatedAt: new Date().toISOString(),
             ownerId: user.uid
-          }, { merge: true });
+          });
+          const userDocRef = doc(db, 'users', user.uid, 'backups', 'latest');
+          setDocumentNonBlocking(userDocRef, sanitized, { merge: true });
         }
-      }, 2000); // Debounce de 2s para ahorrar cuota Spark
+      }, 5000); // Debounce de 5s para evitar spam a Firestore y errores de cuota
       return () => clearTimeout(timer);
     }
   }, [teams, players, tournaments, settings, isLoaded, user?.uid, db]);
@@ -147,14 +156,16 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
                 const isHome = team.id === m.homeId;
                 const isWin = (isHome && homeScore > awayScore) || (!isHome && awayScore > homeScore);
                 const isLoss = (isHome && awayScore > homeScore) || (!isHome && homeScore > awayScore);
-                const isDraw = homeScore === awayScore;
-                let change = isWin ? (t.winReward || 0) : isLoss ? -(t.lossPenalty || 0) : (t.drawReward || 0);
+                const winRew = t.winReward ?? 0;
+                const lossPen = t.lossPenalty ?? 0;
+                const drawRew = t.drawReward ?? 0;
+                let change = isWin ? winRew : isLoss ? -lossPen : drawRew;
                 return { ...team, budget: Math.max(0, (team.budget || 0) + change) };
               }
               return team;
             }));
           }
-          return { ...m, homeScore, awayScore, isSimulated: true, homePlayerId, awayPlayerId };
+          return { ...m, homeScore, awayScore, isSimulated: true, homePlayerId, awayPlayerId, winnerId: homeScore > awayScore ? m.homeId : homeScore < awayScore ? m.awayId : undefined };
         }
         return m;
       });
@@ -162,24 +173,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       return { ...t, matches: updateMatches(t.matches) };
     }));
   }, []);
-
-  const triggerMarketMoves = useCallback((tournamentId: string) => {
-    if (Math.random() > 0.4) return;
-    setPlayers(prevPlayers => {
-      const updatedPlayers = [...prevPlayers];
-      const t = tournaments.find(x => x.id === tournamentId);
-      if (!t) return updatedPlayers;
-      const aiTeams = teams.filter(tm => tm.id !== t.managedParticipantId && t.participants.includes(tm.id));
-      aiTeams.forEach(team => {
-        const teamPlayers = updatedPlayers.filter(p => p.teamId === team.id);
-        if (teamPlayers.length > 3 && Math.random() > 0.8) {
-          const index = updatedPlayers.findIndex(p => p.id === teamPlayers[0].id);
-          if (index !== -1) updatedPlayers[index].teamId = undefined;
-        }
-      });
-      return updatedPlayers;
-    });
-  }, [teams, tournaments]);
 
   const transferPlayer = useCallback((playerId: string, toTeamId: string | undefined) => {
     setPlayers(prev => prev.map(p => {
@@ -195,14 +188,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       }
       return p;
     }));
-  }, []);
-
-  const applySanction = useCallback((targetId: string, type: 'team-budget' | 'player-suspension', value: number) => {
-    if (type === 'team-budget') {
-      setTeams(prev => prev.map(t => t.id === targetId ? { ...t, budget: Math.max(0, (t.budget || 0) - value) } : t));
-    } else {
-      setPlayers(prev => prev.map(p => p.id === targetId ? { ...p, suspensionMatchdays: (p.suspensionMatchdays || 0) + value } : p));
-    }
   }, []);
 
   const importData = useCallback((data: any, merge: boolean) => {
@@ -231,8 +216,8 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   const updateSettings = (s: Partial<GlobalSettings>) => setSettings(p => ({ ...p, ...s }));
 
   const value = useMemo(() => ({
-    teams, players, tournaments, settings, addTeam, updateTeam, deleteTeam, addPlayer, updatePlayer, deletePlayer, addTournament, updateTournament, deleteTournament, updateSettings, importData, transferPlayer, applySanction, generateSchedule, resolveMatch, triggerMarketMoves
-  }), [teams, players, tournaments, settings, generateSchedule, resolveMatch, triggerMarketMoves, transferPlayer, applySanction, importData, createSchedule]);
+    teams, players, tournaments, settings, addTeam, updateTeam, deleteTeam, addPlayer, updatePlayer, deletePlayer, addTournament, updateTournament, deleteTournament, updateSettings, importData, transferPlayer, generateSchedule, resolveMatch
+  }), [teams, players, tournaments, settings, generateSchedule, resolveMatch, transferPlayer, importData, createSchedule]);
 
   return <TournamentContext.Provider value={value}>{children}</TournamentContext.Provider>;
 }
