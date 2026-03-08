@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Trophy, Users, Coins, Target, Brackets, ShieldAlert, Group, Plus, X, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { TournamentMode, TournamentFormat, ScoringRuleType, TournamentEntryType, LeagueType, TournamentGroup } from '@/lib/types';
+import { TournamentMode, TournamentFormat, TournamentEntryType, LeagueType, TournamentGroup } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CrestIcon } from '@/components/ui/crest-icon';
@@ -48,12 +48,10 @@ export default function NewTournamentPage() {
   const [playoffSpots, setPlayoffSpots] = useState(8);
   const [relegationSpots, setRelegationSpots] = useState(4);
 
-  // Opciones arcade reactivas filtradas por los que están inscritos
   const arcadeTeamOptions = useMemo(() => {
     return teams.filter(t => selectedParticipants.includes(t.id));
   }, [teams, selectedParticipants]);
 
-  // Si quitas un equipo que estabas gestionando, resetea la elección
   useEffect(() => {
     if (managedParticipantId && !selectedParticipants.includes(managedParticipantId)) {
       setManagedParticipantId('');
@@ -86,7 +84,7 @@ export default function NewTournamentPage() {
 
     addTournament(newTourney as any);
     toast({ title: "Universo Iniciado", description: "Torneo creado con éxito." });
-    router.push(`/tournaments/${newTourney.id}`);
+    router.push(`/tournaments`);
   };
 
   const addGroup = () => {
@@ -142,7 +140,7 @@ export default function NewTournamentPage() {
                 <Select 
                   value={managedParticipantId} 
                   onValueChange={setManagedParticipantId}
-                  key={`arcade-select-${selectedParticipants.length}`} 
+                  key={`arcade-select-${selectedParticipants.join(',')}`} 
                 >
                   <SelectTrigger className="h-12 rounded-xl border-primary/30">
                     <SelectValue placeholder={arcadeTeamOptions.length > 0 ? "Seleccionar club..." : "Inscribe equipos primero"} />
@@ -293,9 +291,7 @@ export default function NewTournamentPage() {
                       className="h-10 bg-transparent border-none font-black uppercase text-lg focus-visible:ring-0 p-0 w-40"
                     />
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => setGroups(groups.filter(g => g.id !== group.id))} className="h-10 w-10 text-destructive hover:bg-destructive/10">
-                    <X className="w-5 h-5" />
-                  </Button>
+                  <X className="w-5 h-5 text-destructive cursor-pointer hover:scale-110 transition-transform" onClick={() => setGroups(groups.filter(g => g.id !== group.id))} />
                 </CardHeader>
                 <CardContent className="p-6 space-y-6">
                   <ScrollArea className="h-[200px] bg-muted/20 rounded-2xl p-4 border-2 border-dashed border-muted">
@@ -308,11 +304,12 @@ export default function NewTournamentPage() {
                       )}
                       {group.participantIds.map((pId) => {
                         const team = teams.find(t => t.id === pId);
+                        if (!team) return null;
                         return (
                           <Badge key={`assigned-${group.id}-${pId}`} variant="secondary" className="bg-primary/10 text-primary border-primary/20 px-4 py-2 rounded-xl flex items-center gap-3">
-                            <CrestIcon shape={team?.emblemShape!} pattern={team?.emblemPattern!} c1={team?.crestPrimary!} c2={team?.crestSecondary!} c3={team?.crestTertiary || team?.crestPrimary!} size="w-4 h-4" />
-                            <span className="text-[10px] font-black uppercase truncate max-w-[100px]">{team?.name}</span>
-                            <button onClick={() => setGroups(groups.map(g => ({...g, participantIds: g.participantIds.filter(id => id !== pId)})))} className="hover:text-destructive transition-colors"><X className="w-3 h-3" /></button>
+                            <CrestIcon shape={team.emblemShape} pattern={team.emblemPattern} c1={team.crestPrimary} c2={team.crestSecondary} c3={team.crestTertiary || team.crestPrimary} size="w-4 h-4" />
+                            <span className="text-[10px] font-black uppercase truncate max-w-[100px]">{team.name}</span>
+                            <X className="w-3 h-3 cursor-pointer hover:text-destructive" onClick={() => setGroups(groups.map(g => ({...g, participantIds: g.participantIds.filter(id => id !== pId)})))} />
                           </Badge>
                         );
                       })}
@@ -330,9 +327,10 @@ export default function NewTournamentPage() {
                           .filter(pId => !group.participantIds.includes(pId))
                           .map(pId => {
                             const team = teams.find(t => t.id === pId);
+                            if (!team) return null;
                             return (
                               <SelectItem key={`opt-${group.id}-${pId}`} value={pId}>
-                                {team?.name}
+                                {team.name}
                               </SelectItem>
                             );
                           })

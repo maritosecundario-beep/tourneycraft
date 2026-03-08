@@ -35,7 +35,7 @@ const defaultSettings: GlobalSettings = {
 
 const TournamentContext = createContext<TournamentContextType | undefined>(undefined);
 
-// Función auxiliar para limpiar undefined (Firebase no los permite) y asegurar números
+// Función auxiliar mejorada para limpiar datos antes de Firestore
 const sanitizeData = (data: any): any => {
   return JSON.parse(JSON.stringify(data, (key, value) => {
     if (value === undefined) return null;
@@ -93,7 +93,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
           const userDocRef = doc(db, 'users', user.uid, 'backups', 'latest');
           setDocumentNonBlocking(userDocRef, sanitized, { merge: true });
         }
-      }, 5000); // Debounce de 5s para evitar spam a Firestore y errores de cuota
+      }, 5000); // Debounce de 5s para evitar spam a Firestore
       return () => clearTimeout(timer);
     }
   }, [teams, players, tournaments, settings, isLoaded, user?.uid, db]);

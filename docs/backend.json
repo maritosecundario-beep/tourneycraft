@@ -30,15 +30,9 @@
     "providers": ["google.com"]
   },
   "firestore": {
-    "structure": [
-      {
-        "path": "/users/{uid}/backups/latest",
-        "definition": {
-          "entityName": "Backup",
-          "schema": { "$ref": "#/backend/entities/Backup" },
-          "description": "Stores the latest full state snapshot for cloud sync."
-        }
-      }
-    ]
+    "/users/{uid}/backups/latest": {
+      "schema": { "$ref": "#/backend/entities/Backup" },
+      "description": "Stores the latest full state snapshot for cloud sync."
+    }
   }
 }
