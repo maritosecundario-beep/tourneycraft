@@ -282,7 +282,7 @@ export default function NewTournamentPage() {
                       )}
                     >
                       <div className="flex items-center gap-3">
-                        <CrestIcon shape={team.emblemShape} pattern={team.emblemPattern} c1={team.crestPrimary} c2={team.crestSecondary} size="w-10 h-10" />
+                        <CrestIcon shape={team.emblemShape} pattern={team.emblemPattern} c1={team.crestPrimary} c2={team.crestSecondary} c3={team.crestTertiary || team.crestPrimary} size="w-10 h-10" />
                         <div className="overflow-hidden">
                           <span className="font-black text-[10px] uppercase truncate block">{team.name}</span>
                           <span className="text-[9px] opacity-50 block">{team.abbreviation}</span>
@@ -346,7 +346,7 @@ export default function NewTournamentPage() {
                             const team = teams.find(t => t.id === pId);
                             return (
                               <Badge key={`assigned-pill-${group.id}-${pId}-${pIdx}`} variant="secondary" className="bg-primary/10 text-primary border-primary/20 px-4 py-2 rounded-xl flex items-center gap-3">
-                                <CrestIcon shape={team?.emblemShape!} pattern={team?.emblemPattern!} c1={team?.crestPrimary!} c2={team?.crestSecondary!} size="w-4 h-4" />
+                                <CrestIcon shape={team?.emblemShape!} pattern={team?.emblemPattern!} c1={team?.crestPrimary!} c2={team?.crestSecondary!} c3={team?.crestTertiary || team?.crestPrimary!} size="w-4 h-4" />
                                 <span className="text-[10px] font-black uppercase truncate max-w-[100px]">{team?.name}</span>
                                 <button onClick={() => removeFromGroup(pId)} className="hover:text-destructive transition-colors"><X className="w-3 h-3" /></button>
                               </Badge>
