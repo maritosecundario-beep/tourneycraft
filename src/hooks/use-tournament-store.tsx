@@ -36,8 +36,8 @@ const defaultSettings: GlobalSettings = {
 const TournamentContext = createContext<TournamentContextType | undefined>(undefined);
 
 /**
- * Función de saneamiento profundo para evitar que valores 'undefined' lleguen a Firestore,
- * lo cual provoca errores de tipo "Internal Server Error" o fallos de permisos.
+ * Función de saneamiento profundo: Convierte undefined en null y garantiza que
+ * los números sean válidos. Esto evita fallos 500 en Firestore.
  */
 const sanitizeData = (data: any): any => {
   return JSON.parse(JSON.stringify(data, (key, value) => {
@@ -57,7 +57,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   const user = useUser();
   const db = useFirestore();
 
-  // Carga inicial desde LocalStorage o JSON por defecto
+  // Carga inicial
   useEffect(() => {
     const saved = localStorage.getItem('tourneycraft-store');
     if (saved) {
@@ -68,7 +68,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         setTournaments(parsed.tournaments || hortaData.tournaments);
         setSettings(parsed.settings || defaultSettings);
       } catch (e) {
-        console.error("Error al cargar datos locales:", e);
+        console.error("Store Corrupto:", e);
       }
     } else {
       setTeams(hortaData.teams as any[]);
@@ -79,7 +79,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     setIsLoaded(true);
   }, []);
 
-  // Sincronización automática con LocalStorage y Firebase (Debounce de 5s)
+  // Sincronización Nube (Plan Gratis Spark)
   useEffect(() => {
     if (isLoaded) {
       document.body.className = settings.theme;
