@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useTournamentStore } from '@/hooks/use-tournament-store';
@@ -73,7 +72,7 @@ export default function TournamentsPage() {
 
                 <div className="flex gap-2">
                   <Button asChild className="flex-1 h-12 rounded-xl font-black shadow-lg">
-                    <Link href={`/tournaments/${tournament.id}`}>
+                    <Link href={`/tournaments/manage?id=${tournament.id}`}>
                       <Play className="w-4 h-4 mr-2 fill-current" /> GESTIONAR
                     </Link>
                   </Button>

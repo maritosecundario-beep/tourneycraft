@@ -40,11 +40,25 @@ const TournamentContext = createContext<TournamentContextType | undefined>(undef
  * los números sean válidos. Esto evita fallos 500 en Firestore.
  */
 const sanitizeData = (data: any): any => {
-  return JSON.parse(JSON.stringify(data, (key, value) => {
-    if (value === undefined) return null;
-    if (typeof value === 'number' && isNaN(value)) return 0;
-    return value;
-  }));
+  if (data === null || data === undefined) return null;
+  
+  if (Array.isArray(data)) {
+    return data.map(sanitizeData);
+  }
+  
+  if (typeof data === 'object') {
+    const sanitized: any = {};
+    for (const key in data) {
+      sanitized[key] = sanitizeData(data[key]);
+    }
+    return sanitized;
+  }
+  
+  if (typeof data === 'number') {
+    return isNaN(data) ? 0 : data;
+  }
+  
+  return data;
 };
 
 export function TournamentProvider({ children }: { children: React.ReactNode }) {
@@ -175,8 +189,8 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         }
         return m;
       });
-      if (isDual) return { ...t, dualLeagueMatches: updateMatches(t.dualLeagueMatches) };
-      return { ...t, matches: updateMatches(t.matches) };
+      if (isDual) return { ...t, dualLeagueMatches: updateMatches(t.dualLeagueMatches || []) };
+      return { ...t, matches: updateMatches(t.matches || []) };
     }));
   }, []);
 

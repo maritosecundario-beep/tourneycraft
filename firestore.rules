@@ -2,15 +2,14 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     /**
-     * Regla de Acceso Total de Usuario:
-     * El usuario tiene control absoluto sobre cualquier documento que resida
-     * bajo su propia rama /users/{uid}. Esto incluye backups y configuraciones.
+     * Acceso total recursivo para el dueño del UID.
+     * Permite gestionar backups, configuraciones y cualquier subcolección.
      */
     match /users/{uid}/{allPaths=**} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
     
-    // El resto de la base de datos permanece bloqueado por seguridad
+    // Bloqueo por defecto para el resto de la base de datos
     match /{document=**} {
       allow read, write: if false;
     }

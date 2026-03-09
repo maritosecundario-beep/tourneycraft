@@ -66,7 +66,7 @@ export default function Home() {
             ) : (
               <div className="space-y-4">
                 {tournaments.slice(0, 5).map((t) => (
-                  <Link key={t.id} href={`/tournaments/${t.id}`} className="flex items-center justify-between p-4 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors">
+                  <Link key={t.id} href={`/tournaments/manage?id=${t.id}`} className="flex items-center justify-between p-4 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors">
                     <div>
                       <p className="font-bold">{t.name}</p>
                       <p className="text-xs text-muted-foreground uppercase">{t.sport} • {t.format}</p>
