@@ -89,7 +89,10 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         
         if (user?.uid && db) {
           const sanitized = sanitizeData({
-            ...rawData,
+            teams,
+            players,
+            tournaments,
+            settings,
             updatedAt: new Date().toISOString(),
             ownerId: user.uid
           });
