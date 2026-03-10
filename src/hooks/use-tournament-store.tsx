@@ -105,6 +105,31 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     }
   }, [teams, players, tournaments, settings, isLoaded, user?.uid, db]);
 
+  const generateScoreByRules = useCallback((t: Tournament) => {
+    let hScore = 0;
+    let aScore = 0;
+    const val = t.scoringValue || 10;
+
+    if (t.scoringRuleType === 'bestOfN') {
+      hScore = Math.floor(Math.random() * (val + 1));
+      aScore = val - hScore;
+    } else if (t.scoringRuleType === 'firstToN') {
+      const winnerIdx = Math.random() > 0.5 ? 0 : 1;
+      if (winnerIdx === 0) { hScore = val; aScore = Math.floor(Math.random() * val); }
+      else { aScore = val; hScore = Math.floor(Math.random() * val); }
+    } else if (t.scoringRuleType === 'nToNRange') {
+      const min = t.nToNRangeMin || 0;
+      const max = t.nToNRangeMax || 10;
+      const total = Math.floor(Math.random() * (max - min + 1)) + min;
+      hScore = Math.floor(Math.random() * (total + 1));
+      aScore = total - hScore;
+    } else {
+      hScore = Math.floor(Math.random() * 5);
+      aScore = Math.floor(Math.random() * 5);
+    }
+    return { hScore, aScore };
+  }, []);
+
   const createSchedule = useCallback((t: Tournament): Tournament => {
     const schedule: Match[] = [];
     const dualSchedule: Match[] = [];
@@ -168,24 +193,13 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
                 const isHome = team.id === m.homeId;
                 const isWin = (isHome && homeScore > awayScore) || (!isHome && awayScore > homeScore);
                 const isLoss = (isHome && awayScore > homeScore) || (!isHome && homeScore > awayScore);
-                const winRew = t.winReward ?? 0;
-                const lossPen = t.lossPenalty ?? 0;
-                const drawRew = t.drawReward ?? 0;
-                let change = isWin ? winRew : isLoss ? -lossPen : drawRew;
+                let change = isWin ? (t.winReward || 0) : isLoss ? -(t.lossPenalty || 0) : (t.drawReward || 0);
                 return { ...team, budget: Math.max(0, (team.budget || 0) + change) };
               }
               return team;
             }));
           }
-          return { 
-            ...m, 
-            homeScore, 
-            awayScore, 
-            isSimulated: true, 
-            homePlayerId, 
-            awayPlayerId, 
-            winnerId: homeScore > awayScore ? m.homeId : homeScore < awayScore ? m.awayId : undefined 
-          };
+          return { ...m, homeScore, awayScore, isSimulated: true, homePlayerId, awayPlayerId, winnerId: homeScore > awayScore ? m.homeId : homeScore < awayScore ? m.awayId : undefined };
         }
         return m;
       });
@@ -198,29 +212,10 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         const dualMatchId = `dual-${matchId}`;
         const targetDual = nextDualMatches.find(dm => dm.id === dualMatchId);
         if (targetDual && !targetDual.isSimulated) {
-          // Generate score based on rules for dual league
-          let dHomeScore = 0;
-          let dAwayScore = 0;
-          const scoringVal = t.scoringValue || 10;
-
-          if (t.scoringRuleType === 'bestOfN' || t.scoringRuleType === 'firstToN') {
-            const winnerIdx = Math.random() > 0.5 ? 0 : 1;
-            if (winnerIdx === 0) { dHomeScore = scoringVal; dAwayScore = Math.floor(Math.random() * scoringVal); }
-            else { dAwayScore = scoringVal; dHomeScore = Math.floor(Math.random() * scoringVal); }
-          } else if (t.scoringRuleType === 'nToNRange') {
-            const min = t.nToNRangeMin || 0;
-            const max = t.nToNRangeMax || 10;
-            const total = min + Math.floor(Math.random() * (max - min + 1));
-            dHomeScore = Math.floor(Math.random() * (total + 1));
-            dAwayScore = total - dHomeScore;
-          } else {
-            dHomeScore = Math.floor(Math.random() * scoringVal);
-            dAwayScore = Math.floor(Math.random() * scoringVal);
-          }
-
+          const scores = generateScoreByRules(t);
           nextDualMatches = nextDualMatches.map(dm => 
             dm.id === dualMatchId 
-              ? { ...dm, homeScore: dHomeScore, awayScore: dAwayScore, isSimulated: true, winnerId: dHomeScore > dAwayScore ? dm.homeId : dHomeScore < dAwayScore ? dm.awayId : undefined } 
+              ? { ...dm, homeScore: scores.hScore, awayScore: scores.aScore, isSimulated: true, winnerId: scores.hScore > scores.aScore ? dm.homeId : scores.hScore < scores.aScore ? dm.awayId : undefined } 
               : dm
           );
         }
@@ -228,7 +223,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
 
       return { ...t, matches: updateMatches(t.matches || []), dualLeagueMatches: nextDualMatches };
     }));
-  }, []);
+  }, [generateScoreByRules]);
 
   const transferPlayer = useCallback((playerId: string, toTeamId: string | undefined) => {
     setPlayers(prev => prev.map(p => {
