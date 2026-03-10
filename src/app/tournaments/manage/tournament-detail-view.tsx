@@ -1,9 +1,10 @@
+
 "use client";
 
 import { useEffect, useState, useMemo } from 'react';
 import { useTournamentStore } from '@/hooks/use-tournament-store';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Trophy, RefreshCw, ArrowLeft, Star, Coins, Play, Settings2, Trash2, CheckCircle2, ChevronRight, UserCircle2, ArrowRightLeft } from 'lucide-react';
+import { Trophy, RefreshCw, ArrowLeft, Star, Coins, Play, Settings2, Trash2, CheckCircle2, ChevronRight, UserCircle2, ArrowRightLeft, Users, Group, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { CrestIcon } from '@/components/ui/crest-icon';
@@ -38,22 +39,34 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
   // Edit State
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
+  const [editSport, setEditSport] = useState('');
   const [editWinPts, setEditWinPts] = useState(3);
   const [editDrawPts, setEditDrawPts] = useState(1);
   const [editLossPts, setEditLossPts] = useState(0);
   const [editScoringType, setEditScoringType] = useState<ScoringRuleType>('bestOfN');
   const [editScoringVal, setEditScoringVal] = useState(9);
+  const [editPlayoffSpots, setEditPlayoffSpots] = useState(8);
+  const [editRelegationSpots, setEditRelegationSpots] = useState(4);
+  const [editWinReward, setEditWinReward] = useState(10);
+  const [editLossPenalty, setEditLossPenalty] = useState(15);
+  const [editDrawReward, setEditDrawReward] = useState(0);
 
   useEffect(() => {
     const found = tournaments.find(t => t.id === id);
     if (found) {
       setTournament(found);
       setEditName(found.name);
-      setEditWinPts(found.winPoints);
-      setEditDrawPts(found.drawPoints);
-      setEditLossPts(found.lossPoints);
+      setEditSport(found.sport);
+      setEditWinPts(found.winPoints || 0);
+      setEditDrawPts(found.drawPoints || 0);
+      setEditLossPts(found.lossPoints || 0);
       setEditScoringType(found.scoringRuleType);
       setEditScoringVal(found.scoringValue || 9);
+      setEditPlayoffSpots(found.playoffSpots || 0);
+      setEditRelegationSpots(found.relegationSpots || 0);
+      setEditWinReward(found.winReward || 0);
+      setEditLossPenalty(found.lossPenalty || 0);
+      setEditDrawReward(found.drawReward || 0);
     }
   }, [tournaments, id]);
 
@@ -111,7 +124,6 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
   const handleSimulateMatchday = (matchday: number, matches: Match[], isDual: boolean) => {
     matches.filter(m => m.matchday === matchday && !m.isSimulated).forEach(m => {
       if (tournament?.mode === 'arcade' && (m.homeId === tournament.managedParticipantId || m.awayId === tournament.managedParticipantId)) {
-        // En arcade, los del usuario los dejamos para el final o manual
         toast({ title: "Atención Arcade", description: `Simula manualmente el duelo contra ${teams.find(t => t.id === (m.homeId === tournament.managedParticipantId ? m.awayId : m.homeId))?.name}` });
       } else {
         handleSimulateNormal(m, isDual);
@@ -134,14 +146,31 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
     updateTournament({
       ...tournament,
       name: editName,
+      sport: editSport,
       winPoints: editWinPts,
       drawPoints: editDrawPts,
       lossPoints: editLossPts,
       scoringRuleType: editScoringType,
-      scoringValue: editScoringVal
+      scoringValue: editScoringVal,
+      playoffSpots: editPlayoffSpots,
+      relegationSpots: editRelegationSpots,
+      winReward: editWinReward,
+      lossPenalty: editLossPenalty,
+      drawReward: editDrawReward
     });
     setIsEditing(false);
     toast({ title: "Torneo Actualizado" });
+  };
+
+  const handleGroupUpdate = (teamId: string, newGroupId: string) => {
+    if (!tournament || !tournament.groups) return;
+    const newGroups = tournament.groups.map(g => {
+      const cleanIds = g.participantIds.filter(id => id !== teamId);
+      if (g.id === newGroupId) return { ...g, participantIds: [...cleanIds, teamId] };
+      return { ...g, participantIds: cleanIds };
+    });
+    updateTournament({ ...tournament, groups: newGroups });
+    toast({ title: "Grupo Actualizado", description: "Reinicia el calendario para aplicar cambios en emparejamientos." });
   };
 
   const matchesByMatchday = useMemo(() => {
@@ -184,7 +213,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setIsEditing(true)} className="rounded-xl font-black h-12">
-            <Settings2 className="w-4 h-4 mr-2" /> REGLAS
+            <Settings2 className="w-4 h-4 mr-2" /> AJUSTES PRO
           </Button>
           <Button variant="outline" onClick={() => { if(confirm("¿Borrar calendario?")) resetSchedule(tournament.id); }} className="rounded-xl font-black h-12 border-destructive text-destructive">
             <Trash2 className="w-4 h-4 mr-2" /> REINICIAR
@@ -196,7 +225,10 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
         <div className="lg:col-span-2 space-y-8">
           <Tabs defaultValue="matches">
             <TabsList className="bg-muted/20 p-1 rounded-2xl h-14 w-full flex overflow-x-auto scrollbar-hide">
-              <TabsTrigger value="matches" className="flex-1 rounded-xl font-black uppercase text-xs">Principal</TabsTrigger>
+              <TabsTrigger value="matches" className="flex-1 rounded-xl font-black uppercase text-xs">Calendario</TabsTrigger>
+              {tournament.leagueType === 'groups' && (
+                <TabsTrigger value="groups" className="flex-1 rounded-xl font-black uppercase text-xs">Grupos</TabsTrigger>
+              )}
               {tournament.dualLeagueEnabled && (
                 <TabsTrigger value="dual" className="flex-1 rounded-xl font-black uppercase text-xs">Liga Dual</TabsTrigger>
               )}
@@ -251,6 +283,45 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                   </div>
                 ))
               )}
+            </TabsContent>
+
+            <TabsContent value="groups" className="mt-6 space-y-6">
+              <div className="p-4 bg-yellow-500/10 rounded-2xl border border-yellow-500/20 flex gap-3 mb-6">
+                <AlertTriangle className="text-yellow-500 shrink-0" />
+                <p className="text-[10px] font-bold text-yellow-600 uppercase">Si cambias equipos de grupo, debes REINICIAR el calendario para aplicar los nuevos emparejamientos.</p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {tournament.groups?.map(g => (
+                  <Card key={g.id} className="rounded-2xl border bg-card">
+                    <CardHeader className="bg-muted/10 p-4 border-b">
+                      <CardTitle className="text-sm font-black uppercase">{g.name}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4 space-y-3">
+                      {g.participantIds.map(pId => {
+                        const team = teams.find(t => t.id === pId);
+                        return (
+                          <div key={pId} className="flex items-center justify-between p-2 bg-muted/20 rounded-xl">
+                            <div className="flex items-center gap-2">
+                              <CrestIcon shape={team?.emblemShape || 'shield'} pattern={team?.emblemPattern || 'none'} c1={team?.crestPrimary || '#000'} c2={team?.crestSecondary || '#fff'} c3={team?.crestTertiary || '#000'} size="w-5 h-5" />
+                              <span className="text-xs font-black uppercase">{team?.name}</span>
+                            </div>
+                            <Select onValueChange={(val) => handleGroupUpdate(pId, val)}>
+                              <SelectTrigger className="h-8 w-32 text-[10px] font-black uppercase">
+                                <SelectValue placeholder="Mover a..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {tournament.groups?.filter(other => other.id !== g.id).map(other => (
+                                  <SelectItem key={other.id} value={other.id}>{other.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        );
+                      })}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             </TabsContent>
 
             <TabsContent value="dual" className="mt-6 space-y-8">
@@ -389,7 +460,6 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
             const opponentTeam = teams.find(t => t.id === opponentTeamId);
             const opponentPlayers = players.filter(p => p.teamId === opponentTeamId);
             
-            // Lógica de IA: 70% el mejor jugador
             const sortedOpponents = [...opponentPlayers].sort((a, b) => b.monetaryValue - a.monetaryValue);
             const aiPlayer = Math.random() < 0.7 ? sortedOpponents[0] : sortedOpponents[Math.floor(Math.random() * sortedOpponents.length)];
             const opponentRank = standings.findIndex(s => s.id === opponentTeamId) + 1;
@@ -477,36 +547,62 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Settings Dialog */}
+      {/* Settings Dialog Expanded */}
       <Dialog open={isEditing} onOpenChange={setIsEditing}>
-        <DialogContent className="rounded-[2.5rem] max-w-lg">
+        <DialogContent className="rounded-[2.5rem] max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-black uppercase">Reglas del Universo</DialogTitle>
-            <DialogDescription>Modifica las leyes fundamentales de tu competición.</DialogDescription>
+            <DialogTitle className="text-2xl font-black uppercase">Ajustes del Universo</DialogTitle>
+            <DialogDescription>Modifica todas las leyes de tu competición.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-6 py-4">
-            <div className="space-y-2"><Label>Nombre del Torneo</Label><Input value={editName} onChange={e => setEditName(e.target.value)} className="rounded-xl" /></div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-center block">V.</Label><Input type="number" value={editWinPts} onChange={e => setEditWinPts(Number(e.target.value))} className="text-center" /></div>
-              <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-center block">E.</Label><Input type="number" value={editDrawPts} onChange={e => setEditDrawPts(Number(e.target.value))} className="text-center" /></div>
-              <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-center block">D.</Label><Input type="number" value={editLossPts} onChange={e => setEditLossPts(Number(e.target.value))} className="text-center" /></div>
+          <div className="space-y-8 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2"><Label>Nombre del Torneo</Label><Input value={editName} onChange={e => setEditName(e.target.value)} className="rounded-xl" /></div>
+              <div className="space-y-2"><Label>Deporte</Label><Input value={editSport} onChange={e => setEditSport(e.target.value)} className="rounded-xl" /></div>
             </div>
-            <div className="space-y-2">
-              <Label>Sistema de Marcador</Label>
-              <Select value={editScoringType} onValueChange={(v: any) => setEditScoringType(v)}>
-                <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="bestOfN">El mejor de N (Sets)</SelectItem>
-                  <SelectItem value="firstToN">Primero en marcar N</SelectItem>
-                  <SelectItem value="nToNRange">Rango total</SelectItem>
-                </SelectContent>
-              </Select>
+
+            <div className="space-y-4">
+              <h4 className="text-[10px] font-black uppercase border-b pb-2 text-primary">Reglas de Juego</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label>Sistema de Marcador</Label>
+                  <Select value={editScoringType} onValueChange={(v: any) => setEditScoringType(v)}>
+                    <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="bestOfN">El mejor de N (Sets)</SelectItem>
+                      <SelectItem value="firstToN">Primero en marcar N</SelectItem>
+                      <SelectItem value="nToNRange">Rango total</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2"><Label>Valor N / Max Puntos</Label><Input type="number" value={editScoringVal} onChange={e => setEditScoringVal(Number(e.target.value))} className="rounded-xl" /></div>
+              </div>
             </div>
-            <div className="space-y-2"><Label>Valor N / Max Puntos</Label><Input type="number" value={editScoringVal} onChange={e => setEditScoringVal(Number(e.target.value))} className="rounded-xl" /></div>
+
+            <div className="space-y-4">
+              <h4 className="text-[10px] font-black uppercase border-b pb-2 text-primary">Estructura de Tabla</h4>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-1"><Label className="text-[9px] uppercase font-bold text-center block">PTS Victoria</Label><Input type="number" value={editWinPts} onChange={e => setEditWinPts(Number(e.target.value))} className="text-center" /></div>
+                <div className="space-y-1"><Label className="text-[9px] uppercase font-bold text-center block">PTS Empate</Label><Input type="number" value={editDrawPts} onChange={e => setEditDrawPts(Number(e.target.value))} className="text-center" /></div>
+                <div className="space-y-1"><Label className="text-[9px] uppercase font-bold text-center block">PTS Derrota</Label><Input type="number" value={editLossPts} onChange={e => setEditLossPts(Number(e.target.value))} className="text-center" /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1"><Label className="text-[9px] uppercase font-bold block">Plazas Playoffs</Label><Input type="number" value={editPlayoffSpots} onChange={e => setEditPlayoffSpots(Number(e.target.value))} /></div>
+                <div className="space-y-1"><Label className="text-[9px] uppercase font-bold block">Plazas Descenso</Label><Input type="number" value={editRelegationSpots} onChange={e => setEditRelegationSpots(Number(e.target.value))} /></div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h4 className="text-[10px] font-black uppercase border-b pb-2 text-accent">Economía Regional ({settings.currency})</h4>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-1"><Label className="text-[9px] uppercase font-bold text-center block">Bono Ganar</Label><Input type="number" value={editWinReward} onChange={e => setEditWinReward(Number(e.target.value))} className="text-center" /></div>
+                <div className="space-y-1"><Label className="text-[9px] uppercase font-bold text-center block">Bono Empate</Label><Input type="number" value={editDrawReward} onChange={e => setEditDrawReward(Number(e.target.value))} className="text-center" /></div>
+                <div className="space-y-1"><Label className="text-[9px] uppercase font-bold text-center block">Multa Perder</Label><Input type="number" value={editLossPenalty} onChange={e => setEditLossPenalty(Number(e.target.value))} className="text-center" /></div>
+              </div>
+            </div>
           </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsEditing(false)}>Cancelar</Button>
-            <Button onClick={handleSaveSettings} className="font-black">GUARDAR REGLAS</Button>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setIsEditing(false)} className="rounded-xl">Cancelar</Button>
+            <Button onClick={handleSaveSettings} className="font-black rounded-xl px-8 shadow-lg shadow-primary/20">GUARDAR TODO</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

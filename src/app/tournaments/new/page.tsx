@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -9,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Trophy, Users, Coins, Target, Brackets, ShieldAlert, Group, Plus, X, AlertCircle, Settings2 } from 'lucide-react';
+import { Trophy, Users, Coins, Target, Brackets, ShieldAlert, Group, Plus, X, AlertCircle, Settings2, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { TournamentMode, TournamentFormat, TournamentEntryType, LeagueType, TournamentGroup, ScoringRuleType } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -105,6 +106,17 @@ export default function NewTournamentPage() {
     }));
   };
 
+  const distributeAutomatically = () => {
+    if (selectedParticipants.length === 0 || groups.length === 0) return;
+    const newGroups = groups.map(g => ({ ...g, participantIds: [] }));
+    selectedParticipants.forEach((pId, index) => {
+      const groupIdx = index % groups.length;
+      newGroups[groupIdx].participantIds.push(pId);
+    });
+    setGroups(newGroups);
+    toast({ title: "Reparto Equitativo", description: "Equipos distribuidos entre las conferencias." });
+  };
+
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-32 px-4 md:px-0">
       <header>
@@ -136,7 +148,7 @@ export default function NewTournamentPage() {
             </div>
             
             {mode === 'arcade' && (
-              <div className="space-y-2 p-4 bg-primary/5 border-2 border-primary/20 rounded-2xl">
+              <div className="space-y-2 p-4 bg-primary/5 border-2 border-primary/20 rounded-2xl" key={selectedParticipants.length}>
                 <Label className="flex items-center gap-2 font-black text-[10px] uppercase text-primary mb-2">
                   <Target className="w-4 h-4" /> Tu Club de Gestión
                 </Label>
@@ -248,10 +260,10 @@ export default function NewTournamentPage() {
         <header className="flex flex-col md:flex-row justify-between items-center gap-4">
           <div>
             <CardTitle className="text-xl font-black uppercase flex items-center gap-2"><Users className="text-primary" /> Inscripción de Equipos ({selectedParticipants.length})</CardTitle>
-            <p className="text-[10px] text-muted-foreground font-bold mt-1 uppercase">Selecciona los clubes que formarán parte de la temporada.</p>
+            <p className="text-[10px] text-muted-foreground font-bold mt-1 uppercase">Marca los clubes participantes. Pulsa en el escudo para seleccionar.</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setSelectedParticipants(teams.map(t => t.id))} className="text-[10px] font-black uppercase h-10 px-6">SELECCIONAR TODOS</Button>
+            <Button variant="outline" size="sm" onClick={() => setSelectedParticipants(teams.map(t => t.id))} className="text-[10px] font-black uppercase h-10 px-6 border-primary text-primary">SELECCIONAR TODOS</Button>
             <Button variant="outline" size="sm" onClick={() => { setSelectedParticipants([]); setGroups(groups.map(g => ({...g, participantIds: []}))); }} className="text-[10px] font-black uppercase h-10 px-6">LIMPIAR</Button>
           </div>
         </header>
@@ -259,28 +271,29 @@ export default function NewTournamentPage() {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 pr-4 pb-4">
             {teams.map((team) => {
               const isSelected = selectedParticipants.includes(team.id);
-              const isAssigned = groups.some(g => g.participantIds.includes(team.id));
               return (
                 <button 
                   key={`team-reg-${team.id}`} 
                   onClick={() => setSelectedParticipants(prev => isSelected ? prev.filter(id => id !== team.id) : [...prev, team.id])}
                   className={cn(
-                    "p-4 rounded-2xl border-2 transition-all text-left flex flex-col gap-2 relative",
-                    isSelected ? "bg-primary/10 border-primary shadow-md" : "bg-card border-transparent hover:bg-muted/50"
+                    "p-4 rounded-2xl border-2 transition-all text-left flex flex-col gap-2 relative group",
+                    isSelected ? "bg-primary/10 border-primary shadow-md" : "bg-card border-muted/30 hover:border-primary/50"
                   )}
                 >
                   <div className="flex items-center gap-3">
-                    <CrestIcon shape={team.emblemShape} pattern={team.emblemPattern} c1={team.crestPrimary} c2={team.crestSecondary} c3={team.crestTertiary || team.crestPrimary} size="w-10 h-10" />
+                    <div className="relative">
+                      <CrestIcon shape={team.emblemShape} pattern={team.emblemPattern} c1={team.crestPrimary} c2={team.crestSecondary} c3={team.crestTertiary || team.crestPrimary} size="w-10 h-10" />
+                      {isSelected && (
+                        <div className="absolute -top-1 -right-1 bg-primary text-white rounded-full p-0.5 shadow-lg">
+                          <CheckCircle2 className="w-3 h-3" />
+                        </div>
+                      )}
+                    </div>
                     <div className="overflow-hidden">
                       <span className="font-black text-[10px] uppercase truncate block">{team.name}</span>
                       <span className="text-[9px] opacity-50 block">{team.abbreviation}</span>
                     </div>
                   </div>
-                  {isSelected && format === 'league' && leagueType === 'groups' && (
-                    <div className={cn("mt-2 text-[8px] font-black uppercase p-1 rounded text-center", isAssigned ? "bg-green-500 text-white" : "bg-yellow-500 text-black animate-pulse")}>
-                      {isAssigned ? "Asignado" : "Sin Grupo"}
-                    </div>
-                  )}
                 </button>
               );
             })}
@@ -300,9 +313,14 @@ export default function NewTournamentPage() {
                 <p className="text-[10px] text-muted-foreground font-bold uppercase">Organiza los equipos en conferencias regionales.</p>
               </div>
             </div>
-            <Button onClick={addGroup} variant="outline" className="h-12 rounded-xl border-accent text-accent font-black text-xs uppercase px-8">
-              <Plus className="w-4 h-4 mr-2" /> AÑADIR CONFERENCIA
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={distributeAutomatically} variant="secondary" className="h-12 rounded-xl font-black text-xs uppercase px-6">
+                <RefreshCw className="w-4 h-4 mr-2" /> REPARTO EQUITATIVO
+              </Button>
+              <Button onClick={addGroup} variant="outline" className="h-12 rounded-xl border-accent text-accent font-black text-xs uppercase px-6">
+                <Plus className="w-4 h-4 mr-2" /> AÑADIR CONFERENCIA
+              </Button>
+            </div>
           </header>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
