@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
@@ -41,7 +42,12 @@ const sanitizeData = (data: any): any => {
   if (Array.isArray(data)) return data.map(sanitizeData);
   if (typeof data === 'object') {
     const sanitized: any = {};
-    for (const key in data) sanitized[key] = sanitizeData(data[key]);
+    for (const key in data) {
+      // Ignorar valores undefined para no romper Firebase
+      if (data[key] !== undefined) {
+        sanitized[key] = sanitizeData(data[key]);
+      }
+    }
     return sanitized;
   }
   if (typeof data === 'number') return isNaN(data) ? 0 : data;
@@ -187,12 +193,10 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
 
       if (isDual) return { ...t, dualLeagueMatches: updateMatches(t.dualLeagueMatches || []) };
       
-      // Si la liga dual está habilitada, simular el partido espejo automáticamente
       if (t.dualLeagueEnabled && !isDual) {
         const dualMatchId = `dual-${matchId}`;
         const hasDualMatch = t.dualLeagueMatches?.find(dm => dm.id === dualMatchId);
         if (hasDualMatch) {
-          // Simulación automática para la liga dual
           const dualHomeScore = Math.floor(Math.random() * (t.scoringValue || 10));
           const dualAwayScore = Math.floor(Math.random() * (t.scoringValue || 10));
           const updatedDualMatches = t.dualLeagueMatches.map(dm => 

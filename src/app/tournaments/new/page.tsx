@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Trophy, Users, Coins, Target, Brackets, ShieldAlert, Group, Plus, X, AlertCircle, Settings2, CheckCircle2 } from 'lucide-react';
+import { Trophy, Users, Coins, Target, Brackets, ShieldAlert, Group, Plus, X, AlertCircle, Settings2, CheckCircle2, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { TournamentMode, TournamentFormat, TournamentEntryType, LeagueType, TournamentGroup, ScoringRuleType } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -54,6 +54,9 @@ export default function NewTournamentPage() {
   const [playoffSpots, setPlayoffSpots] = useState(8);
   const [relegationSpots, setRelegationSpots] = useState(4);
 
+  // Key reactiva para forzar el refresco del selector arcade
+  const arcadeKey = useMemo(() => selectedParticipants.join('-'), [selectedParticipants]);
+
   const arcadeTeamOptions = useMemo(() => {
     return teams.filter(t => selectedParticipants.includes(t.id));
   }, [teams, selectedParticipants]);
@@ -92,7 +95,7 @@ export default function NewTournamentPage() {
   };
 
   const addGroup = () => {
-    const newId = `g${groups.length + 1}`;
+    const newId = `g-${Date.now()}`;
     setGroups([...groups, { id: newId, name: `Grupo ${groups.length + 1}`, participantIds: [] }]);
   };
 
@@ -148,7 +151,7 @@ export default function NewTournamentPage() {
             </div>
             
             {mode === 'arcade' && (
-              <div className="space-y-2 p-4 bg-primary/5 border-2 border-primary/20 rounded-2xl" key={selectedParticipants.length}>
+              <div className="space-y-2 p-4 bg-primary/5 border-2 border-primary/20 rounded-2xl" key={`arcade-sel-${arcadeKey}`}>
                 <Label className="flex items-center gap-2 font-black text-[10px] uppercase text-primary mb-2">
                   <Target className="w-4 h-4" /> Tu Club de Gestión
                 </Label>
@@ -158,7 +161,7 @@ export default function NewTournamentPage() {
                   </SelectTrigger>
                   <SelectContent className="rounded-xl">
                     {arcadeTeamOptions.map(t => (
-                      <SelectItem key={`managed-${t.id}`} value={t.id}>{t.name}</SelectItem>
+                      <SelectItem key={`managed-opt-${t.id}`} value={t.id}>{t.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -232,7 +235,7 @@ export default function NewTournamentPage() {
                 </div>
               ) : (
                 <div className="space-y-2 p-4 bg-muted/20 rounded-2xl">
-                  <Label className="text-[10px] font-black uppercase">Valor N</Label>
+                  <Label className="text-[10px] font-black uppercase">Valor N (Sets o Meta)</Label>
                   <Input type="number" value={scoringValue} onChange={e => setScoringValue(Number(e.target.value))} />
                 </div>
               )}
@@ -247,9 +250,9 @@ export default function NewTournamentPage() {
             <div className="p-6 bg-accent/5 rounded-[2rem] border space-y-4">
               <Label className="text-[10px] font-black uppercase text-accent flex items-center gap-2"><Coins className="w-4 h-4" /> Economía (CR)</Label>
               <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-1"><Label className="text-[9px] text-center block">Gana (+)</Label><Input type="number" value={winReward} onChange={e => setWinReward(Number(e.target.value))} className="h-10 text-center" /></div>
-                <div className="space-y-1"><Label className="text-[9px] text-center block">Pierde (-)</Label><Input type="number" value={lossPenalty} onChange={e => setLossPenalty(Number(e.target.value))} className="h-10 text-center" /></div>
-                <div className="space-y-1"><Label className="text-[9px] text-center block">Empata</Label><Input type="number" value={drawReward} onChange={e => setDrawReward(Number(e.target.value))} className="h-10 text-center" /></div>
+                <div className="space-y-1"><Label className="text-[9px] text-center block uppercase font-bold">Gana (+)</Label><Input type="number" value={winReward} onChange={e => setWinReward(Number(e.target.value))} className="h-10 text-center" /></div>
+                <div className="space-y-1"><Label className="text-[9px] text-center block uppercase font-bold">Pierde (-)</Label><Input type="number" value={lossPenalty} onChange={e => setLossPenalty(Number(e.target.value))} className="h-10 text-center" /></div>
+                <div className="space-y-1"><Label className="text-[9px] text-center block uppercase font-bold">Empata</Label><Input type="number" value={drawReward} onChange={e => setDrawReward(Number(e.target.value))} className="h-10 text-center" /></div>
               </div>
             </div>
           </CardContent>
@@ -273,7 +276,7 @@ export default function NewTournamentPage() {
               const isSelected = selectedParticipants.includes(team.id);
               return (
                 <button 
-                  key={`team-reg-${team.id}`} 
+                  key={`team-reg-card-${team.id}`} 
                   onClick={() => setSelectedParticipants(prev => isSelected ? prev.filter(id => id !== team.id) : [...prev, team.id])}
                   className={cn(
                     "p-4 rounded-2xl border-2 transition-all text-left flex flex-col gap-2 relative group",
@@ -324,8 +327,8 @@ export default function NewTournamentPage() {
           </header>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {groups.map((group) => (
-              <Card key={`group-setup-${group.id}`} className="rounded-[2.5rem] border bg-card shadow-2xl overflow-hidden">
+            {groups.map((group, gIdx) => (
+              <Card key={`group-setup-card-${group.id || gIdx}`} className="rounded-[2.5rem] border bg-card shadow-2xl overflow-hidden">
                 <CardHeader className="bg-muted/10 p-6 flex flex-row justify-between items-center border-b">
                   <div className="flex items-center gap-3">
                     <Badge className="bg-accent text-accent-foreground font-black">{group.participantIds.length}</Badge>
@@ -350,7 +353,7 @@ export default function NewTournamentPage() {
                         const team = teams.find(t => t.id === pId);
                         if (!team) return null;
                         return (
-                          <Badge key={`assigned-${group.id}-${pId}`} variant="secondary" className="bg-primary/10 text-primary border-primary/20 px-4 py-2 rounded-xl flex items-center gap-3">
+                          <Badge key={`assigned-pill-${group.id}-${pId}`} variant="secondary" className="bg-primary/10 text-primary border-primary/20 px-4 py-2 rounded-xl flex items-center gap-3">
                             <CrestIcon shape={team.emblemShape} pattern={team.emblemPattern} c1={team.crestPrimary} c2={team.crestSecondary} c3={team.crestTertiary || team.crestPrimary} size="w-4 h-4" />
                             <span className="text-[10px] font-black uppercase truncate max-w-[100px]">{team.name}</span>
                             <X className="w-3 h-3 cursor-pointer hover:text-destructive" onClick={() => setGroups(groups.map(g => ({...g, participantIds: g.participantIds.filter(id => id !== pId)})))} />
@@ -373,7 +376,7 @@ export default function NewTournamentPage() {
                             const team = teams.find(t => t.id === pId);
                             if (!team) return null;
                             return (
-                              <SelectItem key={`opt-${group.id}-${pId}`} value={pId}>
+                              <SelectItem key={`opt-group-${group.id}-${pId}`} value={pId}>
                                 {team.name}
                               </SelectItem>
                             );

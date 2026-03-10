@@ -4,7 +4,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useTournamentStore } from '@/hooks/use-tournament-store';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Trophy, RefreshCw, ArrowLeft, Star, Coins, Play, Settings2, Trash2, CheckCircle2, ChevronRight, UserCircle2, ArrowRightLeft, Users, Group, AlertTriangle } from 'lucide-react';
+import { Trophy, RefreshCw, ArrowLeft, Star, Coins, Play, Settings2, Trash2, CheckCircle2, ChevronRight, UserCircle2, ArrowRightLeft, Users, Group, AlertTriangle, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { CrestIcon } from '@/components/ui/crest-icon';
@@ -44,12 +44,13 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
   const [editDrawPts, setEditDrawPts] = useState(1);
   const [editLossPts, setEditLossPts] = useState(0);
   const [editScoringType, setEditScoringType] = useState<ScoringRuleType>('bestOfN');
-  const [editScoringVal, setEditScoringVal] = useState(9);
+  const [editScoringValue, setEditScoringValue] = useState(9);
   const [editPlayoffSpots, setEditPlayoffSpots] = useState(8);
   const [editRelegationSpots, setEditRelegationSpots] = useState(4);
   const [editWinReward, setEditWinReward] = useState(10);
   const [editLossPenalty, setEditLossPenalty] = useState(15);
   const [editDrawReward, setEditDrawReward] = useState(0);
+  const [editVariability, setEditVariability] = useState(15);
 
   useEffect(() => {
     const found = tournaments.find(t => t.id === id);
@@ -61,12 +62,13 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
       setEditDrawPts(found.drawPoints || 0);
       setEditLossPts(found.lossPoints || 0);
       setEditScoringType(found.scoringRuleType);
-      setEditScoringVal(found.scoringValue || 9);
+      setEditScoringValue(found.scoringValue || 9);
       setEditPlayoffSpots(found.playoffSpots || 0);
       setEditRelegationSpots(found.relegationSpots || 0);
       setEditWinReward(found.winReward || 0);
       setEditLossPenalty(found.lossPenalty || 0);
       setEditDrawReward(found.drawReward || 0);
+      setEditVariability(found.variability || 15);
     }
   }, [tournaments, id]);
 
@@ -124,7 +126,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
   const handleSimulateMatchday = (matchday: number, matches: Match[], isDual: boolean) => {
     matches.filter(m => m.matchday === matchday && !m.isSimulated).forEach(m => {
       if (tournament?.mode === 'arcade' && (m.homeId === tournament.managedParticipantId || m.awayId === tournament.managedParticipantId)) {
-        toast({ title: "Atención Arcade", description: `Simula manualmente el duelo contra ${teams.find(t => t.id === (m.homeId === tournament.managedParticipantId ? m.awayId : m.homeId))?.name}` });
+        toast({ title: "Atención Arcade", description: `Simula manualmente tu duelo contra ${teams.find(t => t.id === (m.homeId === tournament.managedParticipantId ? m.awayId : m.homeId))?.name}` });
       } else {
         handleSimulateNormal(m, isDual);
       }
@@ -151,15 +153,31 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
       drawPoints: editDrawPts,
       lossPoints: editLossPts,
       scoringRuleType: editScoringType,
-      scoringValue: editScoringVal,
+      scoringValue: editScoringValue,
       playoffSpots: editPlayoffSpots,
       relegationSpots: editRelegationSpots,
       winReward: editWinReward,
       lossPenalty: editLossPenalty,
-      drawReward: editDrawReward
+      drawReward: editDrawReward,
+      variability: editVariability
     });
     setIsEditing(false);
-    toast({ title: "Torneo Actualizado" });
+    toast({ title: "Ajustes Actualizados", description: "Los cambios se han guardado en el universo." });
+  };
+
+  const handleAddGroup = () => {
+    if (!tournament) return;
+    const newGroupId = `g-${Date.now()}`;
+    const newGroups = [...(tournament.groups || []), { id: newGroupId, name: `Nuevo Grupo ${ (tournament.groups?.length || 0) + 1 }`, participantIds: [] }];
+    updateTournament({ ...tournament, groups: newGroups });
+    toast({ title: "Grupo Creado" });
+  };
+
+  const handleRemoveGroup = (groupId: string) => {
+    if (!tournament || !tournament.groups) return;
+    const newGroups = tournament.groups.filter(g => g.id !== groupId);
+    updateTournament({ ...tournament, groups: newGroups });
+    toast({ title: "Grupo Eliminado" });
   };
 
   const handleGroupUpdate = (teamId: string, newGroupId: string) => {
@@ -170,8 +188,14 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
       return { ...g, participantIds: cleanIds };
     });
     updateTournament({ ...tournament, groups: newGroups });
-    toast({ title: "Grupo Actualizado", description: "Reinicia el calendario para aplicar cambios en emparejamientos." });
+    toast({ title: "Equipo Movido", description: "Reinicia el calendario para aplicar cambios." });
   };
+
+  const unassignedTeams = useMemo(() => {
+    if (!tournament) return [];
+    const assignedIds = new Set(tournament.groups?.flatMap(g => g.participantIds) || []);
+    return tournament.participants.filter(id => !assignedIds.has(id));
+  }, [tournament]);
 
   const matchesByMatchday = useMemo(() => {
     const grouped: Record<number, Match[]> = {};
@@ -191,7 +215,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
     return grouped;
   }, [tournament?.dualLeagueMatches]);
 
-  if (!tournament) return <div className="p-20 text-center animate-pulse">Cargando...</div>;
+  if (!tournament) return <div className="p-20 text-center animate-pulse">Cargando Competición...</div>;
 
   const userTeam = teams.find(t => t.id === tournament.managedParticipantId);
   const userTeamPlayers = players.filter(p => p.teamId === userTeam?.id);
@@ -243,7 +267,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                 </div>
               ) : (
                 Object.entries(matchesByMatchday).sort(([a], [b]) => Number(a) - Number(b)).map(([day, dayMatches]) => (
-                  <div key={`matchday-${day}`} className="space-y-4">
+                  <div key={`matchday-block-${day}`} className="space-y-4">
                     <div className="flex items-center justify-between px-2">
                       <h3 className="font-black uppercase text-sm flex items-center gap-2">
                         <Badge variant="secondary" className="bg-primary text-white">JORNADA {day}</Badge>
@@ -258,7 +282,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                         const away = teams.find(t => t.id === m.awayId);
                         if (!home || !away) return null;
                         return (
-                          <Card key={`match-${m.id}`} className="border-none shadow-md hover:shadow-lg transition-all rounded-2xl overflow-hidden">
+                          <Card key={`match-row-${m.id}`} className="border-none shadow-md hover:shadow-lg transition-all rounded-2xl overflow-hidden">
                             <CardContent className="p-4 flex items-center justify-between gap-4">
                               <div className="flex-1 flex items-center justify-end gap-3 text-right overflow-hidden">
                                 <span className={cn("font-black text-[10px] md:text-xs truncate uppercase", m.homeId === tournament.managedParticipantId && "text-primary")}>{home.name}</span>
@@ -286,24 +310,45 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
             </TabsContent>
 
             <TabsContent value="groups" className="mt-6 space-y-6">
-              <div className="p-4 bg-yellow-500/10 rounded-2xl border border-yellow-500/20 flex gap-3 mb-6">
-                <AlertTriangle className="text-yellow-500 shrink-0" />
-                <p className="text-[10px] font-bold text-yellow-600 uppercase">Si cambias equipos de grupo, debes REINICIAR el calendario para aplicar los nuevos emparejamientos.</p>
+              <div className="flex justify-between items-center px-2">
+                <div className="space-y-1">
+                  <h3 className="font-black uppercase text-lg">Distribución de Conferencias</h3>
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold">Cambia equipos de grupo y reinicia el calendario.</p>
+                </div>
+                <Button onClick={handleAddGroup} variant="outline" className="rounded-xl border-accent text-accent font-black">
+                  <Plus className="w-4 h-4 mr-2" /> AÑADIR GRUPO
+                </Button>
               </div>
+
+              <div className="p-4 bg-yellow-500/10 rounded-2xl border border-yellow-500/20 flex gap-3">
+                <AlertTriangle className="text-yellow-500 shrink-0" />
+                <p className="text-[10px] font-bold text-yellow-600 uppercase">Si mueves equipos, DEBES REINICIAR el calendario para generar nuevos emparejamientos.</p>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {tournament.groups?.map(g => (
-                  <Card key={`group-card-${g.id}`} className="rounded-2xl border bg-card">
-                    <CardHeader className="bg-muted/10 p-4 border-b">
-                      <CardTitle className="text-sm font-black uppercase">{g.name}</CardTitle>
+                {tournament.groups?.map((g, gIdx) => (
+                  <Card key={`group-card-tab-${g.id || gIdx}`} className="rounded-2xl border bg-card relative">
+                    <CardHeader className="bg-muted/10 p-4 border-b flex flex-row justify-between items-center">
+                      <Input 
+                        value={g.name} 
+                        onChange={(e) => {
+                          const newGroups = tournament.groups?.map(tg => tg.id === g.id ? { ...tg, name: e.target.value } : tg);
+                          updateTournament({ ...tournament, groups: newGroups });
+                        }}
+                        className="bg-transparent border-none font-black uppercase text-sm focus-visible:ring-0 h-8 p-0"
+                      />
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveGroup(g.id)}>
+                        <X className="w-4 h-4" />
+                      </Button>
                     </CardHeader>
                     <CardContent className="p-4 space-y-3">
                       {g.participantIds.map((pId, pIdx) => {
                         const team = teams.find(t => t.id === pId);
                         return (
                           <div key={`group-team-${g.id}-${pId}-${pIdx}`} className="flex items-center justify-between p-2 bg-muted/20 rounded-xl">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 overflow-hidden">
                               <CrestIcon shape={team?.emblemShape || 'shield'} pattern={team?.emblemPattern || 'none'} c1={team?.crestPrimary || '#000'} c2={team?.crestSecondary || '#fff'} c3={team?.crestTertiary || '#000'} size="w-5 h-5" />
-                              <span className="text-xs font-black uppercase">{team?.name}</span>
+                              <span className="text-xs font-black uppercase truncate">{team?.name}</span>
                             </div>
                             <Select onValueChange={(val) => handleGroupUpdate(pId, val)}>
                               <SelectTrigger className="h-8 w-32 text-[10px] font-black uppercase">
@@ -313,6 +358,38 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                                 {tournament.groups?.filter(other => other.id !== g.id).map(other => (
                                   <SelectItem key={`move-to-${other.id}`} value={other.id}>{other.name}</SelectItem>
                                 ))}
+                                <SelectItem value="unassigned">Desasignar</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        );
+                      })}
+                      {g.participantIds.length === 0 && <p className="text-[10px] text-muted-foreground uppercase text-center py-4 italic">Grupo vacío</p>}
+                    </CardContent>
+                  </Card>
+                ))}
+
+                {unassignedTeams.length > 0 && (
+                  <Card className="rounded-2xl border border-dashed bg-muted/5">
+                    <CardHeader className="p-4 border-b border-dashed">
+                      <CardTitle className="text-sm font-black uppercase text-muted-foreground flex items-center gap-2">
+                        <Users className="w-4 h-4" /> Equipos sin Asignar
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4 space-y-2">
+                      {unassignedTeams.map(pId => {
+                        const team = teams.find(t => t.id === pId);
+                        return (
+                          <div key={`unassigned-${pId}`} className="flex items-center justify-between p-2 bg-card border rounded-xl">
+                            <span className="text-xs font-bold uppercase">{team?.name}</span>
+                            <Select onValueChange={(val) => handleGroupUpdate(pId, val)}>
+                              <SelectTrigger className="h-8 w-28 text-[9px] font-black uppercase">
+                                <SelectValue placeholder="Asignar..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {tournament.groups?.map(tg => (
+                                  <SelectItem key={`assign-to-${tg.id}`} value={tg.id}>{tg.name}</SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
                           </div>
@@ -320,13 +397,13 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                       })}
                     </CardContent>
                   </Card>
-                ))}
+                )}
               </div>
             </TabsContent>
 
             <TabsContent value="dual" className="mt-6 space-y-8">
               {Object.entries(dualMatchesByMatchday).sort(([a], [b]) => Number(a) - Number(b)).map(([day, dayMatches]) => (
-                <div key={`dual-matchday-${day}`} className="space-y-4">
+                <div key={`dual-matchday-block-${day}`} className="space-y-4">
                   <div className="flex items-center justify-between px-2">
                     <h3 className="font-black uppercase text-sm flex items-center gap-2">
                       <Badge variant="outline" className="border-accent text-accent">ESPEJO JORNADA {day}</Badge>
@@ -338,7 +415,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                       const away = teams.find(t => t.id === m.awayId);
                       if (!home || !away) return null;
                       return (
-                        <Card key={`dual-match-${m.id}`} className="border-none shadow-sm rounded-2xl">
+                        <Card key={`dual-match-row-${m.id}`} className="border-none shadow-sm rounded-2xl">
                           <CardContent className="p-4 flex items-center justify-between gap-4">
                             <div className="flex-1 flex items-center justify-end gap-3 text-right">
                               <span className="font-bold text-[10px] uppercase truncate">{home.name}</span>
@@ -381,7 +458,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                     {standings.map((row: any, idx: number) => {
                       const team = teams.find(t => t.id === row.id);
                       return (
-                        <TableRow key={`standing-row-${row.id || idx}`}>
+                        <TableRow key={`standing-row-item-${row.id || idx}`}>
                           <TableCell className="font-black flex items-center gap-3">
                             <span className="text-[10px] opacity-30">{idx + 1}</span>
                             <CrestIcon shape={team?.emblemShape || 'shield'} pattern={team?.emblemPattern || 'none'} c1={team?.crestPrimary || '#000'} c2={team?.crestSecondary || '#fff'} c3={team?.crestTertiary || '#000'} size="w-6 h-6" />
@@ -411,7 +488,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
             <CardContent className="p-6 pt-0 space-y-4">
               <div className="flex justify-between items-center bg-white/10 p-4 rounded-2xl">
                 <span className="text-[10px] font-black uppercase">Sistema</span>
-                <span className="text-sm font-black">{tournament.scoringRuleType}</span>
+                <span className="text-sm font-black uppercase">{tournament.scoringRuleType}</span>
               </div>
               <div className="flex justify-between items-center bg-white/10 p-4 rounded-2xl">
                 <span className="text-[10px] font-black uppercase">Valor N</span>
@@ -436,7 +513,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
               {standings.slice(0, 3).map((row: any, idx: number) => {
                 const team = teams.find(t => t.id === row.id);
                 return (
-                  <div key={`podium-item-${row.id || idx}`} className="flex items-center gap-4 p-3 bg-muted/20 rounded-xl">
+                  <div key={`podium-item-card-${row.id || idx}`} className="flex items-center gap-4 p-3 bg-muted/20 rounded-xl">
                     <div className="w-8 h-8 rounded-full bg-card flex items-center justify-center font-black text-xs">{idx + 1}</div>
                     <div className="flex-1 overflow-hidden">
                       <p className="font-black text-xs uppercase truncate">{team?.name}</p>
@@ -549,24 +626,24 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
 
       {/* Settings Dialog Expanded */}
       <Dialog open={isEditing} onOpenChange={setIsEditing}>
-        <DialogContent className="rounded-[2.5rem] max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="rounded-[2.5rem] max-w-2xl max-h-[90vh] overflow-y-auto border-none shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-2xl font-black uppercase">Ajustes del Universo</DialogTitle>
             <DialogDescription>Modifica todas las leyes de tu competición.</DialogDescription>
           </DialogHeader>
           <div className="space-y-8 py-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2"><Label>Nombre del Torneo</Label><Input value={editName} onChange={e => setEditName(e.target.value)} className="rounded-xl" /></div>
-              <div className="space-y-2"><Label>Deporte</Label><Input value={editSport} onChange={e => setEditSport(e.target.value)} className="rounded-xl" /></div>
+              <div className="space-y-2"><Label>Nombre del Torneo</Label><Input value={editName} onChange={e => setEditName(e.target.value)} className="rounded-xl h-12" /></div>
+              <div className="space-y-2"><Label>Deporte</Label><Input value={editSport} onChange={e => setEditSport(e.target.value)} className="rounded-xl h-12" /></div>
             </div>
 
             <div className="space-y-4">
               <h4 className="text-[10px] font-black uppercase border-b pb-2 text-primary">Reglas de Juego</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="space-y-2 md:col-span-2">
                   <Label>Sistema de Marcador</Label>
                   <Select value={editScoringType} onValueChange={(v: any) => setEditScoringType(v)}>
-                    <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="rounded-xl h-12"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="bestOfN">El mejor de N (Sets)</SelectItem>
                       <SelectItem value="firstToN">Primero en marcar N</SelectItem>
@@ -574,35 +651,42 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2"><Label>Valor N / Max Puntos</Label><Input type="number" value={editScoringVal} onChange={e => setEditScoringVal(Number(e.target.value))} className="rounded-xl" /></div>
+                <div className="space-y-2"><Label>Valor N / Max</Label><Input type="number" value={editScoringValue} onChange={e => setEditScoringValue(Number(e.target.value))} className="rounded-xl h-12" /></div>
+              </div>
+              <div className="space-y-2">
+                <Label>Variabilidad de Simulación (%)</Label>
+                <div className="flex items-center gap-4">
+                  <Input type="number" value={editVariability} onChange={e => setEditVariability(Number(e.target.value))} className="rounded-xl h-12 w-24" />
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold">Influye en la probabilidad de sorpresa en resultados de IA.</p>
+                </div>
               </div>
             </div>
 
             <div className="space-y-4">
               <h4 className="text-[10px] font-black uppercase border-b pb-2 text-primary">Estructura de Tabla</h4>
               <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-1"><Label className="text-[9px] uppercase font-bold text-center block">PTS Victoria</Label><Input type="number" value={editWinPts} onChange={e => setEditWinPts(Number(e.target.value))} className="text-center" /></div>
-                <div className="space-y-1"><Label className="text-[9px] uppercase font-bold text-center block">PTS Empate</Label><Input type="number" value={editDrawPts} onChange={e => setEditDrawPts(Number(e.target.value))} className="text-center" /></div>
-                <div className="space-y-1"><Label className="text-[9px] uppercase font-bold text-center block">PTS Derrota</Label><Input type="number" value={editLossPts} onChange={e => setEditLossPts(Number(e.target.value))} className="text-center" /></div>
+                <div className="space-y-1"><Label className="text-[9px] uppercase font-bold text-center block">PTS Victoria</Label><Input type="number" value={editWinPts} onChange={e => setEditWinPts(Number(e.target.value))} className="text-center h-10" /></div>
+                <div className="space-y-1"><Label className="text-[9px] uppercase font-bold text-center block">PTS Empate</Label><Input type="number" value={editDrawPts} onChange={e => setEditDrawPts(Number(e.target.value))} className="text-center h-10" /></div>
+                <div className="space-y-1"><Label className="text-[9px] uppercase font-bold text-center block">PTS Derrota</Label><Input type="number" value={editLossPts} onChange={e => setEditLossPts(Number(e.target.value))} className="text-center h-10" /></div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1"><Label className="text-[9px] uppercase font-bold block">Plazas Playoffs</Label><Input type="number" value={editPlayoffSpots} onChange={e => setEditPlayoffSpots(Number(e.target.value))} /></div>
-                <div className="space-y-1"><Label className="text-[9px] uppercase font-bold block">Plazas Descenso</Label><Input type="number" value={editRelegationSpots} onChange={e => setEditRelegationSpots(Number(e.target.value))} /></div>
+                <div className="space-y-1"><Label className="text-[9px] uppercase font-bold block">Plazas Playoffs</Label><Input type="number" value={editPlayoffSpots} onChange={e => setEditPlayoffSpots(Number(e.target.value))} className="h-10" /></div>
+                <div className="space-y-1"><Label className="text-[9px] uppercase font-bold block">Plazas Descenso</Label><Input type="number" value={editRelegationSpots} onChange={e => setEditRelegationSpots(Number(e.target.value))} className="h-10" /></div>
               </div>
             </div>
 
             <div className="space-y-4">
               <h4 className="text-[10px] font-black uppercase border-b pb-2 text-accent">Economía Regional ({settings.currency})</h4>
               <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-1"><Label className="text-[9px] uppercase font-bold text-center block">Bono Ganar</Label><Input type="number" value={editWinReward} onChange={e => setEditWinReward(Number(e.target.value))} className="text-center" /></div>
-                <div className="space-y-1"><Label className="text-[9px] uppercase font-bold text-center block">Bono Empate</Label><Input type="number" value={editDrawReward} onChange={e => setEditDrawReward(Number(e.target.value))} className="text-center" /></div>
-                <div className="space-y-1"><Label className="text-[9px] uppercase font-bold text-center block">Multa Perder</Label><Input type="number" value={editLossPenalty} onChange={e => setEditLossPenalty(Number(e.target.value))} className="text-center" /></div>
+                <div className="space-y-1"><Label className="text-[9px] uppercase font-bold text-center block">Bono Ganar</Label><Input type="number" value={editWinReward} onChange={e => setEditWinReward(Number(e.target.value))} className="text-center h-10" /></div>
+                <div className="space-y-1"><Label className="text-[9px] uppercase font-bold text-center block">Bono Empate</Label><Input type="number" value={editDrawReward} onChange={e => setEditDrawReward(Number(e.target.value))} className="text-center h-10" /></div>
+                <div className="space-y-1"><Label className="text-[9px] uppercase font-bold text-center block">Multa Perder</Label><Input type="number" value={editLossPenalty} onChange={e => setEditLossPenalty(Number(e.target.value))} className="text-center h-10" /></div>
               </div>
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="ghost" onClick={() => setIsEditing(false)} className="rounded-xl">Cancelar</Button>
-            <Button onClick={handleSaveSettings} className="font-black rounded-xl px-8 shadow-lg shadow-primary/20">GUARDAR TODO</Button>
+            <Button variant="ghost" onClick={() => setIsEditing(false)} className="rounded-xl font-black">CANCELAR</Button>
+            <Button onClick={handleSaveSettings} className="font-black rounded-xl px-8 shadow-lg shadow-primary/20 bg-primary">GUARDAR TODO</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
