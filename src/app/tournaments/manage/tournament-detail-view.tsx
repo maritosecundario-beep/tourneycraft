@@ -4,7 +4,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useTournamentStore } from '@/hooks/use-tournament-store';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Trophy, RefreshCw, ArrowLeft, Star, Coins, Settings2, Trash2, ChevronRight, UserCircle2, Users, AlertTriangle, Plus, X, Sword, Target } from 'lucide-react';
+import { Trophy, RefreshCw, ArrowLeft, Star, Coins, Settings2, Trash2, ChevronRight, UserCircle2, Users, AlertTriangle, Plus, X, Sword, Target, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { CrestIcon } from '@/components/ui/crest-icon';
@@ -232,20 +232,60 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
     return grouped;
   }, [tournament?.matches]);
 
-  const dualMatchesByMatchday = useMemo(() => {
-    const grouped: Record<number, Match[]> = {};
-    tournament?.dualLeagueMatches?.forEach(m => {
-      if (!grouped[m.matchday]) grouped[m.matchday] = [];
-      grouped[m.matchday].push(m);
-    });
-    return grouped;
-  }, [tournament?.dualLeagueMatches]);
-
   if (!tournament) return <div className="p-20 text-center animate-pulse">Cargando Competición...</div>;
 
   const userTeam = teams.find(t => t.id === tournament.managedParticipantId);
   const userTeamPlayers = players.filter(p => p.teamId === userTeam?.id);
   const standings = getStandings(tournament.matches, tournament.participants);
+
+  const renderMatchdayList = (matchList: Match[]) => {
+    const grouped: Record<number, Match[]> = {};
+    matchList.forEach(m => {
+      if (!grouped[m.matchday]) grouped[m.matchday] = [];
+      grouped[m.matchday].push(m);
+    });
+
+    return Object.entries(grouped).sort(([a], [b]) => Number(a) - Number(b)).map(([day, dayMatches]) => (
+      <div key={`matchday-block-${day}`} className="space-y-4">
+        <div className="flex items-center justify-between px-2">
+          <h3 className="font-black uppercase text-sm flex items-center gap-2">
+            <Badge variant="secondary" className="bg-primary text-white">JORNADA {day}</Badge>
+          </h3>
+          <Button size="sm" variant="outline" onClick={() => handleSimulateMatchday(Number(day), matchList, false)} className="text-[10px] font-black h-8 px-4">
+            SIMULAR JORNADA <ChevronRight className="w-3 h-3 ml-1" />
+          </Button>
+        </div>
+        <div className="grid gap-3">
+          {dayMatches.map((m) => {
+            const home = teams.find(t => t.id === m.homeId);
+            const away = teams.find(t => t.id === m.awayId);
+            if (!home || !away) return null;
+            return (
+              <Card key={`match-row-${m.id}`} className="border-none shadow-md hover:shadow-lg transition-all rounded-2xl overflow-hidden">
+                <CardContent className="p-4 flex items-center justify-between gap-4">
+                  <div className="flex-1 flex items-center justify-end gap-3 text-right overflow-hidden">
+                    <span className={cn("font-black text-[10px] md:text-xs truncate uppercase", m.homeId === tournament.managedParticipantId && "text-primary")}>{home.name}</span>
+                    <CrestIcon shape={home.emblemShape} pattern={home.emblemPattern} c1={home.crestPrimary} c2={home.crestSecondary} c3={home.crestTertiary || home.crestPrimary} size="w-8 h-8" />
+                  </div>
+                  <div className="w-24 text-center shrink-0">
+                    {m.isSimulated ? (
+                      <div className="text-xl font-black bg-muted/30 py-1 rounded-xl">{m.homeScore} - {m.awayScore}</div>
+                    ) : (
+                      <Button size="sm" onClick={() => tournament.mode === 'arcade' ? handleSimulateArcade(m, false) : handleSimulateNormal(m, false)} className="w-full h-10 rounded-xl font-black bg-primary">SIM</Button>
+                    )}
+                  </div>
+                  <div className="flex-1 flex items-center justify-start gap-3 text-left overflow-hidden">
+                    <CrestIcon shape={away.emblemShape} pattern={away.emblemPattern} c1={away.crestPrimary} c2={away.crestSecondary} c3={away.crestTertiary || away.crestPrimary} size="w-8 h-8" />
+                    <span className={cn("font-black text-[10px] md:text-xs truncate uppercase", m.awayId === tournament.managedParticipantId && "text-primary")}>{away.name}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+    ));
+  };
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 pb-32">
@@ -286,53 +326,35 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
             </TabsList>
 
             <TabsContent value="matches" className="mt-6 space-y-8">
-              {Object.keys(matchesByMatchday).length === 0 ? (
+              {tournament.matches.length === 0 ? (
                 <div className="text-center py-20 bg-muted/10 rounded-[2rem] border-2 border-dashed">
                   <p className="font-bold text-muted-foreground uppercase text-xs">No hay partidos generados.</p>
                   <Button onClick={() => generateSchedule(tournament.id)} className="mt-4 font-black">GENERAR CALENDARIO</Button>
                 </div>
               ) : (
-                Object.entries(matchesByMatchday).sort(([a], [b]) => Number(a) - Number(b)).map(([day, dayMatches]) => (
-                  <div key={`matchday-block-${day}`} className="space-y-4">
-                    <div className="flex items-center justify-between px-2">
-                      <h3 className="font-black uppercase text-sm flex items-center gap-2">
-                        <Badge variant="secondary" className="bg-primary text-white">JORNADA {day}</Badge>
-                      </h3>
-                      <Button size="sm" variant="outline" onClick={() => handleSimulateMatchday(Number(day), tournament.matches, false)} className="text-[10px] font-black h-8 px-4">
-                        SIMULAR JORNADA <ChevronRight className="w-3 h-3 ml-1" />
-                      </Button>
-                    </div>
-                    <div className="grid gap-3">
-                      {dayMatches.map((m) => {
-                        const home = teams.find(t => t.id === m.homeId);
-                        const away = teams.find(t => t.id === m.awayId);
-                        if (!home || !away) return null;
-                        return (
-                          <Card key={`match-row-${m.id}`} className="border-none shadow-md hover:shadow-lg transition-all rounded-2xl overflow-hidden">
-                            <CardContent className="p-4 flex items-center justify-between gap-4">
-                              <div className="flex-1 flex items-center justify-end gap-3 text-right overflow-hidden">
-                                <span className={cn("font-black text-[10px] md:text-xs truncate uppercase", m.homeId === tournament.managedParticipantId && "text-primary")}>{home.name}</span>
-                                <CrestIcon shape={home.emblemShape} pattern={home.emblemPattern} c1={home.crestPrimary} c2={home.crestSecondary} c3={home.crestTertiary || home.crestPrimary} size="w-8 h-8" />
-                              </div>
-                              <div className="w-24 text-center shrink-0">
-                                {m.isSimulated ? (
-                                  <div className="text-xl font-black bg-muted/30 py-1 rounded-xl">{m.homeScore} - {m.awayScore}</div>
-                                ) : (
-                                  <Button size="sm" onClick={() => tournament.mode === 'arcade' ? handleSimulateArcade(m, false) : handleSimulateNormal(m, false)} className="w-full h-10 rounded-xl font-black bg-primary">SIM</Button>
-                                )}
-                              </div>
-                              <div className="flex-1 flex items-center justify-start gap-3 text-left overflow-hidden">
-                                <CrestIcon shape={away.emblemShape} pattern={away.emblemPattern} c1={away.crestPrimary} c2={away.crestSecondary} c3={away.crestTertiary || away.crestPrimary} size="w-8 h-8" />
-                                <span className={cn("font-black text-[10px] md:text-xs truncate uppercase", m.awayId === tournament.managedParticipantId && "text-primary")}>{away.name}</span>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))
+                <>
+                  {tournament.leagueType === 'groups' && tournament.groups ? (
+                    <Tabs defaultValue={tournament.groups[0]?.id}>
+                      <TabsList className="bg-muted/10 p-1 mb-6 flex overflow-x-auto scrollbar-hide w-full">
+                        {tournament.groups.map(g => (
+                          <TabsTrigger key={`cal-tab-${g.id}`} value={g.id} className="text-[10px] font-black uppercase flex-1">{g.name}</TabsTrigger>
+                        ))}
+                      </TabsList>
+                      {tournament.groups.map(g => (
+                        <TabsContent key={`cal-content-${g.id}`} value={g.id} className="space-y-8">
+                          {renderMatchdayList(tournament.matches.filter(m => g.participantIds.includes(m.homeId) || g.participantIds.includes(m.awayId)))}
+                        </TabsContent>
+                      ))}
+                    </Tabs>
+                  ) : renderMatchdayList(tournament.matches)}
+                </>
               )}
+            </TabsContent>
+
+            <TabsContent value="dual" className="mt-6 space-y-8">
+              {tournament.dualLeagueMatches.length === 0 ? (
+                <p className="text-center py-10 opacity-50 font-bold uppercase text-xs">Simula partidos de la liga principal para ver filiales.</p>
+              ) : renderMatchdayList(tournament.dualLeagueMatches)}
             </TabsContent>
 
             <TabsContent value="groups" className="mt-6 space-y-6">
@@ -478,7 +500,6 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
         </div>
       </div>
 
-      {/* Arcade Duel Modal - Centro de Tácticas */}
       <Dialog open={!!pendingMatch} onOpenChange={(o) => !o && setPendingMatch(null)}>
         <DialogContent className="max-w-[95vw] md:max-w-4xl p-0 overflow-hidden rounded-[2.5rem] border-none shadow-2xl">
           {pendingMatch && (() => {
@@ -504,7 +525,6 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
 
                 <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-10 bg-card">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
-                    {/* PANEL RIVAL (IA) */}
                     <div className="p-8 bg-muted/30 rounded-[2.5rem] space-y-8 border-2 border-dashed border-muted relative overflow-hidden group">
                       <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                         <Target className="w-32 h-32" />
@@ -545,7 +565,6 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                       )}
                     </div>
 
-                    {/* PANEL DE ACCIÓN (USUARIO) */}
                     <div className="flex flex-col gap-8 justify-center">
                       <div className="space-y-4">
                         <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.3em] block ml-1">1. Alinea tu Agente Élite</Label>
@@ -609,7 +628,6 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Settings Dialog Expanded */}
       <Dialog open={isEditing} onOpenChange={setIsEditing}>
         <DialogContent className="rounded-[2.5rem] max-w-2xl max-h-[90vh] overflow-y-auto border-none shadow-2xl">
           <DialogHeader>
