@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from 'react';
@@ -107,12 +108,12 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                       <p className="font-bold text-muted-foreground uppercase text-xs">Sin partidos programados en esta fase.</p>
                     </div>
                   ) : (
-                    tournament.matches.map((m: any) => {
+                    tournament.matches.map((m: any, idx: number) => {
                       const home = teams.find(t => t.id === m.homeId);
                       const away = teams.find(t => t.id === m.awayId);
                       if (!home || !away) return null;
                       return (
-                        <Card key={m.id} className="border-none shadow-lg rounded-2xl overflow-hidden group">
+                        <Card key={`match-view-${m.id || idx}`} className="border-none shadow-lg rounded-2xl overflow-hidden group">
                           <CardContent className="p-4 flex items-center justify-between gap-4 bg-card">
                             <div className="flex-1 flex items-center justify-end gap-3 overflow-hidden text-right">
                               <span className="font-black text-[10px] md:text-xs uppercase truncate">{home.name}</span>
@@ -158,7 +159,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                     {mainStandings.map((row: any, idx: number) => {
                       const team = teams.find(t => t.id === row.id);
                       return (
-                        <TableRow key={row.id}>
+                        <TableRow key={`standing-view-row-${row.id || idx}`}>
                           <TableCell className="font-black flex items-center gap-3">
                             <span className="text-[10px] opacity-30">{idx + 1}</span>
                             <CrestIcon shape={team?.emblemShape || 'shield'} pattern={team?.emblemPattern || 'none'} c1={team?.crestPrimary || '#000'} c2={team?.crestSecondary || '#fff'} c3={team?.crestTertiary || '#000'} size="w-6 h-6" />
@@ -212,7 +213,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
               {mainStandings.slice(0, 3).map((row: any, idx: number) => {
                 const team = teams.find(t => t.id === row.id);
                 return (
-                  <div key={row.id} className="flex items-center gap-4 p-3 bg-muted/20 rounded-xl group hover:bg-muted/40 transition-colors">
+                  <div key={`podium-view-item-${row.id || idx}`} className="flex items-center gap-4 p-3 bg-muted/20 rounded-xl group hover:bg-muted/40 transition-colors">
                     <div className="w-8 h-8 rounded-full bg-card flex items-center justify-center font-black text-xs shadow-sm">{idx + 1}</div>
                     <div className="flex-1 overflow-hidden">
                       <p className="font-black text-xs uppercase truncate">{team?.name}</p>

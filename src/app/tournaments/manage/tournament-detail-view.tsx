@@ -258,7 +258,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                         const away = teams.find(t => t.id === m.awayId);
                         if (!home || !away) return null;
                         return (
-                          <Card key={m.id} className="border-none shadow-md hover:shadow-lg transition-all rounded-2xl overflow-hidden">
+                          <Card key={`match-${m.id}`} className="border-none shadow-md hover:shadow-lg transition-all rounded-2xl overflow-hidden">
                             <CardContent className="p-4 flex items-center justify-between gap-4">
                               <div className="flex-1 flex items-center justify-end gap-3 text-right overflow-hidden">
                                 <span className={cn("font-black text-[10px] md:text-xs truncate uppercase", m.homeId === tournament.managedParticipantId && "text-primary")}>{home.name}</span>
@@ -292,15 +292,15 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {tournament.groups?.map(g => (
-                  <Card key={g.id} className="rounded-2xl border bg-card">
+                  <Card key={`group-card-${g.id}`} className="rounded-2xl border bg-card">
                     <CardHeader className="bg-muted/10 p-4 border-b">
                       <CardTitle className="text-sm font-black uppercase">{g.name}</CardTitle>
                     </CardHeader>
                     <CardContent className="p-4 space-y-3">
-                      {g.participantIds.map(pId => {
+                      {g.participantIds.map((pId, pIdx) => {
                         const team = teams.find(t => t.id === pId);
                         return (
-                          <div key={pId} className="flex items-center justify-between p-2 bg-muted/20 rounded-xl">
+                          <div key={`group-team-${g.id}-${pId}-${pIdx}`} className="flex items-center justify-between p-2 bg-muted/20 rounded-xl">
                             <div className="flex items-center gap-2">
                               <CrestIcon shape={team?.emblemShape || 'shield'} pattern={team?.emblemPattern || 'none'} c1={team?.crestPrimary || '#000'} c2={team?.crestSecondary || '#fff'} c3={team?.crestTertiary || '#000'} size="w-5 h-5" />
                               <span className="text-xs font-black uppercase">{team?.name}</span>
@@ -311,7 +311,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                               </SelectTrigger>
                               <SelectContent>
                                 {tournament.groups?.filter(other => other.id !== g.id).map(other => (
-                                  <SelectItem key={other.id} value={other.id}>{other.name}</SelectItem>
+                                  <SelectItem key={`move-to-${other.id}`} value={other.id}>{other.name}</SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
@@ -338,7 +338,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                       const away = teams.find(t => t.id === m.awayId);
                       if (!home || !away) return null;
                       return (
-                        <Card key={m.id} className="border-none shadow-sm rounded-2xl">
+                        <Card key={`dual-match-${m.id}`} className="border-none shadow-sm rounded-2xl">
                           <CardContent className="p-4 flex items-center justify-between gap-4">
                             <div className="flex-1 flex items-center justify-end gap-3 text-right">
                               <span className="font-bold text-[10px] uppercase truncate">{home.name}</span>
@@ -381,7 +381,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                     {standings.map((row: any, idx: number) => {
                       const team = teams.find(t => t.id === row.id);
                       return (
-                        <TableRow key={row.id}>
+                        <TableRow key={`standing-row-${row.id || idx}`}>
                           <TableCell className="font-black flex items-center gap-3">
                             <span className="text-[10px] opacity-30">{idx + 1}</span>
                             <CrestIcon shape={team?.emblemShape || 'shield'} pattern={team?.emblemPattern || 'none'} c1={team?.crestPrimary || '#000'} c2={team?.crestSecondary || '#fff'} c3={team?.crestTertiary || '#000'} size="w-6 h-6" />
@@ -436,7 +436,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
               {standings.slice(0, 3).map((row: any, idx: number) => {
                 const team = teams.find(t => t.id === row.id);
                 return (
-                  <div key={row.id} className="flex items-center gap-4 p-3 bg-muted/20 rounded-xl">
+                  <div key={`podium-item-${row.id || idx}`} className="flex items-center gap-4 p-3 bg-muted/20 rounded-xl">
                     <div className="w-8 h-8 rounded-full bg-card flex items-center justify-center font-black text-xs">{idx + 1}</div>
                     <div className="flex-1 overflow-hidden">
                       <p className="font-black text-xs uppercase truncate">{team?.name}</p>
@@ -496,8 +496,8 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                             <div>
                               <p className="font-black uppercase text-sm">{aiPlayer.name}</p>
                               <div className="flex flex-wrap gap-1 mt-1">
-                                {aiPlayer.attributes.slice(0, 3).map(attr => (
-                                  <Badge key={attr.name} variant="outline" className="text-[8px] font-black">{attr.name}: {attr.value}</Badge>
+                                {aiPlayer.attributes.slice(0, 3).map((attr, aIdx) => (
+                                  <Badge key={`opponent-attr-${aiPlayer.id}-${attr.name}-${aIdx}`} variant="outline" className="text-[8px] font-black">{attr.name}: {attr.value}</Badge>
                                 ))}
                               </div>
                             </div>
@@ -513,7 +513,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                           <SelectTrigger className="h-14 rounded-2xl border-2"><SelectValue placeholder="Seleccionar jugador..." /></SelectTrigger>
                           <SelectContent>
                             {userTeamPlayers.map(p => (
-                              <SelectItem key={p.id} value={p.id}>{p.name} (#{p.jerseyNumber} - {p.position})</SelectItem>
+                              <SelectItem key={`arcade-select-${p.id}`} value={p.id}>{p.name} (#{p.jerseyNumber} - {p.position})</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
