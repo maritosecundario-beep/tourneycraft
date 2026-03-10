@@ -4,7 +4,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useTournamentStore } from '@/hooks/use-tournament-store';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Trophy, RefreshCw, ArrowLeft, Star, Coins, Play, Settings2, Trash2, CheckCircle2, ChevronRight, UserCircle2, ArrowRightLeft, Users, Group, AlertTriangle, Plus, X } from 'lucide-react';
+import { Trophy, RefreshCw, ArrowLeft, Star, Coins, Settings2, Trash2, ChevronRight, UserCircle2, Users, AlertTriangle, Plus, X, Sword, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { CrestIcon } from '@/components/ui/crest-icon';
@@ -17,7 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Match, Team, Player, Tournament, ScoringRuleType } from '@/lib/types';
+import { Match, Tournament, ScoringRuleType, Player } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 interface TournamentDetailViewProps {
@@ -31,7 +31,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
   const [tournament, setTournament] = useState<Tournament | null>(null);
   
   // Arcade Simulation State
-  const [pendingMatch, setPendingMatch] = useState<{ match: Match; isDual: boolean } | null>(null);
+  const [pendingMatch, setPendingMatch] = useState<{ match: Match; isDual: boolean; aiPlayer: Player | null } | null>(null);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>('');
   const [arcadeHomeScore, setArcadeHomeScore] = useState<number>(0);
   const [arcadeAwayScore, setArcadeAwayScore] = useState<number>(0);
@@ -103,7 +103,6 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
   };
 
   const handleSimulateNormal = (match: Match, isDual: boolean) => {
-    // Generate scores based on rules
     let hScore = 0;
     let aScore = 0;
     const scoringVal = tournament?.scoringValue || 10;
@@ -131,7 +130,17 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
     const isUserAway = match.awayId === tournament?.managedParticipantId;
     
     if (isUserHome || isUserAway) {
-      setPendingMatch({ match, isDual });
+      const opponentTeamId = isUserHome ? match.awayId : match.homeId;
+      const opponentPlayers = players.filter(p => p.teamId === opponentTeamId);
+      
+      let aiPlayer: Player | null = null;
+      if (opponentPlayers.length > 0) {
+        const sortedOpponents = [...opponentPlayers].sort((a, b) => b.monetaryValue - a.monetaryValue);
+        // 70% chance pick the best, 30% random
+        aiPlayer = Math.random() < 0.7 ? sortedOpponents[0] : sortedOpponents[Math.floor(Math.random() * sortedOpponents.length)];
+      }
+
+      setPendingMatch({ match, isDual, aiPlayer });
       setArcadeHomeScore(0);
       setArcadeAwayScore(0);
       setSelectedPlayerId('');
@@ -143,7 +152,6 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
   const handleSimulateMatchday = (matchday: number, matches: Match[], isDual: boolean) => {
     matches.filter(m => m.matchday === matchday && !m.isSimulated).forEach(m => {
       if (tournament?.mode === 'arcade' && (m.homeId === tournament.managedParticipantId || m.awayId === tournament.managedParticipantId)) {
-        // Just trigger the individual simulation which will open the modal
         handleSimulateArcade(m, isDual);
       } else {
         handleSimulateNormal(m, isDual);
@@ -338,11 +346,6 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                 </Button>
               </div>
 
-              <div className="p-4 bg-yellow-500/10 rounded-2xl border border-yellow-500/20 flex gap-3">
-                <AlertTriangle className="text-yellow-500 shrink-0" />
-                <p className="text-[10px] font-bold text-yellow-600 uppercase">Si mueves equipos, DEBES REINICIAR el calendario para generar nuevos emparejamientos.</p>
-              </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {tournament.groups?.map((g, gIdx) => (
                   <Card key={`group-card-tab-${g.id || gIdx}`} className="rounded-2xl border bg-card relative">
@@ -382,81 +385,10 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                           </div>
                         );
                       })}
-                      {g.participantIds.length === 0 && <p className="text-[10px] text-muted-foreground uppercase text-center py-4 italic">Grupo vacío</p>}
                     </CardContent>
                   </Card>
                 ))}
-
-                {unassignedTeams.length > 0 && (
-                  <Card className="rounded-2xl border border-dashed bg-muted/5">
-                    <CardHeader className="p-4 border-b border-dashed">
-                      <CardTitle className="text-sm font-black uppercase text-muted-foreground flex items-center gap-2">
-                        <Users className="w-4 h-4" /> Equipos sin Asignar
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-4 space-y-2">
-                      {unassignedTeams.map(pId => {
-                        const team = teams.find(t => t.id === pId);
-                        return (
-                          <div key={`unassigned-${pId}`} className="flex items-center justify-between p-2 bg-card border rounded-xl">
-                            <span className="text-xs font-bold uppercase">{team?.name}</span>
-                            <Select onValueChange={(val) => handleGroupUpdate(pId, val)}>
-                              <SelectTrigger className="h-8 w-28 text-[9px] font-black uppercase">
-                                <SelectValue placeholder="Asignar..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {tournament.groups?.map(tg => (
-                                  <SelectItem key={`assign-to-${tg.id}`} value={tg.id}>{tg.name}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        );
-                      })}
-                    </CardContent>
-                  </Card>
-                )}
               </div>
-            </TabsContent>
-
-            <TabsContent value="dual" className="mt-6 space-y-8">
-              {Object.entries(dualMatchesByMatchday).sort(([a], [b]) => Number(a) - Number(b)).map(([day, dayMatches]) => (
-                <div key={`dual-matchday-block-${day}`} className="space-y-4">
-                  <div className="flex items-center justify-between px-2">
-                    <h3 className="font-black uppercase text-sm flex items-center gap-2">
-                      <Badge variant="outline" className="border-accent text-accent">ESPEJO JORNADA {day}</Badge>
-                    </h3>
-                  </div>
-                  <div className="grid gap-3 opacity-80">
-                    {dayMatches.map((m) => {
-                      const home = teams.find(t => t.id === m.homeId);
-                      const away = teams.find(t => t.id === m.awayId);
-                      if (!home || !away) return null;
-                      return (
-                        <Card key={`dual-match-row-${m.id}`} className="border-none shadow-sm rounded-2xl">
-                          <CardContent className="p-4 flex items-center justify-between gap-4">
-                            <div className="flex-1 flex items-center justify-end gap-3 text-right">
-                              <span className="font-bold text-[10px] uppercase truncate">{home.name}</span>
-                              <CrestIcon shape={home.emblemShape} pattern={home.emblemPattern} c1={home.crestPrimary} c2={home.crestSecondary} c3={home.crestTertiary || home.crestPrimary} size="w-7 h-7" />
-                            </div>
-                            <div className="w-20 text-center">
-                              {m.isSimulated ? (
-                                <div className="text-lg font-black bg-muted/20 py-0.5 rounded-lg">{m.homeScore} - {m.awayScore}</div>
-                              ) : (
-                                <span className="text-[10px] font-black uppercase text-muted-foreground">Pendiente</span>
-                              )}
-                            </div>
-                            <div className="flex-1 flex items-center justify-start gap-3 text-left">
-                              <CrestIcon shape={away.emblemShape} pattern={away.emblemPattern} c1={away.crestPrimary} c2={away.crestSecondary} c3={away.crestTertiary || away.crestPrimary} size="w-7 h-7" />
-                              <span className="font-bold text-[10px] uppercase truncate">{away.name}</span>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
             </TabsContent>
 
             <TabsContent value="standings" className="mt-6">
@@ -546,86 +478,114 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
         </div>
       </div>
 
-      {/* Arcade Duel Modal */}
+      {/* Arcade Duel Modal - Centro de Tácticas */}
       <Dialog open={!!pendingMatch} onOpenChange={(o) => !o && setPendingMatch(null)}>
         <DialogContent className="max-w-[95vw] md:max-w-4xl p-0 overflow-hidden rounded-[2.5rem] border-none shadow-2xl">
           {pendingMatch && (() => {
             const isHome = pendingMatch.match.homeId === tournament.managedParticipantId;
             const opponentTeamId = isHome ? pendingMatch.match.awayId : pendingMatch.match.homeId;
             const opponentTeam = teams.find(t => t.id === opponentTeamId);
-            const opponentPlayers = players.filter(p => p.teamId === opponentTeamId);
-            
-            // AI strategy: 70% chance to pick their best player by monetary value
-            const sortedOpponents = [...opponentPlayers].sort((a, b) => b.monetaryValue - a.monetaryValue);
-            const aiPlayer = Math.random() < 0.7 ? sortedOpponents[0] : sortedOpponents[Math.floor(Math.random() * sortedOpponents.length)];
             const opponentRank = standings.findIndex(s => s.id === opponentTeamId) + 1;
+            const aiPlayer = pendingMatch.aiPlayer;
 
             return (
               <div className="flex flex-col h-full max-h-[90vh]">
-                <div className="bg-primary p-6 text-white">
+                <div className="bg-primary p-6 text-white border-b-4 border-black/10">
                   <div className="flex justify-between items-center mb-4">
-                    <Badge className="bg-white/20 text-white border-none uppercase text-[10px]">Centro de Tácticas</Badge>
-                    <span className="font-black uppercase text-xs">Jornada {pendingMatch.match.matchday}</span>
+                    <Badge className="bg-white/20 text-white border-none uppercase text-[10px] tracking-widest font-black">Centro de Tácticas Arcade</Badge>
+                    <span className="font-black uppercase text-xs flex items-center gap-2">
+                      <Sword className="w-4 h-4" /> Jornada {pendingMatch.match.matchday}
+                    </span>
                   </div>
                   <h2 className="text-3xl font-black uppercase tracking-tighter">
                     {isHome ? "Local en l'Horta" : "Visitante de l'Horta"}
                   </h2>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-10">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-                    <div className="p-8 bg-muted/20 rounded-[2.5rem] space-y-6 border">
+                <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-10 bg-card">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
+                    {/* PANEL RIVAL (IA) */}
+                    <div className="p-8 bg-muted/30 rounded-[2.5rem] space-y-8 border-2 border-dashed border-muted relative overflow-hidden group">
+                      <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                        <Target className="w-32 h-32" />
+                      </div>
+                      
                       <div className="flex flex-col items-center gap-4 text-center">
                         <CrestIcon shape={opponentTeam?.emblemShape || 'shield'} pattern={opponentTeam?.emblemPattern || 'none'} c1={opponentTeam?.crestPrimary || '#000'} c2={opponentTeam?.crestSecondary || '#fff'} c3={opponentTeam?.crestTertiary || '#000'} size="w-24 h-24" />
                         <div>
-                          <p className="text-[10px] font-black uppercase text-muted-foreground">Oponente</p>
-                          <h3 className="text-2xl font-black uppercase">{opponentTeam?.name}</h3>
-                          <p className="text-xs font-bold text-primary">Rango: #{opponentRank} en la tabla</p>
+                          <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Información del Oponente</p>
+                          <h3 className="text-2xl font-black uppercase tracking-tight">{opponentTeam?.name}</h3>
+                          <Badge variant="outline" className="mt-2 font-black border-primary text-primary">Rango: #{opponentRank} en la tabla</Badge>
                         </div>
                       </div>
                       
-                      {aiPlayer && (
-                        <div className="bg-card p-4 rounded-2xl border-2 border-primary/20">
-                          <p className="text-[9px] font-black uppercase text-primary mb-3">Jugador Clave Rival</p>
-                          <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center font-black text-xl">#{aiPlayer.jerseyNumber}</div>
-                            <div>
-                              <p className="font-black uppercase text-sm">{aiPlayer.name}</p>
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {aiPlayer.attributes.slice(0, 3).map((attr, aIdx) => (
-                                  <Badge key={`opponent-attr-${aiPlayer.id}-${attr.name}-${aIdx}`} variant="outline" className="text-[8px] font-black">{attr.name}: {attr.value}</Badge>
+                      {aiPlayer ? (
+                        <div className="bg-card p-6 rounded-2xl border-2 border-primary/20 shadow-xl relative z-10">
+                          <p className="text-[9px] font-black uppercase text-primary mb-4 tracking-[0.2em] flex items-center gap-2">
+                            <Star className="w-3 h-3 fill-current" /> Jugador Clave Rival
+                          </p>
+                          <div className="flex items-center gap-5">
+                            <div className="w-14 h-14 rounded-2xl bg-primary text-white flex items-center justify-center font-black text-2xl shadow-lg">#{aiPlayer.jerseyNumber}</div>
+                            <div className="flex-1 overflow-hidden">
+                              <p className="font-black uppercase text-lg truncate">{aiPlayer.name}</p>
+                              <div className="flex flex-wrap gap-1.5 mt-2">
+                                {aiPlayer.attributes.slice(0, 4).map((attr, aIdx) => (
+                                  <Badge key={`opp-attr-${aiPlayer.id}-${aIdx}`} className="text-[8px] font-black bg-muted text-muted-foreground border-none">
+                                    {attr.name.substring(0, 3).toUpperCase()}: {attr.value}
+                                  </Badge>
                                 ))}
                               </div>
                             </div>
                           </div>
                         </div>
+                      ) : (
+                        <div className="text-center py-10 opacity-50">
+                          <p className="text-xs font-bold uppercase">Sin agentes disponibles en el rival</p>
+                        </div>
                       )}
                     </div>
 
-                    <div className="space-y-6">
+                    {/* PANEL DE ACCIÓN (USUARIO) */}
+                    <div className="flex flex-col gap-8 justify-center">
                       <div className="space-y-4">
-                        <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">1. Elige tu Agente para el Duelo</Label>
+                        <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.3em] block ml-1">1. Alinea tu Agente Élite</Label>
                         <Select value={selectedPlayerId} onValueChange={setSelectedPlayerId}>
-                          <SelectTrigger className="h-14 rounded-2xl border-2"><SelectValue placeholder="Seleccionar jugador..." /></SelectTrigger>
-                          <SelectContent>
+                          <SelectTrigger className="h-16 rounded-2xl border-4 border-primary/10 bg-muted/10 text-lg font-black focus:ring-primary/30">
+                            <SelectValue placeholder="Seleccionar para el duelo..." />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-2xl border-none shadow-2xl">
                             {userTeamPlayers.map(p => (
-                              <SelectItem key={`arcade-select-${p.id}`} value={p.id}>{p.name} (#{p.jerseyNumber} - {p.position})</SelectItem>
+                              <SelectItem key={`arcade-select-${p.id}`} value={p.id} className="h-12 font-bold uppercase text-xs">
+                                #{p.jerseyNumber} {p.name} ({p.position})
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
 
-                      <div className="space-y-4 pt-4">
-                        <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">2. Resultado del Partido</Label>
-                        <div className="flex items-center gap-6 justify-center">
-                          <div className="space-y-2 text-center">
-                            <p className="text-[9px] font-black uppercase opacity-50">{isHome ? "Tú (Local)" : opponentTeam?.abbreviation}</p>
-                            <Input type="number" value={arcadeHomeScore} onChange={e => setArcadeHomeScore(Number(e.target.value))} className="h-16 w-20 text-3xl font-black text-center rounded-2xl" />
+                      <div className="space-y-6 pt-4 border-t-2 border-dashed">
+                        <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.3em] block ml-1 text-center">2. Registro del Resultado Final</Label>
+                        <div className="flex items-center gap-8 justify-center">
+                          <div className="space-y-3 text-center group">
+                            <p className="text-[9px] font-black uppercase text-muted-foreground opacity-50 group-hover:opacity-100 transition-opacity tracking-widest">{isHome ? "LOCAL (TÚ)" : opponentTeam?.abbreviation}</p>
+                            <Input 
+                              type="number" 
+                              min="0"
+                              value={arcadeHomeScore} 
+                              onChange={e => setArcadeHomeScore(Math.max(0, parseInt(e.target.value) || 0))} 
+                              className="h-20 w-24 text-4xl font-black text-center rounded-[2rem] border-4 focus-visible:ring-primary/20 shadow-inner bg-muted/5" 
+                            />
                           </div>
-                          <span className="text-2xl font-black opacity-20 mt-6">-</span>
-                          <div className="space-y-2 text-center">
-                            <p className="text-[9px] font-black uppercase opacity-50">{isHome ? opponentTeam?.abbreviation : "Tú (Local)"}</p>
-                            <Input type="number" value={arcadeAwayScore} onChange={e => setArcadeAwayScore(Number(e.target.value))} className="h-16 w-20 text-3xl font-black text-center rounded-2xl" />
+                          <span className="text-4xl font-black opacity-10 mt-8">-</span>
+                          <div className="space-y-3 text-center group">
+                            <p className="text-[9px] font-black uppercase text-muted-foreground opacity-50 group-hover:opacity-100 transition-opacity tracking-widest">{isHome ? opponentTeam?.abbreviation : "LOCAL (TÚ)"}</p>
+                            <Input 
+                              type="number" 
+                              min="0"
+                              value={arcadeAwayScore} 
+                              onChange={e => setArcadeAwayScore(Math.max(0, parseInt(e.target.value) || 0))} 
+                              className="h-20 w-24 text-4xl font-black text-center rounded-[2rem] border-4 focus-visible:ring-primary/20 shadow-inner bg-muted/5" 
+                            />
                           </div>
                         </div>
                       </div>
@@ -633,9 +593,15 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                   </div>
                 </div>
 
-                <div className="p-6 bg-muted/10 border-t flex justify-end gap-3">
-                  <Button variant="ghost" onClick={() => setPendingMatch(null)} className="h-12 px-8 font-black rounded-xl">ABORTAR</Button>
-                  <Button disabled={!selectedPlayerId} onClick={executeArcadeDuel} className="h-12 px-10 font-black rounded-xl shadow-lg shadow-primary/20">CONFIRMAR RESULTADO</Button>
+                <div className="p-8 bg-muted/20 border-t flex justify-end gap-4">
+                  <Button variant="ghost" onClick={() => setPendingMatch(null)} className="h-14 px-8 font-black rounded-2xl uppercase tracking-widest text-xs hover:bg-destructive/10 hover:text-destructive">Abortar Operación</Button>
+                  <Button 
+                    disabled={!selectedPlayerId} 
+                    onClick={executeArcadeDuel} 
+                    className="h-14 px-12 font-black rounded-2xl shadow-2xl shadow-primary/40 bg-primary text-white text-base tracking-tighter flex items-center gap-3"
+                  >
+                    <CheckCircle2 className="w-6 h-6" /> CONFIRMAR RESULTADO
+                  </Button>
                 </div>
               </div>
             );
