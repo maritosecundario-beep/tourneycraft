@@ -103,9 +103,26 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
   };
 
   const handleSimulateNormal = (match: Match, isDual: boolean) => {
-    const max = tournament?.scoringValue || 10;
-    const hScore = Math.floor(Math.random() * max);
-    const aScore = Math.floor(Math.random() * max);
+    // Generate scores based on rules
+    let hScore = 0;
+    let aScore = 0;
+    const scoringVal = tournament?.scoringValue || 10;
+
+    if (tournament?.scoringRuleType === 'bestOfN' || tournament?.scoringRuleType === 'firstToN') {
+      const winnerIdx = Math.random() > 0.5 ? 0 : 1;
+      if (winnerIdx === 0) { hScore = scoringVal; aScore = Math.floor(Math.random() * scoringVal); }
+      else { aScore = scoringVal; hScore = Math.floor(Math.random() * scoringVal); }
+    } else if (tournament?.scoringRuleType === 'nToNRange') {
+      const min = tournament.nToNRangeMin || 0;
+      const max = tournament.nToNRangeMax || 10;
+      const total = min + Math.floor(Math.random() * (max - min + 1));
+      hScore = Math.floor(Math.random() * (total + 1));
+      aScore = total - hScore;
+    } else {
+      hScore = Math.floor(Math.random() * scoringVal);
+      aScore = Math.floor(Math.random() * scoringVal);
+    }
+
     resolveMatch(tournament!.id, match.id, hScore, aScore, isDual);
   };
 
@@ -126,7 +143,8 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
   const handleSimulateMatchday = (matchday: number, matches: Match[], isDual: boolean) => {
     matches.filter(m => m.matchday === matchday && !m.isSimulated).forEach(m => {
       if (tournament?.mode === 'arcade' && (m.homeId === tournament.managedParticipantId || m.awayId === tournament.managedParticipantId)) {
-        toast({ title: "Atención Arcade", description: `Simula manualmente tu duelo contra ${teams.find(t => t.id === (m.homeId === tournament.managedParticipantId ? m.awayId : m.homeId))?.name}` });
+        // Just trigger the individual simulation which will open the modal
+        handleSimulateArcade(m, isDual);
       } else {
         handleSimulateNormal(m, isDual);
       }
@@ -537,6 +555,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
             const opponentTeam = teams.find(t => t.id === opponentTeamId);
             const opponentPlayers = players.filter(p => p.teamId === opponentTeamId);
             
+            // AI strategy: 70% chance to pick their best player by monetary value
             const sortedOpponents = [...opponentPlayers].sort((a, b) => b.monetaryValue - a.monetaryValue);
             const aiPlayer = Math.random() < 0.7 ? sortedOpponents[0] : sortedOpponents[Math.floor(Math.random() * sortedOpponents.length)];
             const opponentRank = standings.findIndex(s => s.id === opponentTeamId) + 1;
@@ -678,9 +697,9 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
             <div className="space-y-4">
               <h4 className="text-[10px] font-black uppercase border-b pb-2 text-accent">Economía Regional ({settings.currency})</h4>
               <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-1"><Label className="text-[9px] uppercase font-bold text-center block">Bono Ganar</Label><Input type="number" value={editWinReward} onChange={e => setEditWinReward(Number(e.target.value))} className="text-center h-10" /></div>
-                <div className="space-y-1"><Label className="text-[9px] uppercase font-bold text-center block">Bono Empate</Label><Input type="number" value={editDrawReward} onChange={e => setEditDrawReward(Number(e.target.value))} className="text-center h-10" /></div>
-                <div className="space-y-1"><Label className="text-[9px] uppercase font-bold text-center block">Multa Perder</Label><Input type="number" value={editLossPenalty} onChange={e => setEditLossPenalty(Number(e.target.value))} className="text-center h-10" /></div>
+                <div className="space-y-1"><Label className="text-[9px] text-center block uppercase font-bold">Bono Ganar</Label><Input type="number" value={editWinReward} onChange={e => setEditWinReward(Number(e.target.value))} className="text-center h-10" /></div>
+                <div className="space-y-1"><Label className="text-[9px] text-center block uppercase font-bold">Bono Empate</Label><Input type="number" value={editDrawReward} onChange={e => setEditDrawReward(Number(e.target.value))} className="text-center h-10" /></div>
+                <div className="space-y-1"><Label className="text-[9px] text-center block uppercase font-bold">Multa Perder</Label><Input type="number" value={editLossPenalty} onChange={e => setEditLossPenalty(Number(e.target.value))} className="text-center h-10" /></div>
               </div>
             </div>
           </div>

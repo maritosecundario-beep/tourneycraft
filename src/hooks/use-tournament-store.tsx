@@ -43,7 +43,6 @@ const sanitizeData = (data: any): any => {
   if (typeof data === 'object') {
     const sanitized: any = {};
     for (const key in data) {
-      // Ignorar valores undefined para no romper Firebase
       if (data[key] !== undefined) {
         sanitized[key] = sanitizeData(data[key]);
       }
@@ -193,22 +192,41 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
 
       if (isDual) return { ...t, dualLeagueMatches: updateMatches(t.dualLeagueMatches || []) };
       
+      // Auto-simulate dual match if enabled
+      let nextDualMatches = t.dualLeagueMatches || [];
       if (t.dualLeagueEnabled && !isDual) {
         const dualMatchId = `dual-${matchId}`;
-        const hasDualMatch = t.dualLeagueMatches?.find(dm => dm.id === dualMatchId);
-        if (hasDualMatch) {
-          const dualHomeScore = Math.floor(Math.random() * (t.scoringValue || 10));
-          const dualAwayScore = Math.floor(Math.random() * (t.scoringValue || 10));
-          const updatedDualMatches = t.dualLeagueMatches.map(dm => 
+        const targetDual = nextDualMatches.find(dm => dm.id === dualMatchId);
+        if (targetDual && !targetDual.isSimulated) {
+          // Generate score based on rules for dual league
+          let dHomeScore = 0;
+          let dAwayScore = 0;
+          const scoringVal = t.scoringValue || 10;
+
+          if (t.scoringRuleType === 'bestOfN' || t.scoringRuleType === 'firstToN') {
+            const winnerIdx = Math.random() > 0.5 ? 0 : 1;
+            if (winnerIdx === 0) { dHomeScore = scoringVal; dAwayScore = Math.floor(Math.random() * scoringVal); }
+            else { dAwayScore = scoringVal; dHomeScore = Math.floor(Math.random() * scoringVal); }
+          } else if (t.scoringRuleType === 'nToNRange') {
+            const min = t.nToNRangeMin || 0;
+            const max = t.nToNRangeMax || 10;
+            const total = min + Math.floor(Math.random() * (max - min + 1));
+            dHomeScore = Math.floor(Math.random() * (total + 1));
+            dAwayScore = total - dHomeScore;
+          } else {
+            dHomeScore = Math.floor(Math.random() * scoringVal);
+            dAwayScore = Math.floor(Math.random() * scoringVal);
+          }
+
+          nextDualMatches = nextDualMatches.map(dm => 
             dm.id === dualMatchId 
-              ? { ...dm, homeScore: dualHomeScore, awayScore: dualAwayScore, isSimulated: true } 
+              ? { ...dm, homeScore: dHomeScore, awayScore: dAwayScore, isSimulated: true, winnerId: dHomeScore > dAwayScore ? dm.homeId : dHomeScore < dAwayScore ? dm.awayId : undefined } 
               : dm
           );
-          return { ...t, matches: updateMatches(t.matches || []), dualLeagueMatches: updatedDualMatches };
         }
       }
 
-      return { ...t, matches: updateMatches(t.matches || []) };
+      return { ...t, matches: updateMatches(t.matches || []), dualLeagueMatches: nextDualMatches };
     }));
   }, []);
 
