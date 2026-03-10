@@ -10,13 +10,16 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Trophy, Users, Coins, Target, Brackets, ShieldAlert, Group, Plus, X, AlertCircle, Settings2, CheckCircle2, RefreshCw } from 'lucide-react';
+import { Trophy, Users, Coins, Target, Sparkles, Group, Plus, X, AlertCircle, Settings2, CheckCircle2, RefreshCw, Wand2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { TournamentMode, TournamentFormat, TournamentEntryType, LeagueType, TournamentGroup, ScoringRuleType } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CrestIcon } from '@/components/ui/crest-icon';
 import { Badge } from '@/components/ui/badge';
+import { aiGroupDistributor } from '@/ai/flows/ai-group-distributor';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 
 export default function NewTournamentPage() {
   const router = useRouter();
@@ -38,6 +41,11 @@ export default function NewTournamentPage() {
     { id: 'g2', name: 'Horta Nord', participantIds: [] }
   ]);
   
+  // AI Agent State
+  const [isAIDialogOpen, setIsAIDialogOpen] = useState(false);
+  const [aiInstructions, setAiInstructions] = useState('');
+  const [isAILoading, setIsAILoading] = useState(false);
+
   // Rules
   const [winReward, setWinReward] = useState(10);
   const [lossPenalty, setLossPenalty] = useState(15);
@@ -54,7 +62,6 @@ export default function NewTournamentPage() {
   const [playoffSpots, setPlayoffSpots] = useState(8);
   const [relegationSpots, setRelegationSpots] = useState(4);
 
-  // Key reactiva para forzar el refresco del selector arcade
   const arcadeKey = useMemo(() => selectedParticipants.join('-'), [selectedParticipants]);
 
   const arcadeTeamOptions = useMemo(() => {
@@ -118,6 +125,42 @@ export default function NewTournamentPage() {
     });
     setGroups(newGroups);
     toast({ title: "Reparto Equitativo", description: "Equipos distribuidos entre las conferencias." });
+  };
+
+  const handleAIDistribution = async () => {
+    if (selectedParticipants.length === 0) {
+      toast({ title: "Sin equipos", description: "Selecciona equipos antes de usar la IA.", variant: "destructive" });
+      return;
+    }
+    
+    setIsAILoading(true);
+    try {
+      const participantData = teams.filter(t => selectedParticipants.includes(t.id)).map(t => ({
+        id: t.id,
+        name: t.name,
+        description: t.description
+      }));
+
+      const result = await aiGroupDistributor({
+        teams: participantData,
+        instructions: aiInstructions || "Distribuye los equipos de forma lógica y equilibrada.",
+        numGroups: groups.length
+      });
+
+      const newGroups = result.groups.map((g, idx) => ({
+        id: `ai-g-${Date.now()}-${idx}`,
+        name: g.name,
+        participantIds: g.participantIds
+      }));
+
+      setGroups(newGroups);
+      toast({ title: "Distribución de IA Aplicada", description: result.summary });
+      setIsAIDialogOpen(false);
+    } catch (e) {
+      toast({ title: "Error de IA", description: "No se pudo procesar la distribución.", variant: "destructive" });
+    } finally {
+      setIsAILoading(false);
+    }
   };
 
   return (
@@ -306,7 +349,7 @@ export default function NewTournamentPage() {
 
       {format === 'league' && leagueType === 'groups' && selectedParticipants.length > 0 && (
         <div className="p-10 bg-accent/5 border-2 border-dashed border-accent/20 rounded-[3rem] space-y-8">
-          <header className="flex justify-between items-center">
+          <header className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 bg-accent/20 rounded-2xl flex items-center justify-center">
                 <Group className="text-accent w-7 h-7" />
@@ -316,7 +359,10 @@ export default function NewTournamentPage() {
                 <p className="text-[10px] text-muted-foreground font-bold uppercase">Organiza los equipos en conferencias regionales.</p>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2 justify-center">
+              <Button onClick={() => setIsAIDialogOpen(true)} className="h-12 rounded-xl font-black text-xs uppercase px-6 bg-accent shadow-lg shadow-accent/20">
+                <Sparkles className="w-4 h-4 mr-2" /> ASISTENTE IA
+              </Button>
               <Button onClick={distributeAutomatically} variant="secondary" className="h-12 rounded-xl font-black text-xs uppercase px-6">
                 <RefreshCw className="w-4 h-4 mr-2" /> REPARTO EQUITATIVO
               </Button>
@@ -401,6 +447,56 @@ export default function NewTournamentPage() {
           Lanzar Nuevo Universo
         </Button>
       </div>
+
+      {/* AI Group Distribution Dialog */}
+      <Dialog open={isAIDialogOpen} onOpenChange={setIsAIDialogOpen}>
+        <DialogContent className="max-w-md rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0">
+          <div className="bg-accent p-6 text-white border-b">
+            <DialogTitle className="text-2xl font-black uppercase flex items-center gap-3">
+              <Sparkles className="w-6 h-6" /> Arquitecto de Grupos IA
+            </DialogTitle>
+            <DialogDescription className="text-white/80 font-bold text-xs uppercase mt-1">
+              Deja que la IA organice tus conferencias de forma inteligente.
+            </DialogDescription>
+          </div>
+          <div className="p-8 space-y-6">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Instrucciones de Distribución</Label>
+              <Textarea 
+                value={aiInstructions}
+                onChange={(e) => setAiInstructions(e.target.value)}
+                placeholder="Ej: Divídelos por su ubicación geográfica (Horta Sud vs Nord) o equilibra el nivel de los equipos según su descripción..."
+                className="min-h-[120px] rounded-2xl bg-muted/10 border-2"
+              />
+            </div>
+            
+            <div className="p-4 bg-accent/5 rounded-2xl border border-accent/20">
+              <p className="text-[10px] text-accent font-black uppercase leading-relaxed">
+                La IA analizará los nombres y descripciones de los {selectedParticipants.length} equipos para crear {groups.length} grupos coherentes.
+              </p>
+            </div>
+
+            <Button 
+              onClick={handleAIDistribution} 
+              disabled={isAILoading}
+              className="w-full h-16 rounded-2xl font-black text-lg bg-accent hover:bg-accent/90 shadow-xl shadow-accent/20"
+            >
+              {isAILoading ? (
+                <>
+                  <Loader2 className="w-6 h-6 animate-spin mr-2" /> ARQUITECTANDO...
+                </>
+              ) : (
+                <>
+                  <Wand2 className="w-5 h-5 mr-2" /> EJECUTAR DISTRIBUCIÓN
+                </>
+              )}
+            </Button>
+          </div>
+          <div className="p-4 bg-muted/30 border-t flex justify-end">
+            <Button variant="ghost" onClick={() => setIsAIDialogOpen(false)} className="rounded-xl font-black uppercase text-[10px]">Cerrar</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
