@@ -25,6 +25,7 @@ interface TournamentContextType {
   transferPlayer: (playerId: string, toTeamId: string | undefined) => void;
   importData: (data: any, merge: boolean) => void;
   generateSchedule: (tournamentId: string) => void;
+  resetSchedule: (tournamentId: string) => void;
   resolveMatch: (tournamentId: string, matchId: string, homeScore: number, awayScore: number, isDual: boolean, homePlayerId?: string, awayPlayerId?: string) => void;
 }
 
@@ -35,29 +36,15 @@ const defaultSettings: GlobalSettings = {
 
 const TournamentContext = createContext<TournamentContextType | undefined>(undefined);
 
-/**
- * Función de saneamiento profundo: Convierte undefined en null y garantiza que
- * los números sean válidos. Esto evita fallos 500 en Firestore.
- */
 const sanitizeData = (data: any): any => {
   if (data === null || data === undefined) return null;
-  
-  if (Array.isArray(data)) {
-    return data.map(sanitizeData);
-  }
-  
+  if (Array.isArray(data)) return data.map(sanitizeData);
   if (typeof data === 'object') {
     const sanitized: any = {};
-    for (const key in data) {
-      sanitized[key] = sanitizeData(data[key]);
-    }
+    for (const key in data) sanitized[key] = sanitizeData(data[key]);
     return sanitized;
   }
-  
-  if (typeof data === 'number') {
-    return isNaN(data) ? 0 : data;
-  }
-  
+  if (typeof data === 'number') return isNaN(data) ? 0 : data;
   return data;
 };
 
@@ -71,7 +58,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   const user = useUser();
   const db = useFirestore();
 
-  // Carga inicial
   useEffect(() => {
     const saved = localStorage.getItem('tourneycraft-store');
     if (saved) {
@@ -93,7 +79,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     setIsLoaded(true);
   }, []);
 
-  // Sincronización Nube (Plan Gratis Spark)
   useEffect(() => {
     if (isLoaded) {
       document.body.className = settings.theme;
@@ -103,10 +88,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         
         if (user?.uid && db) {
           const sanitized = sanitizeData({
-            teams,
-            players,
-            tournaments,
-            settings,
+            teams, players, tournaments, settings,
             updatedAt: new Date().toISOString(),
             ownerId: user.uid
           });
@@ -165,9 +147,14 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     setTournaments(prev => prev.map(t => t.id === tournamentId ? createSchedule(t) : t));
   }, [createSchedule]);
 
+  const resetSchedule = useCallback((tournamentId: string) => {
+    setTournaments(prev => prev.map(t => t.id === tournamentId ? { ...t, matches: [], dualLeagueMatches: [], currentMatchday: 1 } : t));
+  }, []);
+
   const resolveMatch = useCallback((tournamentId: string, matchId: string, homeScore: number, awayScore: number, isDual: boolean, homePlayerId?: string, awayPlayerId?: string) => {
     setTournaments(prev => prev.map(t => {
       if (t.id !== tournamentId) return t;
+      
       const updateMatches = (matches: Match[]) => matches.map(m => {
         if (m.id === matchId) {
           if (!isDual) {
@@ -185,11 +172,38 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
               return team;
             }));
           }
-          return { ...m, homeScore, awayScore, isSimulated: true, homePlayerId, awayPlayerId, winnerId: homeScore > awayScore ? m.homeId : homeScore < awayScore ? m.awayId : undefined };
+          return { 
+            ...m, 
+            homeScore, 
+            awayScore, 
+            isSimulated: true, 
+            homePlayerId, 
+            awayPlayerId, 
+            winnerId: homeScore > awayScore ? m.homeId : homeScore < awayScore ? m.awayId : undefined 
+          };
         }
         return m;
       });
+
       if (isDual) return { ...t, dualLeagueMatches: updateMatches(t.dualLeagueMatches || []) };
+      
+      // Si la liga dual está habilitada, simular el partido espejo automáticamente
+      if (t.dualLeagueEnabled && !isDual) {
+        const dualMatchId = `dual-${matchId}`;
+        const hasDualMatch = t.dualLeagueMatches?.find(dm => dm.id === dualMatchId);
+        if (hasDualMatch) {
+          // Simulación automática para la liga dual
+          const dualHomeScore = Math.floor(Math.random() * (t.scoringValue || 10));
+          const dualAwayScore = Math.floor(Math.random() * (t.scoringValue || 10));
+          const updatedDualMatches = t.dualLeagueMatches.map(dm => 
+            dm.id === dualMatchId 
+              ? { ...dm, homeScore: dualHomeScore, awayScore: dualAwayScore, isSimulated: true } 
+              : dm
+          );
+          return { ...t, matches: updateMatches(t.matches || []), dualLeagueMatches: updatedDualMatches };
+        }
+      }
+
       return { ...t, matches: updateMatches(t.matches || []) };
     }));
   }, []);
@@ -236,8 +250,8 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   const updateSettings = (s: Partial<GlobalSettings>) => setSettings(p => ({ ...p, ...s }));
 
   const value = useMemo(() => ({
-    teams, players, tournaments, settings, addTeam, updateTeam, deleteTeam, addPlayer, updatePlayer, deletePlayer, addTournament, updateTournament, deleteTournament, updateSettings, importData, transferPlayer, generateSchedule, resolveMatch
-  }), [teams, players, tournaments, settings, generateSchedule, resolveMatch, transferPlayer, importData, createSchedule]);
+    teams, players, tournaments, settings, addTeam, updateTeam, deleteTeam, addPlayer, updatePlayer, deletePlayer, addTournament, updateTournament, deleteTournament, updateSettings, importData, transferPlayer, generateSchedule, resetSchedule, resolveMatch
+  }), [teams, players, tournaments, settings, generateSchedule, resetSchedule, resolveMatch, transferPlayer, importData, createSchedule]);
 
   return <TournamentContext.Provider value={value}>{children}</TournamentContext.Provider>;
 }

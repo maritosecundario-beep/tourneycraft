@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTournamentStore } from '@/hooks/use-tournament-store';
 import { Button } from '@/components/ui/button';
@@ -9,9 +9,9 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Trophy, Users, Coins, Target, Brackets, ShieldAlert, Group, Plus, X, AlertCircle } from 'lucide-react';
+import { Trophy, Users, Coins, Target, Brackets, ShieldAlert, Group, Plus, X, AlertCircle, Settings2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { TournamentMode, TournamentFormat, TournamentEntryType, LeagueType, TournamentGroup } from '@/lib/types';
+import { TournamentMode, TournamentFormat, TournamentEntryType, LeagueType, TournamentGroup, ScoringRuleType } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CrestIcon } from '@/components/ui/crest-icon';
@@ -19,7 +19,7 @@ import { Badge } from '@/components/ui/badge';
 
 export default function NewTournamentPage() {
   const router = useRouter();
-  const { addTournament, teams } = useTournamentStore();
+  const { addTournament, teams, settings } = useTournamentStore();
   const { toast } = useToast();
   
   const [name, setName] = useState('');
@@ -37,26 +37,25 @@ export default function NewTournamentPage() {
     { id: 'g2', name: 'Horta Nord', participantIds: [] }
   ]);
   
+  // Rules
   const [winReward, setWinReward] = useState(10);
   const [lossPenalty, setLossPenalty] = useState(15);
   const [drawReward, setDrawReward] = useState(0);
-  
   const [winPoints, setWinPoints] = useState(1);
   const [lossPoints, setLossPoints] = useState(0);
   const [drawPoints, setDrawPoints] = useState(0);
   
+  const [scoringType, setScoringType] = useState<ScoringRuleType>('bestOfN');
+  const [scoringValue, setScoringValue] = useState(9);
+  const [rangeMin, setRangeMin] = useState(0);
+  const [rangeMax, setRangeMax] = useState(10);
+
   const [playoffSpots, setPlayoffSpots] = useState(8);
   const [relegationSpots, setRelegationSpots] = useState(4);
 
   const arcadeTeamOptions = useMemo(() => {
     return teams.filter(t => selectedParticipants.includes(t.id));
   }, [teams, selectedParticipants]);
-
-  useEffect(() => {
-    if (managedParticipantId && !selectedParticipants.includes(managedParticipantId)) {
-      setManagedParticipantId('');
-    }
-  }, [selectedParticipants, managedParticipantId]);
 
   const handleCreateManual = () => {
     if (!name || selectedParticipants.length < 2) {
@@ -73,9 +72,13 @@ export default function NewTournamentPage() {
       id: Math.random().toString(36).substr(2, 9),
       name, sport, entryType, mode, format, leagueType,
       managedParticipantId: mode === 'arcade' ? managedParticipantId : undefined,
-      scoringRuleType: 'bestOfN', scoringValue: 9,
+      scoringRuleType: scoringType, 
+      scoringValue,
+      nToNRangeMin: rangeMin,
+      nToNRangeMax: rangeMax,
       participants: selectedParticipants, 
       groups: (format === 'league' && leagueType === 'groups') ? groups : undefined,
+      groupIsolation: true,
       dualLeagueEnabled, dualLeagueMatches: [], winReward, lossPenalty, drawReward,
       winPoints, lossPoints, drawPoints,
       matches: [], playoffSpots, relegationSpots, currentSeason: 1, currentMatchday: 1,
@@ -137,11 +140,7 @@ export default function NewTournamentPage() {
                 <Label className="flex items-center gap-2 font-black text-[10px] uppercase text-primary mb-2">
                   <Target className="w-4 h-4" /> Tu Club de Gestión
                 </Label>
-                <Select 
-                  value={managedParticipantId} 
-                  onValueChange={setManagedParticipantId}
-                  key={`arcade-select-${selectedParticipants.join(',')}`} 
-                >
+                <Select value={managedParticipantId} onValueChange={setManagedParticipantId}>
                   <SelectTrigger className="h-12 rounded-xl border-primary/30">
                     <SelectValue placeholder={arcadeTeamOptions.length > 0 ? "Seleccionar club..." : "Inscribe equipos primero"} />
                   </SelectTrigger>
@@ -189,29 +188,56 @@ export default function NewTournamentPage() {
         </Card>
 
         <Card className="border-none bg-card shadow-2xl rounded-[2.5rem] overflow-hidden">
-          <CardHeader className="bg-primary/5 border-b p-6"><CardTitle className="text-lg font-black uppercase flex items-center gap-2"><Target className="text-primary" /> Reglas de Competición</CardTitle></CardHeader>
+          <CardHeader className="bg-primary/5 border-b p-6">
+            <CardTitle className="text-lg font-black uppercase flex items-center gap-2">
+              <Settings2 className="text-primary" /> Reglas de Puntuación
+            </CardTitle>
+          </CardHeader>
           <CardContent className="p-6 space-y-6">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Sistema de Marcador</Label>
+                <Select value={scoringType} onValueChange={(v: any) => setScoringType(v)}>
+                  <SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="bestOfN">El mejor de N (Sets)</SelectItem>
+                    <SelectItem value="firstToN">Primero en marcar N</SelectItem>
+                    <SelectItem value="nToNRange">Rango de puntuación total</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {scoringType === 'nToNRange' ? (
+                <div className="grid grid-cols-2 gap-4 p-4 bg-muted/20 rounded-2xl">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-black uppercase">Min Puntos</Label>
+                    <Input type="number" value={rangeMin} onChange={e => setRangeMin(Number(e.target.value))} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-black uppercase">Max Puntos</Label>
+                    <Input type="number" value={rangeMax} onChange={e => setRangeMax(Number(e.target.value))} />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2 p-4 bg-muted/20 rounded-2xl">
+                  <Label className="text-[10px] font-black uppercase">Valor N</Label>
+                  <Input type="number" value={scoringValue} onChange={e => setScoringValue(Number(e.target.value))} />
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-3 gap-4 border-t pt-6">
               <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-center block">PTS V.</Label><Input type="number" value={winPoints} onChange={e => setWinPoints(Number(e.target.value))} className="h-10 text-center" /></div>
               <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-center block">PTS D.</Label><Input type="number" value={lossPoints} onChange={e => setLossPoints(Number(e.target.value))} className="h-10 text-center" /></div>
               <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-center block">PTS E.</Label><Input type="number" value={drawPoints} onChange={e => setDrawPoints(Number(e.target.value))} className="h-10 text-center" /></div>
             </div>
+
             <div className="p-6 bg-accent/5 rounded-[2rem] border space-y-4">
               <Label className="text-[10px] font-black uppercase text-accent flex items-center gap-2"><Coins className="w-4 h-4" /> Economía (CR)</Label>
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-1"><Label className="text-[9px] text-center block">Gana (+)</Label><Input type="number" value={winReward} onChange={e => setWinReward(Number(e.target.value))} className="h-10 text-center" /></div>
                 <div className="space-y-1"><Label className="text-[9px] text-center block">Pierde (-)</Label><Input type="number" value={lossPenalty} onChange={e => setLossPenalty(Number(e.target.value))} className="h-10 text-center" /></div>
                 <div className="space-y-1"><Label className="text-[9px] text-center block">Empata</Label><Input type="number" value={drawReward} onChange={e => setDrawReward(Number(e.target.value))} className="h-10 text-center" /></div>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2 font-black uppercase text-[10px]"><Brackets className="w-3 h-3 text-green-500" /> Plazas Playoff</Label>
-                <Input type="number" value={playoffSpots} onChange={e => setPlayoffSpots(Number(e.target.value))} className="h-12 rounded-xl" />
-              </div>
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2 font-black uppercase text-[10px]"><ShieldAlert className="w-3 h-3 text-red-500" /> Plazas Descenso</Label>
-                <Input type="number" value={relegationSpots} onChange={e => setRelegationSpots(Number(e.target.value))} className="h-12 rounded-xl" />
               </div>
             </div>
           </CardContent>

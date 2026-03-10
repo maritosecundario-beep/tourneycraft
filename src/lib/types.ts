@@ -13,7 +13,7 @@ export type Player = {
   attributes: PlayerAttribute[];
   teamId?: string;
   suspensionMatchdays: number;
-  // Kit Configuration (Exclusivo agentes libres)
+  // Kit Configuration (Exclusivo agentes libres o visualización)
   uniformStyle: UniformStyle;
   kitPrimary: string;
   kitSecondary: string;
@@ -64,7 +64,7 @@ export type Team = {
   venueCapacity: number;
   venueSurface: VenueSurface;
   venueSize: VenueSize;
-  players: string[]; // IDs
+  players: string[]; // IDs (histórico o cache)
 };
 
 export type ScoringRuleType = 'nToNRange' | 'bestOfN' | 'firstToN';
