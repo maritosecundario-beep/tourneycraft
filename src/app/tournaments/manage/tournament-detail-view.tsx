@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState, useMemo } from 'react';
@@ -145,7 +146,6 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
     let aiPlayer: Player | null = null;
     if (opponentPlayers.length > 0) {
       const sortedOpponents = [...opponentPlayers].sort((a, b) => b.monetaryValue - a.monetaryValue);
-      // IA elige al mejor el 70% de las veces
       aiPlayer = Math.random() < 0.7 ? sortedOpponents[0] : sortedOpponents[Math.floor(Math.random() * sortedOpponents.length)];
     }
 
@@ -212,8 +212,18 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
       grouped[m.matchday].push(m);
     });
 
-    return Object.entries(grouped).sort(([a], [b]) => Number(a) - Number(b)).map(([day, dayMatches]) => (
-      <div key={`matchday-block-v3-${day}-${tournament?.id}`} className="space-y-4">
+    const entries = Object.entries(grouped).sort(([a], [b]) => Number(a) - Number(b));
+
+    if (entries.length === 0) {
+      return (
+        <div className="text-center py-20 bg-muted/10 rounded-[2rem] border-2 border-dashed">
+          <p className="font-bold text-muted-foreground uppercase text-xs">Sin partidos para esta selección.</p>
+        </div>
+      );
+    }
+
+    return entries.map(([day, dayMatches]) => (
+      <div key={`matchday-block-v4-${day}-${tournament?.id}`} className="space-y-4">
         <div className="flex items-center justify-between px-2">
           <Badge variant="secondary" className="bg-primary text-white font-black uppercase">JORNADA {day}</Badge>
           <Button size="sm" variant="ghost" onClick={() => handleSimulateMatchday(Number(day), matchList)} className="text-[10px] font-black h-8 px-4 border border-primary/20">
@@ -226,7 +236,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
             const away = teams.find(t => t.id === m.awayId);
             if (!home || !away) return null;
             return (
-              <Card key={`match-row-v3-${m.id}`} className="border-none shadow-md hover:shadow-lg transition-all rounded-2xl overflow-hidden group">
+              <Card key={`match-row-v4-${m.id}`} className="border-none shadow-md hover:shadow-lg transition-all rounded-2xl overflow-hidden group">
                 <CardContent className="p-4 flex items-center justify-between gap-4 bg-card">
                   <div className="flex-1 flex items-center justify-end gap-2 text-right overflow-hidden">
                     <span className={cn("font-black text-[10px] md:text-xs truncate uppercase", m.homeId === tournament?.managedParticipantId && "text-primary")}>{home.name}</span>
@@ -290,13 +300,13 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                   <Button onClick={() => generateSchedule(tournament.id)} className="mt-4 font-black">GENERAR CALENDARIO</Button>
                 </div>
               ) : (
-                (tournament.leagueType === 'groups' || tournament.leagueType === 'conferences') && tournament.groups ? (
-                  <Tabs defaultValue={tournament.groups[0]?.id}>
+                (tournament.leagueType === 'groups' || tournament.leagueType === 'conferences') && tournament.groups && tournament.groups.length > 0 ? (
+                  <Tabs defaultValue={tournament.groups[0].id}>
                     <TabsList className="bg-muted/10 p-1 mb-6 flex overflow-x-auto scrollbar-hide w-full gap-1">
-                      {tournament.groups.map((g, idx) => <TabsTrigger key={`cal-group-tab-${g.id || idx}`} value={g.id} className="text-[10px] font-black uppercase flex-1">{g.name}</TabsTrigger>)}
+                      {tournament.groups.map((g, idx) => <TabsTrigger key={`cal-group-tab-v4-${g.id || idx}`} value={g.id} className="text-[10px] font-black uppercase flex-1">{g.name}</TabsTrigger>)}
                     </TabsList>
                     {tournament.groups.map((g, idx) => (
-                      <TabsContent key={`cal-group-content-${g.id || idx}`} value={g.id} className="space-y-8">
+                      <TabsContent key={`cal-group-content-v4-${g.id || idx}`} value={g.id} className="space-y-8">
                         {renderMatchdayList(tournament.matches.filter(m => g.participantIds.includes(m.homeId) || g.participantIds.includes(m.awayId)))}
                       </TabsContent>
                     ))}
@@ -313,7 +323,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                 </div>
                 <div className="grid gap-6">
                   {tournament.groups?.map((g, gIdx) => (
-                    <div key={`group-manage-${g.id || gIdx}`} className="p-4 bg-muted/20 rounded-2xl border">
+                    <div key={`group-manage-v4-${g.id || gIdx}`} className="p-4 bg-muted/20 rounded-2xl border">
                       <div className="flex justify-between items-center mb-4">
                         <span className="font-black uppercase text-sm text-primary">{g.name}</span>
                         <Badge variant="secondary" className="font-black">{g.participantIds.length} Clubes</Badge>
@@ -322,7 +332,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                         {g.participantIds.map(pId => {
                           const t = teams.find(team => team.id === pId);
                           return (
-                            <Badge key={`p-pill-${pId}`} className="bg-white border text-foreground py-1.5 px-3 rounded-xl gap-2">
+                            <Badge key={`p-pill-v4-${pId}`} className="bg-white border text-foreground py-1.5 px-3 rounded-xl gap-2">
                               <CrestIcon shape={t?.emblemShape || 'shield'} pattern={t?.emblemPattern || 'none'} c1={t?.crestPrimary || '#000'} c2={t?.crestSecondary || '#fff'} c3={t?.crestTertiary || '#000'} size="w-4 h-4" />
                               <span className="text-[10px] font-bold uppercase">{t?.name}</span>
                             </Badge>
@@ -360,7 +370,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                     {standings.map((row: any, idx: number) => {
                       const team = teams.find(t => t.id === row.id);
                       return (
-                        <TableRow key={`standing-v2-row-${row.id || idx}`}>
+                        <TableRow key={`standing-v4-row-${row.id || idx}`}>
                           <TableCell className="font-black flex items-center gap-3">
                             <span className="text-[10px] opacity-30">{idx + 1}</span>
                             <CrestIcon shape={team?.emblemShape || 'shield'} pattern={team?.emblemPattern || 'none'} c1={team?.crestPrimary || '#000'} c2={team?.crestSecondary || '#fff'} c3={team?.crestTertiary || '#000'} size="w-6 h-6" />
@@ -400,7 +410,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
               {standings.slice(0, 3).map((row: any, idx: number) => {
                 const team = teams.find(t => t.id === row.id);
                 return (
-                  <div key={`podium-v3-item-${row.id || idx}`} className="flex items-center gap-4 p-3 bg-muted/20 rounded-xl">
+                  <div key={`podium-v4-item-${row.id || idx}`} className="flex items-center gap-4 p-3 bg-muted/20 rounded-xl">
                     <div className="w-8 h-8 rounded-full bg-card flex items-center justify-center font-black text-xs">{idx + 1}</div>
                     <div className="flex-1 overflow-hidden">
                       <p className="font-black text-xs uppercase truncate">{team?.name}</p>
@@ -427,19 +437,19 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
 
             return (
               <div className="flex flex-col h-full max-h-[95vh] md:max-h-[90vh]">
-                <div className="bg-gradient-to-r from-primary to-primary/80 p-6 md:p-10 text-white border-b-4 border-black/10">
+                <DialogHeader className="bg-gradient-to-r from-primary to-primary/80 p-6 md:p-10 text-white border-b-4 border-black/10 shrink-0">
                   <div className="flex justify-between items-center mb-4">
                     <Badge className="bg-white/20 text-white border-none uppercase text-[10px] tracking-widest font-black">Tactics Center Arcade</Badge>
-                    <span className="font-black uppercase text-xs flex items-center gap-2"><Sword className="w-4 h-4" /> Jornada {pendingMatch.match.matchday}</span>
+                    <span className="font-black uppercase text-xs flex items-center gap-2 text-white/90"><Sword className="w-4 h-4" /> Jornada {pendingMatch.match.matchday}</span>
                   </div>
-                  <h2 className="text-2xl md:text-4xl font-black uppercase tracking-tighter">
+                  <DialogTitle className="text-2xl md:text-4xl font-black uppercase tracking-tighter text-white">
                     {isHome ? "Local en l'Horta" : "Visitante de l'Horta"}
-                  </h2>
-                  <div className="flex items-center gap-3 mt-2 text-white/70">
+                  </DialogTitle>
+                  <DialogDescription className="text-white/70 font-bold uppercase text-[10px] mt-2 flex items-center gap-2">
                     <Info className="w-4 h-4" />
-                    <p className="text-[10px] font-bold uppercase">Regla: {tournament.scoringRuleType === 'bestOfN' ? `Al mejor de ${tournament.scoringValue}` : tournament.scoringRuleType === 'firstToN' ? `Primero en marcar ${tournament.scoringValue}` : `Rango ${tournament.nToNRangeMin}-${tournament.nToNRangeMax}`}</p>
-                  </div>
-                </div>
+                    Regla: {tournament.scoringRuleType === 'bestOfN' ? `Al mejor de ${tournament.scoringValue}` : tournament.scoringRuleType === 'firstToN' ? `Primero en marcar ${tournament.scoringValue}` : `Rango ${tournament.nToNRangeMin}-${tournament.nToNRangeMax}`}
+                  </DialogDescription>
+                </DialogHeader>
 
                 <div className="flex-1 overflow-y-auto p-4 md:p-10 space-y-8 scrollbar-hide">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
@@ -452,7 +462,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                         </div>
                         <div>
                           <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Información Rival</p>
-                          <h3 className="text-xl md:text-2xl font-black uppercase">{opponentTeam?.name}</h3>
+                          <h3 className="text-xl md:text-2xl font-black uppercase truncate max-w-[250px]">{opponentTeam?.name}</h3>
                         </div>
                       </div>
                       
@@ -468,7 +478,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                               <p className="font-black uppercase text-base truncate">{aiPlayer.name}</p>
                               <div className="flex flex-wrap gap-1 mt-1">
                                 {aiPlayer.attributes.slice(0, 3).map((attr, aIdx) => (
-                                  <Badge key={`opp-att-v3-${aIdx}`} className="text-[8px] font-black bg-muted text-muted-foreground">{attr.name.substring(0,3)}: {attr.value}</Badge>
+                                  <Badge key={`opp-att-v4-${aIdx}`} className="text-[8px] font-black bg-muted text-muted-foreground">{attr.name.substring(0,3)}: {attr.value}</Badge>
                                 ))}
                               </div>
                             </div>
@@ -487,7 +497,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                           </SelectTrigger>
                           <SelectContent className="rounded-2xl shadow-2xl">
                             {userTeamPlayers.map(p => (
-                              <SelectItem key={`arcade-p-v3-${p.id}`} value={p.id} className="h-12 font-bold uppercase text-xs">
+                              <SelectItem key={`arcade-p-v4-${p.id}`} value={p.id} className="h-12 font-bold uppercase text-xs">
                                 #{p.jerseyNumber} {p.name} ({p.position})
                               </SelectItem>
                             ))}
@@ -523,7 +533,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                   </div>
                 </div>
 
-                <div className="p-6 md:p-10 bg-muted/20 border-t flex flex-col md:flex-row gap-3">
+                <div className="p-6 md:p-10 bg-muted/20 border-t flex flex-col md:flex-row gap-3 shrink-0">
                   <Button variant="ghost" onClick={() => setPendingMatch(null)} className="flex-1 h-14 font-black rounded-2xl uppercase tracking-widest text-xs">Cancelar Duelo</Button>
                   <Button 
                     disabled={!selectedPlayerId} 
