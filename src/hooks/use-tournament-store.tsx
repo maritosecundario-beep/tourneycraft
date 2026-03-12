@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
@@ -108,21 +107,29 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   const generateScoreByRules = useCallback((t: Tournament) => {
     let hScore = 0;
     let aScore = 0;
-    const val = t.scoringValue || 10;
+    const val = t.scoringValue || 9;
 
     if (t.scoringRuleType === 'bestOfN') {
+      // Suma total debe ser exactamente N
       hScore = Math.floor(Math.random() * (val + 1));
       aScore = val - hScore;
     } else if (t.scoringRuleType === 'firstToN') {
+      // Ganador llega a N, perdedor menos
       const winnerIdx = Math.random() > 0.5 ? 0 : 1;
-      if (winnerIdx === 0) { hScore = val; aScore = Math.floor(Math.random() * val); }
-      else { aScore = val; hScore = Math.floor(Math.random() * val); }
+      if (winnerIdx === 0) {
+        hScore = val;
+        aScore = Math.floor(Math.random() * val);
+      } else {
+        aScore = val;
+        hScore = Math.floor(Math.random() * val);
+      }
     } else if (t.scoringRuleType === 'nToNRange') {
+      // Suma total entre min y max
       const min = t.nToNRangeMin || 0;
       const max = t.nToNRangeMax || 10;
-      const total = Math.floor(Math.random() * (max - min + 1)) + min;
-      hScore = Math.floor(Math.random() * (total + 1));
-      aScore = total - hScore;
+      const totalSum = Math.floor(Math.random() * (max - min + 1)) + min;
+      hScore = Math.floor(Math.random() * (totalSum + 1));
+      aScore = totalSum - hScore;
     } else {
       hScore = Math.floor(Math.random() * 5);
       aScore = Math.floor(Math.random() * 5);
