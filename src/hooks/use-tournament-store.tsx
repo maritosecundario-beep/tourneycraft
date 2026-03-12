@@ -110,13 +110,13 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     const val = t.scoringValue || 9;
 
     if (t.scoringRuleType === 'bestOfN') {
-      // Suma total debe ser exactamente N
+      // Definición Usuario: Suma total debe ser exactamente N
       hScore = Math.floor(Math.random() * (val + 1));
       aScore = val - hScore;
     } else if (t.scoringRuleType === 'firstToN') {
-      // Ganador llega a N, perdedor menos
-      const winnerIdx = Math.random() > 0.5 ? 0 : 1;
-      if (winnerIdx === 0) {
+      // Definición Usuario: El ganador tiene exactamente N
+      const winnerIsHome = Math.random() > 0.5;
+      if (winnerIsHome) {
         hScore = val;
         aScore = Math.floor(Math.random() * val);
       } else {
@@ -124,7 +124,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         hScore = Math.floor(Math.random() * val);
       }
     } else if (t.scoringRuleType === 'nToNRange') {
-      // Suma total entre min y max
+      // Definición Usuario: Suma total dentro del rango [min, max]
       const min = t.nToNRangeMin || 0;
       const max = t.nToNRangeMax || 10;
       const totalSum = Math.floor(Math.random() * (max - min + 1)) + min;
@@ -169,7 +169,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     };
 
     if (t.format === 'league') {
-      if (t.leagueType === 'groups' && t.groups && t.groups.length > 0) {
+      if ((t.leagueType === 'groups' || t.leagueType === 'conferences') && t.groups && t.groups.length > 0) {
         t.groups.forEach((group, idx) => {
           createMatchesForList(group.participantIds, `-g${idx}`);
         });
@@ -206,14 +206,21 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
               return team;
             }));
           }
-          return { ...m, homeScore, awayScore, isSimulated: true, homePlayerId, awayPlayerId, winnerId: homeScore > awayScore ? m.homeId : homeScore < awayScore ? m.awayId : undefined };
+          return { 
+            ...m, 
+            homeScore, 
+            awayScore, 
+            isSimulated: true, 
+            homePlayerId, 
+            awayPlayerId, 
+            winnerId: homeScore > awayScore ? m.homeId : homeScore < awayScore ? m.awayId : undefined 
+          };
         }
         return m;
       });
 
       if (isDual) return { ...t, dualLeagueMatches: updateMatches(t.dualLeagueMatches || []) };
       
-      // Auto-simulate dual match if enabled
       let nextDualMatches = t.dualLeagueMatches || [];
       if (t.dualLeagueEnabled && !isDual) {
         const dualMatchId = `dual-${matchId}`;
