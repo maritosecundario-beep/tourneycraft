@@ -25,7 +25,7 @@ interface TournamentContextType {
   generateSchedule: (tournamentId: string) => void;
   resetSchedule: (tournamentId: string) => void;
   resolveMatch: (tournamentId: string, matchId: string, homeScore: number, awayScore: number, isDual: boolean, homePlayerId?: string, awayPlayerId?: string) => void;
-  simulateMatchday: (tournamentId: string) => void;
+  simulateMatchday: (tournamentId: string, matchdayNumber?: number) => void;
   applySanction: (tournamentId: string, type: 'team' | 'player', targetId: string, value: number) => void;
   processIncidentDecision: (tournamentId: string, incidentId: string, accept: boolean) => void;
 }
@@ -277,35 +277,36 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     }));
   }, [generateScoreByRules, players, teams, getBestPlayerId, settings.currency]);
 
-  const simulateMatchday = useCallback((tournamentId: string) => {
+  const simulateMatchday = useCallback((tournamentId: string, matchdayNumber?: number) => {
     setTournaments(prev => prev.map(t => {
       if (t.id !== tournamentId) return t;
+      
       const unplayed = t.matches.filter(m => !m.isSimulated);
       if (unplayed.length === 0) return t;
-      const currentDay = Math.min(...unplayed.map(m => m.matchday));
-      const dayMatches = t.matches.filter(m => m.matchday === currentDay && !m.isSimulated);
+      
+      const targetDay = matchdayNumber !== undefined ? matchdayNumber : Math.min(...unplayed.map(m => m.matchday));
+      const dayMatches = t.matches.filter(m => m.matchday === targetDay && !m.isSimulated);
       
       let nextT = { ...t };
       dayMatches.forEach(m => {
         const { hScore, aScore } = generateScoreByRules(t, m.homeId, m.awayId);
-        // We use a simplified version of resolveMatch logic here to avoid state loops
-        nextT.matches = nextT.matches.map(nm => {
-          if (nm.id === m.id) {
-            // Update budgets
-            setTeams(tPrev => tPrev.map(team => {
-              if (team.id === m.homeId || team.id === m.awayId) {
-                const isHome = team.id === m.homeId;
-                const isWin = (isHome && hScore > aScore) || (!isHome && aScore > hScore);
-                const isLoss = (isHome && aScore > hScore) || (!isHome && hScore > aScore);
-                let change = isWin ? (t.winReward || 0) : isLoss ? -(t.lossPenalty || 0) : (t.drawReward || 0);
-                return { ...team, budget: Math.max(0, (team.budget || 0) + change) };
-              }
-              return team;
-            }));
-            return { ...nm, homeScore: hScore, awayScore: aScore, isSimulated: true, homePlayerId: getBestPlayerId(nm.homeId), awayPlayerId: getBestPlayerId(nm.awayId) };
+        
+        // Finalize budget updates for this match
+        setTeams(tPrev => tPrev.map(team => {
+          if (team.id === m.homeId || team.id === m.awayId) {
+            const isHome = team.id === m.homeId;
+            const isWin = (isHome && hScore > aScore) || (!isHome && aScore > hScore);
+            const isLoss = (isHome && aScore > hScore) || (!isHome && hScore > aScore);
+            let change = isWin ? (t.winReward || 0) : isLoss ? -(t.lossPenalty || 0) : (t.drawReward || 0);
+            return { ...team, budget: Math.max(0, (team.budget || 0) + change) };
           }
-          return nm;
-        });
+          return team;
+        }));
+
+        const hPlayerId = getBestPlayerId(m.homeId);
+        const aPlayerId = getBestPlayerId(m.awayId);
+
+        nextT.matches = nextT.matches.map(nm => nm.id === m.id ? { ...nm, homeScore: hScore, awayScore: aScore, isSimulated: true, homePlayerId: hPlayerId, awayPlayerId: aPlayerId } : nm);
 
         if (t.dualLeagueEnabled) {
           const dualId = `dual-${m.id}`;
@@ -317,7 +318,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         }
       });
 
-      return { ...nextT, currentMatchday: currentDay };
+      return { ...nextT, currentMatchday: Math.max(nextT.currentMatchday, targetDay) };
     }));
   }, [generateScoreByRules, getBestPlayerId]);
 

@@ -56,9 +56,6 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
   const [editRangeMax, setEditRangeMax] = useState(10);
   const [editPlayoffSpots, setEditPlayoffSpots] = useState(8);
   const [editRelegationSpots, setEditRelegationSpots] = useState(4);
-  const [editWinReward, setEditWinReward] = useState(10);
-  const [editLossPenalty, setEditLossPenalty] = useState(15);
-  const [editDrawReward, setEditDrawReward] = useState(0);
   const [editVariability, setEditVariability] = useState(15);
 
   useEffect(() => {
@@ -76,9 +73,6 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
       setEditRangeMax(found.nToNRangeMax || 10);
       setEditPlayoffSpots(found.playoffSpots || 0);
       setEditRelegationSpots(found.relegationSpots || 0);
-      setEditWinReward(found.winReward || 0);
-      setEditLossPenalty(found.lossPenalty || 0);
-      setEditDrawReward(found.drawReward || 0);
       setEditVariability(found.variability || 15);
     }
   }, [tournaments, id]);
@@ -128,26 +122,6 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
     });
   };
 
-  const handleSimulateNormal = (match: Match, isDual: boolean) => {
-    if (!tournament) return;
-    const hTeam = teams.find(t => t.id === match.homeId);
-    const aTeam = teams.find(t => t.id === match.awayId);
-    const { hScore, aScore } = generateCalculatedScore(tournament, hTeam, aTeam);
-    resolveMatch(tournament.id, match.id, hScore, aScore, isDual);
-  };
-
-  const handleSimulateArcade = (match: Match, isDual: boolean) => {
-    const opponentTeamId = match.homeId === tournament?.managedParticipantId ? match.awayId : match.homeId;
-    const opponentPlayers = players.filter(p => p.teamId === opponentTeamId && p.suspensionMatchdays === 0);
-    let aiPlayer: Player | null = null;
-    if (opponentPlayers.length > 0) {
-      const sorted = [...opponentPlayers].sort((a, b) => b.monetaryValue - a.monetaryValue);
-      aiPlayer = Math.random() < 0.7 ? sorted[0] : sorted[Math.floor(Math.random() * sorted.length)];
-    }
-    setPendingMatch({ match, isDual, aiPlayer });
-    setArcadeHomeScore(0); setArcadeAwayScore(0); setSelectedPlayerId('');
-  };
-
   const standings = useMemo(() => tournament ? getStandings(tournament.matches, tournament.participants) : [], [tournament, teams]);
   const dualStandings = useMemo(() => (tournament && tournament.dualLeagueEnabled) ? getStandings(tournament.dualLeagueMatches || [], tournament.participants) : [], [tournament, teams]);
 
@@ -183,6 +157,26 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
     </Table>
   );
 
+  const handleSimulateNormal = (match: Match, isDual: boolean) => {
+    if (!tournament) return;
+    const hTeam = teams.find(t => t.id === match.homeId);
+    const aTeam = teams.find(t => t.id === match.awayId);
+    const { hScore, aScore } = generateCalculatedScore(tournament, hTeam, aTeam);
+    resolveMatch(tournament.id, match.id, hScore, aScore, isDual);
+  };
+
+  const handleSimulateArcade = (match: Match, isDual: boolean) => {
+    const opponentTeamId = match.homeId === tournament?.managedParticipantId ? match.awayId : match.homeId;
+    const opponentPlayers = players.filter(p => p.teamId === opponentTeamId && p.suspensionMatchdays === 0);
+    let aiPlayer: Player | null = null;
+    if (opponentPlayers.length > 0) {
+      const sorted = [...opponentPlayers].sort((a, b) => b.monetaryValue - a.monetaryValue);
+      aiPlayer = Math.random() < 0.7 ? sorted[0] : sorted[Math.floor(Math.random() * sorted.length)];
+    }
+    setPendingMatch({ match, isDual, aiPlayer });
+    setArcadeHomeScore(0); setArcadeAwayScore(0); setSelectedPlayerId('');
+  };
+
   const renderMatchdayList = (matchList: Match[], isDual: boolean = false) => {
     const grouped: Record<number, Match[]> = {};
     matchList.forEach(m => { if (!grouped[m.matchday]) grouped[m.matchday] = []; grouped[m.matchday].push(m); });
@@ -192,7 +186,12 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
       <div className="space-y-12">
         {entries.map(([day, dayMatches]) => (
           <div key={`mday-${isDual ? 'd' : 'm'}-${day}`} className="space-y-4">
-            <Badge variant="secondary" className="bg-primary text-white font-black uppercase">JORNADA {day}</Badge>
+            <div className="flex items-center gap-3">
+              <Badge variant="secondary" className="bg-primary text-white font-black uppercase">JORNADA {day}</Badge>
+              <Button size="xs" variant="outline" className="h-6 px-3 text-[8px] font-black uppercase rounded-lg border-primary/30 text-primary hover:bg-primary hover:text-white" onClick={() => simulateMatchday(tournament!.id, Number(day))}>
+                <Play className="w-2.5 h-2.5 mr-1 fill-current" /> SIMULAR JORNADA
+              </Button>
+            </div>
             <div className="grid gap-3">
               {dayMatches.map((m) => {
                 const home = teams.find(t => t.id === m.homeId); const away = teams.find(t => t.id === m.awayId);
@@ -234,7 +233,6 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
           <div><h1 className="text-2xl md:text-3xl font-black uppercase tracking-tighter">{tournament.name}</h1><p className="text-muted-foreground uppercase font-black text-[10px] tracking-widest">{tournament.sport} • Season {tournament.currentSeason}</p></div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button onClick={() => simulateMatchday(tournament.id)} className="rounded-xl font-black h-12 bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-500/20"><Play className="w-4 h-4 mr-2" /> SIMULAR JORNADA</Button>
           <Button variant="outline" onClick={() => setIsTransferCenterOpen(true)} className="rounded-xl font-black h-12 border-primary text-primary"><ArrowLeftRight className="w-4 h-4 mr-2" /> TRASPASOS</Button>
           <Button variant="outline" onClick={() => setIsSanctionMenuOpen(true)} className="rounded-xl font-black h-12 border-destructive text-destructive"><ShieldAlert className="w-4 h-4 mr-2" /> SANCIONES</Button>
           <Button variant="outline" onClick={() => setIsEditing(true)} className="rounded-xl font-black h-12 border-primary text-primary"><Settings2 className="w-4 h-4 mr-2" /> AJUSTES PRO</Button>
@@ -256,19 +254,19 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
               {tournament.matches.length === 0 ? <div className="text-center py-20 bg-muted/10 rounded-[2rem] border-2 border-dashed"><p className="font-bold text-muted-foreground uppercase text-xs">Sin partidos.</p><Button onClick={() => generateSchedule(tournament.id)} className="mt-4 font-black rounded-xl">GENERAR CALENDARIO</Button></div> : (
                 (tournament.leagueType === 'groups' || tournament.leagueType === 'conferences') && tournament.groups ? (
                   <Tabs defaultValue={tournament.groups[0]?.id}>
-                    <TabsList className="bg-muted/10 p-1 mb-6 flex overflow-x-auto scrollbar-hide w-full gap-1">{tournament.groups.map((g) => <TabsTrigger key={`cal-tab-${g.id}`} value={g.id} className="text-[10px] font-black uppercase flex-1">{g.name}</TabsTrigger>)}</TabsList>
-                    {tournament.groups.map((g) => ( <TabsContent key={`cal-cont-${g.id}`} value={g.id} className="space-y-8">{renderMatchdayList(tournament.matches.filter(m => g.participantIds.includes(m.homeId) || g.participantIds.includes(m.awayId)))}</TabsContent> ))}
+                    <TabsList className="bg-muted/10 p-1 mb-6 flex overflow-x-auto scrollbar-hide w-full gap-1">{tournament.groups.map((g) => <TabsTrigger key={`cal-tab-${g.id || 'def'}`} value={g.id} className="text-[10px] font-black uppercase flex-1">{g.name}</TabsTrigger>)}</TabsList>
+                    {tournament.groups.map((g) => ( <TabsContent key={`cal-cont-${g.id || 'def'}`} value={g.id} className="space-y-8">{renderMatchdayList(tournament.matches.filter(m => g.participantIds.includes(m.homeId) || g.participantIds.includes(m.awayId)))}</TabsContent> ))}
                   </Tabs>
                 ) : renderMatchdayList(tournament.matches)
               )}
             </TabsContent>
 
             <TabsContent value="dual" className="mt-6 space-y-12">
-              <div className="space-y-6"><h3 className="text-xl font-black uppercase border-l-4 border-accent pl-4">Ranking Liga Dual</h3><Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden">{tournament.groups ? ( <div className="space-y-12 p-6">{tournament.groups.map(group => ( <div key={`d-st-${group.id}`} className="space-y-4"><h3 className="text-xl font-black uppercase text-accent">{group.name}</h3>{renderStandingsTable(dualStandings.filter(s => group.participantIds.includes(s.id)))}</div> ))}</div> ) : renderStandingsTable(dualStandings)}</Card></div>
-              <div className="space-y-6"><h3 className="text-xl font-black uppercase border-l-4 border-accent pl-4">Calendario Dual (Invertido)</h3>{tournament.groups ? ( <Tabs defaultValue={tournament.groups[0]?.id}><TabsList className="bg-muted/10 p-1 mb-6 flex overflow-x-auto scrollbar-hide w-full gap-1">{tournament.groups.map(g => <TabsTrigger key={`d-cal-tab-${g.id}`} value={g.id} className="text-[10px] font-black uppercase flex-1">{g.name}</TabsTrigger>)}</TabsList>{tournament.groups.map(g => ( <TabsContent key={`d-cal-cont-${g.id}`} value={g.id} className="space-y-8">{renderMatchdayList(tournament.dualLeagueMatches.filter(m => g.participantIds.includes(m.homeId) || g.participantIds.includes(m.awayId)), true)}</TabsContent> ))}</Tabs> ) : renderMatchdayList(tournament.dualLeagueMatches, true)}</div>
+              <div className="space-y-6"><h3 className="text-xl font-black uppercase border-l-4 border-accent pl-4">Ranking Liga Dual</h3><Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden">{tournament.groups ? ( <div className="space-y-12 p-6">{tournament.groups.map(group => ( <div key={`d-st-${group.id || 'def'}`} className="space-y-4"><h3 className="text-xl font-black uppercase text-accent">{group.name}</h3>{renderStandingsTable(dualStandings.filter(s => group.participantIds.includes(s.id)))}</div> ))}</div> ) : renderStandingsTable(dualStandings)}</Card></div>
+              <div className="space-y-6"><h3 className="text-xl font-black uppercase border-l-4 border-accent pl-4">Calendario Dual (Invertido)</h3>{tournament.groups ? ( <Tabs defaultValue={tournament.groups[0]?.id}><TabsList className="bg-muted/10 p-1 mb-6 flex overflow-x-auto scrollbar-hide w-full gap-1">{tournament.groups.map(g => <TabsTrigger key={`d-cal-tab-${g.id || 'def'}`} value={g.id} className="text-[10px] font-black uppercase flex-1">{g.name}</TabsTrigger>)}</TabsList>{tournament.groups.map(g => ( <TabsContent key={`d-cal-cont-${g.id || 'def'}`} value={g.id} className="space-y-8">{renderMatchdayList(tournament.dualLeagueMatches.filter(m => g.participantIds.includes(m.homeId) || g.participantIds.includes(m.awayId)), true)}</TabsContent> ))}</Tabs> ) : renderMatchdayList(tournament.dualLeagueMatches, true)}</div>
             </TabsContent>
 
-            <TabsContent value="standings" className="mt-6"><Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden">{tournament.groups ? ( <div className="space-y-12 p-6">{tournament.groups.map(group => ( <div key={`st-g-${group.id}`} className="space-y-4"><div className="flex items-center gap-3 border-l-4 border-primary pl-4"><h3 className="text-xl font-black uppercase">{group.name}</h3><Badge className="bg-primary/10 text-primary border-none text-[9px] font-black">{group.participantIds.length} CLUBES</Badge></div>{renderStandingsTable(standings.filter(s => group.participantIds.includes(s.id)))}</div> ))}</div> ) : renderStandingsTable(standings)}</Card></TabsContent>
+            <TabsContent value="standings" className="mt-6"><Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden">{tournament.groups ? ( <div className="space-y-12 p-6">{tournament.groups.map(group => ( <div key={`st-g-${group.id || 'def'}`} className="space-y-4"><div className="flex items-center gap-3 border-l-4 border-primary pl-4"><h3 className="text-xl font-black uppercase">{group.name}</h3><Badge className="bg-primary/10 text-primary border-none text-[9px] font-black">{group.participantIds.length} CLUBES</Badge></div>{renderStandingsTable(standings.filter(s => group.participantIds.includes(s.id)))}</div> ))}</div> ) : renderStandingsTable(standings)}</Card></TabsContent>
 
             <TabsContent value="news" className="mt-6 space-y-4">
               {tournament.incidents?.length === 0 ? <div className="text-center py-20 bg-muted/10 rounded-[2rem] border-2 border-dashed font-bold text-muted-foreground uppercase text-xs">Sin noticias.</div> : (
@@ -291,7 +289,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
         </div>
       </div>
 
-      {/* MODALES CORREGIDOS */}
+      {/* Modales */}
       <Dialog open={!!selectedMatchDetail} onOpenChange={(o) => !o && setSelectedMatchDetail(null)}>
         <DialogContent className="max-w-2xl rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden">
           {selectedMatchDetail && (() => {
@@ -303,7 +301,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                   <DialogHeader><DialogTitle className="text-xl font-black uppercase text-center">Acta de Competición</DialogTitle><DialogDescription className="text-center font-bold text-[10px] uppercase text-muted-foreground">Informe técnico oficial</DialogDescription></DialogHeader>
                   <div className="flex items-center justify-center gap-8"><div className="flex flex-col items-center gap-2"><CrestIcon shape={home?.emblemShape || 'shield'} pattern={home?.emblemPattern || 'none'} c1={home?.crestPrimary || '#000'} c2={home?.crestSecondary || '#fff'} c3={home?.crestTertiary || '#000'} size="w-16 h-16" /><span className="font-black text-xs uppercase">{home?.name}</span></div><div className="text-5xl font-black">{selectedMatchDetail.homeScore} - {selectedMatchDetail.awayScore}</div><div className="flex flex-col items-center gap-2"><CrestIcon shape={away?.emblemShape || 'shield'} pattern={away?.emblemPattern || 'none'} c1={away?.crestPrimary || '#000'} c2={away?.crestSecondary || '#fff'} c3={away?.crestTertiary || '#000'} size="w-16 h-16" /><span className="font-black text-xs uppercase">{away?.name}</span></div></div>
                 </div>
-                <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8 bg-card">{[hPlayer, aPlayer].map((p, pi) => ( <div key={`p-rep-${p?.id || pi}`} className="space-y-4"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center font-black text-primary">#{p?.jerseyNumber || '??'}</div><div><p className="font-black uppercase text-sm">{p?.name || 'Agente Invitado'}</p><p className="text-[10px] font-bold text-accent uppercase">{p?.position}</p></div></div>{p?.description && <p className="text-[10px] text-muted-foreground italic bg-muted/20 p-3 rounded-xl">{p.description}</p>}<div className="grid grid-cols-2 gap-2">{p?.attributes.map((a) => (<div key={`stat-${p.id}-${a.name}`} className="bg-muted/30 p-2 rounded-lg border flex justify-between items-center"><span className="text-[8px] font-black uppercase opacity-50">{a.name}</span><span className="text-[10px] font-black">{a.value}</span></div>))}</div></div> ))}</div>
+                <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8 bg-card">{[hPlayer, aPlayer].map((p, pi) => ( <div key={`p-rep-${p?.id || pi}`} className="space-y-4"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center font-black text-primary">#{p?.jerseyNumber || '??'}</div><div><p className="font-black uppercase text-sm">{p?.name || 'Agente Invitado'}</p><p className="text-[10px] font-bold text-accent uppercase">{p?.position}</p></div></div>{p?.description && <p className="text-[10px] text-muted-foreground italic bg-muted/20 p-3 rounded-xl">{p.description}</p>}<div className="grid grid-cols-2 gap-2">{p?.attributes.map((a) => (<div key={`stat-${p?.id || pi}-${a.name}`} className="bg-muted/30 p-2 rounded-lg border flex justify-between items-center"><span className="text-[8px] font-black uppercase opacity-50">{a.name}</span><span className="text-[10px] font-black">{a.value}</span></div>))}</div></div> ))}</div>
               </div>
             );
           })()}
