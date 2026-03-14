@@ -1,59 +1,14 @@
-
 "use client";
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Trophy, Users, UserPlus, Settings, LayoutDashboard, Database, LogIn, LogOut, MoreHorizontal, Sparkles } from 'lucide-react';
+import { Trophy, Users, UserPlus, Settings, LayoutDashboard, Database, MoreHorizontal, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useUser, useAuth } from '@/firebase/provider';
-import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useToast } from '@/hooks/use-toast';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 
 export function Navbar() {
   const pathname = usePathname();
-  const user = useUser();
-  const auth = useAuth();
-  const { toast } = useToast();
-
-  const handleLogin = async () => {
-    if (!auth) {
-      toast({ title: "Error", description: "Servicio de autenticación no disponible.", variant: "destructive" });
-      return;
-    }
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account' });
-    
-    try {
-      await signInWithPopup(auth, provider);
-      toast({ title: "Bienvenido", description: "Has iniciado sesión correctamente." });
-    } catch (error: any) {
-      console.error("Auth Error:", error);
-      let message = "No se pudo completar la autenticación.";
-      if (error.code === 'auth/operation-not-allowed') {
-        message = "Habilita Google Auth en tu Firebase Console.";
-      } else if (error.code === 'auth/popup-closed-by-user') {
-        message = "Has cerrado la ventana de inicio de sesión.";
-      }
-      toast({ 
-        title: "Error de Acceso", 
-        description: message, 
-        variant: "destructive" 
-      });
-    }
-  };
-
-  const handleLogout = async () => {
-    if (!auth) return;
-    try {
-      await signOut(auth);
-      toast({ title: "Sesión cerrada", description: "Vuelve pronto." });
-    } catch (error) {
-      toast({ title: "Error", description: "No se pudo cerrar la sesión.", variant: "destructive" });
-    }
-  };
 
   const navItems = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -64,7 +19,7 @@ export function Navbar() {
   ];
 
   const moreItems = [
-    { name: 'Cloud Sync', href: '/backups', icon: Database },
+    { name: 'Backup', href: '/backups', icon: Database },
     { name: 'Ajustes', href: '/settings', icon: Settings },
   ];
 
@@ -128,31 +83,10 @@ export function Navbar() {
         </div>
 
         <div className="px-4 mt-auto">
-            <div className="p-4 bg-muted/30 rounded-2xl border border-border/50">
-              {user ? (
-                <div className="flex flex-col gap-3">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-8 w-8 border-2 border-primary/50">
-                      <AvatarImage src={user.photoURL || undefined} />
-                      <AvatarFallback className="font-bold">{user.displayName?.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    <div className="overflow-hidden">
-                      <p className="text-[11px] font-black truncate uppercase tracking-tight">{user.displayName}</p>
-                      <p className="text-[9px] text-accent uppercase font-black tracking-widest">Sincronizado</p>
-                    </div>
-                  </div>
-                  <Button variant="ghost" size="sm" className="w-full justify-start h-8 px-2 hover:bg-destructive/10 hover:text-destructive" onClick={handleLogout}>
-                    <LogOut className="w-4 h-4 mr-2" />
-                    <span className="text-xs font-bold">Desconectar</span>
-                  </Button>
-                </div>
-              ) : (
-                <Button variant="default" size="sm" className="w-full h-10 shadow-lg shadow-primary/20 font-black" onClick={handleLogin}>
-                  <LogIn className="w-4 h-4 mr-2" />
-                  <span>CONECTAR</span>
-                </Button>
-              )}
-            </div>
+          <div className="p-4 bg-muted/30 rounded-2xl border border-border/50 text-center">
+            <p className="text-[10px] font-black uppercase text-muted-foreground">Versión Local 1.5</p>
+            <p className="text-[9px] text-accent uppercase font-bold mt-1">L'Horta Simulator</p>
+          </div>
         </div>
       </nav>
 
@@ -192,36 +126,15 @@ export function Navbar() {
                 <Link 
                   key={item.href} 
                   href={item.href}
-                  className="flex flex-col items-center gap-3 p-6 bg-muted/30 rounded-3xl border border-border/50 hover:bg-muted/50 transition-colors"
+                  className={cn(
+                    "flex flex-col items-center gap-3 p-6 bg-muted/30 rounded-3xl border border-border/50 hover:bg-muted/50 transition-colors",
+                    pathname === item.href && "border-primary bg-primary/10"
+                  )}
                 >
-                  <item.icon className="w-6 h-6 text-primary" />
+                  <item.icon className={cn("w-6 h-6", pathname === item.href ? "text-primary" : "text-muted-foreground")} />
                   <span className="font-black text-xs uppercase tracking-tight text-foreground">{item.name}</span>
                 </Link>
               ))}
-            </div>
-            <div className="mt-8 pt-8 border-t border-border">
-                {user ? (
-                  <div className="flex items-center justify-between bg-muted/20 p-4 rounded-3xl">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-12 w-12 border-2 border-primary/50 shadow-lg">
-                        <AvatarImage src={user.photoURL || undefined} />
-                        <AvatarFallback className="font-bold text-lg">{user.displayName?.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <div className="overflow-hidden">
-                        <p className="font-black text-sm uppercase truncate max-w-[120px]">{user.displayName}</p>
-                        <p className="text-[10px] text-accent font-black uppercase tracking-widest">Google Cloud Activo</p>
-                      </div>
-                    </div>
-                    <Button variant="outline" size="sm" className="rounded-xl font-bold border-destructive/50 text-destructive hover:bg-destructive/10" onClick={handleLogout}>
-                      <LogOut className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ) : (
-                  <Button className="w-full h-14 shadow-lg shadow-primary/20 rounded-2xl font-black text-lg" onClick={handleLogin}>
-                    <LogIn className="w-5 h-5 mr-3" /> CONECTAR GOOGLE
-                  </Button>
-                )
-              }
             </div>
           </SheetContent>
         </Sheet>

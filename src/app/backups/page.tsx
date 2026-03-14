@@ -1,20 +1,16 @@
-
 "use client";
 
 import { useTournamentStore } from '@/hooks/use-tournament-store';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Download, Upload, Trash2, Cloud, AlertTriangle, CheckCircle2, PlusCircle, RefreshCw, ClipboardCopy, ClipboardPaste } from 'lucide-react';
+import { Download, Upload, Trash2, Database, AlertTriangle, RefreshCw, PlusCircle, ClipboardCopy, ClipboardPaste } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRef, useState } from 'react';
-import { useUser } from '@/firebase/provider';
-import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 export default function BackupsPage() {
   const { teams, players, tournaments, settings, importData } = useTournamentStore();
   const { toast } = useToast();
-  const user = useUser();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [pendingData, setPendingData] = useState<any>(null);
@@ -26,7 +22,7 @@ export default function BackupsPage() {
     tournaments,
     settings,
     exportDate: new Date().toISOString(),
-    version: "1.3"
+    version: "1.5"
   });
 
   const handleExportFile = () => {
@@ -96,62 +92,44 @@ export default function BackupsPage() {
     <div className="max-w-4xl mx-auto space-y-8 pb-32">
       <header>
         <h1 className="text-3xl font-black flex items-center gap-3">
-          <Cloud className="text-primary" /> Cloud & Data Sync
+          <Database className="text-primary" /> Persistencia de Datos
         </h1>
-        <p className="text-muted-foreground">Gestiona la persistencia, portabilidad y fusión de tus datos.</p>
+        <p className="text-muted-foreground">Gestiona la exportación, importación y seguridad de tu universo deportivo local.</p>
       </header>
 
       <div className="grid gap-6">
-        <Card className="border-none bg-card shadow-xl overflow-hidden">
-          <div className={cn("h-1 w-full", user ? "bg-accent" : "bg-yellow-500")} />
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              Cloud Synchronization {user && <CheckCircle2 className="w-5 h-5 text-accent" />}
-            </CardTitle>
-            <CardDescription>
-              {user 
-                ? `Sincronizado con: ${user.email}` 
-                : "Tus datos se guardan localmente. Conecta para habilitar la nube."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {user ? (
-              <div className="p-4 bg-accent/10 rounded-xl border border-accent/20">
-                <p className="text-sm text-accent font-medium">
-                  Tus datos están protegidos. Los cambios se sincronizan en tiempo real con tu cuenta.
-                </p>
-              </div>
-            ) : (
-              <div className="p-4 bg-yellow-500/10 rounded-xl border border-yellow-500/20 flex gap-3">
-                <AlertTriangle className="text-yellow-500 shrink-0" />
-                <p className="text-sm text-yellow-500">
-                  Cuidado: Si borras los datos de tu navegador perderás tu progreso. Usa backups manuales o conecta con Google.
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <div className="p-6 bg-yellow-500/10 rounded-[2rem] border-2 border-dashed border-yellow-500/20 flex flex-col md:flex-row items-center gap-6">
+          <div className="w-16 h-16 bg-yellow-500/20 rounded-full flex items-center justify-center shrink-0">
+            <AlertTriangle className="text-yellow-500 w-8 h-8" />
+          </div>
+          <div className="text-center md:text-left space-y-1">
+            <h3 className="font-black uppercase text-yellow-600">Aviso de Almacenamiento Local</h3>
+            <p className="text-sm text-yellow-600/80 leading-relaxed">
+              Tus datos se guardan exclusivamente en la memoria de este navegador. Si borras los datos de navegación o usas una ventana de incógnito, perderás tu progreso. Recomendamos exportar un backup periódicamente.
+            </p>
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card className="border-none bg-card shadow-xl rounded-[2rem]">
+          <Card className="border-none bg-card shadow-xl rounded-[2.5rem]">
             <CardHeader>
-              <CardTitle className="text-lg">Exportar Datos</CardTitle>
-              <CardDescription>Extrae tu universo para guardarlo o compartirlo.</CardDescription>
+              <CardTitle className="text-lg">Exportar Universo</CardTitle>
+              <CardDescription>Crea un punto de restauración de tu trabajo actual.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <Button onClick={handleExportFile} className="w-full h-12 shadow-lg shadow-primary/20 rounded-xl font-black">
-                <Download className="w-4 h-4 mr-2" /> DESCARGAR ARCHIVO
+                <Download className="w-4 h-4 mr-2" /> DESCARGAR .JSON
               </Button>
               <Button onClick={handleExportClipboard} variant="outline" className="w-full h-12 rounded-xl font-black border-primary text-primary">
-                <ClipboardCopy className="w-4 h-4 mr-2" /> COPIAR AL PORTAPAPELES
+                <ClipboardCopy className="w-4 h-4 mr-2" /> COPIAR CÓDIGO
               </Button>
             </CardContent>
           </Card>
 
-          <Card className="border-none bg-card shadow-xl rounded-[2rem]">
+          <Card className="border-none bg-card shadow-xl rounded-[2.5rem]">
             <CardHeader>
-              <CardTitle className="text-lg">Importar Datos</CardTitle>
-              <CardDescription>Carga datos externos para seguir trabajando.</CardDescription>
+              <CardTitle className="text-lg">Importar Universo</CardTitle>
+              <CardDescription>Carga datos externos para restaurar o fusionar.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".json" />
@@ -159,24 +137,25 @@ export default function BackupsPage() {
                 <Upload className="w-4 h-4 mr-2" /> SUBIR ARCHIVO
               </Button>
               <Button onClick={handleImportClipboard} variant="outline" className="w-full h-12 rounded-xl font-black border-accent text-accent">
-                <ClipboardPaste className="w-4 h-4 mr-2" /> PEGAR DESDE PORTAPAPELES
+                <ClipboardPaste className="w-4 h-4 mr-2" /> PEGAR CÓDIGO
               </Button>
             </CardContent>
           </Card>
         </div>
 
-        <Card className="border-none bg-card shadow-xl border-t-4 border-destructive/20 rounded-[2rem]">
+        <Card className="border-none bg-card shadow-xl border-t-4 border-destructive/20 rounded-[2.5rem]">
           <CardHeader>
-            <CardTitle className="text-lg text-destructive font-black">ZONA DE PELIGRO</CardTitle>
+            <CardTitle className="text-lg text-destructive font-black">BORRADO DEFINITIVO</CardTitle>
+            <CardDescription>Esta acción vaciará completamente el simulador en este dispositivo.</CardDescription>
           </CardHeader>
           <CardContent>
             <Button variant="destructive" className="w-full h-12 bg-destructive/10 hover:bg-destructive text-destructive hover:text-white border border-destructive/20 rounded-xl font-black" onClick={() => {
-              if (confirm("¿BORRAR TODO? Esta acción es irreversible.")) {
+              if (confirm("¿ESTÁS SEGURO? Se borrarán todos los equipos, jugadores y torneos.")) {
                 localStorage.removeItem('tourneycraft-store');
                 window.location.reload();
               }
             }}>
-              <Trash2 className="w-4 h-4 mr-2" /> RESETEAR TODO EL UNIVERSO
+              <Trash2 className="w-4 h-4 mr-2" /> REINICIAR TODA LA APP
             </Button>
           </CardContent>
         </Card>

@@ -1,11 +1,7 @@
-
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { Team, Player, Tournament, GlobalSettings, Match } from '@/lib/types';
-import { useUser, useFirestore } from '@/firebase/provider';
-import { doc } from 'firebase/firestore';
-import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import hortaData from '@/data/horta-league.json';
 
 interface TournamentContextType {
@@ -37,31 +33,12 @@ const defaultSettings: GlobalSettings = {
 
 const TournamentContext = createContext<TournamentContextType | undefined>(undefined);
 
-const sanitizeData = (data: any): any => {
-  if (data === null || data === undefined) return null;
-  if (Array.isArray(data)) return data.map(sanitizeData);
-  if (typeof data === 'object') {
-    const sanitized: any = {};
-    for (const key in data) {
-      if (data[key] !== undefined) {
-        sanitized[key] = sanitizeData(data[key]);
-      }
-    }
-    return sanitized;
-  }
-  if (typeof data === 'number') return isNaN(data) ? 0 : data;
-  return data;
-};
-
 export function TournamentProvider({ children }: { children: React.ReactNode }) {
   const [teams, setTeams] = useState<Team[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [settings, setSettings] = useState<GlobalSettings>(defaultSettings);
   const [isLoaded, setIsLoaded] = useState(false);
-  
-  const user = useUser();
-  const db = useFirestore();
 
   useEffect(() => {
     const saved = localStorage.getItem('tourneycraft-store');
@@ -87,23 +64,10 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     if (isLoaded) {
       document.body.className = settings.theme;
-      const timer = setTimeout(() => {
-        const rawData = { teams, players, tournaments, settings };
-        localStorage.setItem('tourneycraft-store', JSON.stringify(rawData));
-        
-        if (user?.uid && db) {
-          const sanitized = sanitizeData({
-            teams, players, tournaments, settings,
-            updatedAt: new Date().toISOString(),
-            ownerId: user.uid
-          });
-          const userDocRef = doc(db, 'users', user.uid, 'backups', 'latest');
-          setDocumentNonBlocking(userDocRef, sanitized, { merge: true });
-        }
-      }, 5000);
-      return () => clearTimeout(timer);
+      const rawData = { teams, players, tournaments, settings };
+      localStorage.setItem('tourneycraft-store', JSON.stringify(rawData));
     }
-  }, [teams, players, tournaments, settings, isLoaded, user?.uid, db]);
+  }, [teams, players, tournaments, settings, isLoaded]);
 
   const generateScoreByRules = useCallback((t: Tournament, hId: string, aId: string) => {
     let hScore = 0;

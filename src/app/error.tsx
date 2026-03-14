@@ -23,8 +23,8 @@ export default function Error({
       <div className="space-y-2">
         <h2 className="text-3xl font-black uppercase tracking-tighter">Fallo de Sistema</h2>
         <p className="text-muted-foreground max-w-md mx-auto">
-          Se ha detectado una inconsistencia en los datos o un error de permisos. 
-          Asegúrate de estar conectado a internet y tener sesión iniciada.
+          Se ha detectado una inconsistencia en los datos o un error de carga local. 
+          Asegúrate de que tu navegador no esté bloqueando el almacenamiento local.
         </p>
       </div>
       <div className="flex gap-4">
