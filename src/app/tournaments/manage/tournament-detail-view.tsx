@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useMemo } from 'react';
@@ -86,15 +85,22 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
     const homeWinProb = (hRating / totalRating) + (Math.random() * chaosFactor - (chaosFactor / 2));
 
     if (t.scoringRuleType === 'bestOfN') {
-      hScore = Math.round(val * homeWinProb); aScore = val - hScore;
+      for (let i = 0; i < val; i++) {
+        if (Math.random() < homeWinProb) hScore++;
+        else aScore++;
+      }
     } else if (t.scoringRuleType === 'firstToN') {
-      const homeWins = Math.random() < homeWinProb;
-      if (homeWins) { hScore = val; aScore = Math.floor(Math.random() * val); } 
-      else { aScore = val; hScore = Math.floor(Math.random() * val); }
+      while (hScore < val && aScore < val) {
+        if (Math.random() < homeWinProb) hScore++;
+        else aScore++;
+      }
     } else if (t.scoringRuleType === 'nToNRange') {
       const min = t.nToNRangeMin || 0; const max = t.nToNRangeMax || 10;
       const total = Math.floor(Math.random() * (max - min + 1)) + min;
-      hScore = Math.round(total * homeWinProb); aScore = total - hScore;
+      for (let i = 0; i < total; i++) {
+        if (Math.random() < homeWinProb) hScore++;
+        else aScore++;
+      }
     }
     return { hScore, aScore };
   };

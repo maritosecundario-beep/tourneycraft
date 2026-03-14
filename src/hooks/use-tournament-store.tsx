@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
@@ -89,31 +88,31 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     const hTeam = teams.find(team => team.id === hId);
     const aTeam = teams.find(team => team.id === aId);
     
-    // Advantage for local: +5 point boost to rating
-    const hRating = (hTeam?.rating || 50) + 5;
+    const hRating = (hTeam?.rating || 50) + 5; // Localía
     const aRating = (aTeam?.rating || 50);
     const chaos = (t.variability || 15) / 100;
     
-    // Weighted probability based on rating power
-    const power = 2.5; 
-    const hPower = Math.pow(hRating, power);
-    const aPower = Math.pow(aRating, power);
-    const baseWinProb = (hPower / (hPower + aPower)) + (Math.random() * chaos - (chaos / 2));
-    const winProb = Math.max(0.1, Math.min(0.9, baseWinProb));
+    const winProb = Math.max(0.1, Math.min(0.9, (hRating / (hRating + aRating)) + (Math.random() * chaos - (chaos / 2))));
 
     if (t.scoringRuleType === 'bestOfN') {
-      hScore = Math.round(val * winProb);
-      aScore = val - hScore;
+      // Simulación punto por punto para evitar el 5-4 constante
+      for (let i = 0; i < val; i++) {
+        if (Math.random() < winProb) hScore++;
+        else aScore++;
+      }
     } else if (t.scoringRuleType === 'firstToN') {
-      const homeWins = Math.random() < winProb;
-      if (homeWins) { hScore = val; aScore = Math.floor(Math.random() * val); } 
-      else { aScore = val; hScore = Math.floor(Math.random() * val); }
+      while (hScore < val && aScore < val) {
+        if (Math.random() < winProb) hScore++;
+        else aScore++;
+      }
     } else if (t.scoringRuleType === 'nToNRange') {
       const min = t.nToNRangeMin || 0;
       const max = t.nToNRangeMax || 10;
       const totalSum = Math.floor(Math.random() * (max - min + 1)) + min;
-      hScore = Math.round(totalSum * winProb);
-      aScore = totalSum - hScore;
+      for (let i = 0; i < totalSum; i++) {
+        if (Math.random() < winProb) hScore++;
+        else aScore++;
+      }
     }
     return { hScore, aScore };
   }, [teams]);
@@ -327,13 +326,13 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       
       let nextT = { ...t };
       dayMatches.forEach(m => {
-        // Skip user match in arcade mode to allow manual play
+        // Protección Modo Arcade: No simular automáticamente el partido del usuario
         const isUserMatch = t.mode === 'arcade' && (m.homeId === t.managedParticipantId || m.awayId === t.managedParticipantId);
         if (isUserMatch) return;
 
         const { hScore, aScore } = generateScoreByRules(t, m.homeId, m.awayId);
         
-        // Finalize budget updates for this match
+        // Finalizar actualizaciones de presupuesto
         setTeams(tPrev => tPrev.map(team => {
           if (team.id === m.homeId || team.id === m.awayId) {
             const isHome = team.id === m.homeId;
