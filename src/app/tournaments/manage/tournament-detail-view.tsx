@@ -1,9 +1,10 @@
+
 "use client";
 
 import { useEffect, useState, useMemo } from 'react';
 import { useTournamentStore } from '@/hooks/use-tournament-store';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Trophy, RefreshCw, ArrowLeft, Star, Coins, Settings2, Trash2, ChevronRight, UserCircle2, Users, AlertTriangle, Plus, X, Sword, Target, CheckCircle2, LayoutGrid, Info, ShieldAlert, TrendingUp, History, ArrowLeftRight, Play } from 'lucide-react';
+import { Trophy, RefreshCw, ArrowLeft, Star, Coins, Settings2, Trash2, ChevronRight, UserCircle2, Users, AlertTriangle, Plus, X, Sword, Target, CheckCircle2, LayoutGrid, Info, ShieldAlert, TrendingUp, History, ArrowLeftRight, Play, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { CrestIcon } from '@/components/ui/crest-icon';
@@ -76,35 +77,6 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
     }
   }, [tournaments, id]);
 
-  const generateCalculatedScore = (t: Tournament, hTeam?: Team, aTeam?: Team) => {
-    let hScore = 0; let aScore = 0; const val = t.scoringValue || 9;
-    const hRating = (hTeam?.rating || 50) + 5; 
-    const aRating = aTeam?.rating || 50;
-    const totalRating = hRating + aRating;
-    const chaosFactor = (t.variability || 15) / 100;
-    const homeWinProb = (hRating / totalRating) + (Math.random() * chaosFactor - (chaosFactor / 2));
-
-    if (t.scoringRuleType === 'bestOfN') {
-      for (let i = 0; i < val; i++) {
-        if (Math.random() < homeWinProb) hScore++;
-        else aScore++;
-      }
-    } else if (t.scoringRuleType === 'firstToN') {
-      while (hScore < val && aScore < val) {
-        if (Math.random() < homeWinProb) hScore++;
-        else aScore++;
-      }
-    } else if (t.scoringRuleType === 'nToNRange') {
-      const min = t.nToNRangeMin || 0; const max = t.nToNRangeMax || 10;
-      const total = Math.floor(Math.random() * (max - min + 1)) + min;
-      for (let i = 0; i < total; i++) {
-        if (Math.random() < homeWinProb) hScore++;
-        else aScore++;
-      }
-    }
-    return { hScore, aScore };
-  };
-
   const getStandings = (matchList: Match[], participants: string[]) => {
     const stats: Record<string, any> = {};
     participants.forEach((pId) => {
@@ -165,10 +137,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
 
   const handleSimulateNormal = (match: Match, isDual: boolean) => {
     if (!tournament) return;
-    const hTeam = teams.find(t => t.id === match.homeId);
-    const aTeam = teams.find(t => t.id === match.awayId);
-    const { hScore, aScore } = generateCalculatedScore(tournament, hTeam, aTeam);
-    resolveMatch(tournament.id, match.id, hScore, aScore, isDual);
+    resolveMatch(tournament.id, match.id, 0, 0, isDual, undefined, undefined, true);
   };
 
   const handleSimulateArcade = (match: Match, isDual: boolean) => {
@@ -194,11 +163,11 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
           <div key={`mday-${isDual ? 'd' : 'm'}-${day}`} className="space-y-4">
             <div className="flex flex-wrap items-center gap-3">
               <Badge variant="secondary" className="bg-primary text-white font-black uppercase">JORNADA {day}</Badge>
-              <Button size="xs" variant="outline" className="h-6 px-3 text-[8px] font-black uppercase rounded-lg border-primary/30 text-primary hover:bg-primary hover:text-white" onClick={() => simulateMatchday(tournament!.id, Number(day))}>
-                <Play className="w-2.5 h-2.5 mr-1 fill-current" /> SIMULAR JORNADA
+              <Button size="sm" variant="outline" className="h-8 px-3 text-[10px] font-black uppercase rounded-lg border-primary/30 text-primary hover:bg-primary hover:text-white" onClick={() => simulateMatchday(tournament!.id, Number(day))}>
+                <Play className="w-3 h-3 mr-1 fill-current" /> SIMULAR JORNADA
               </Button>
-              <Button size="xs" variant="outline" className="h-6 px-3 text-[8px] font-black uppercase rounded-lg border-destructive/30 text-destructive hover:bg-destructive hover:text-white" onClick={() => resetMatchday(tournament!.id, Number(day))}>
-                <RefreshCw className="w-2.5 h-2.5 mr-1" /> REINICIAR RESULTADOS
+              <Button size="sm" variant="outline" className="h-8 px-3 text-[10px] font-black uppercase rounded-lg border-destructive/30 text-destructive hover:bg-destructive hover:text-white" onClick={() => resetMatchday(tournament!.id, Number(day))}>
+                <RefreshCw className="w-3 h-3 mr-1" /> REINICIAR RESULTADOS
               </Button>
             </div>
             <div className="grid gap-3">
@@ -312,6 +281,9 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                 <div className="bg-muted/10 p-8 border-b text-center space-y-6">
                   <DialogHeader><DialogTitle className="text-xl font-black uppercase text-center">Acta de Competición</DialogTitle><DialogDescription className="text-center font-bold text-[10px] uppercase text-muted-foreground">Informe técnico oficial</DialogDescription></DialogHeader>
                   <div className="flex items-center justify-center gap-8"><div className="flex flex-col items-center gap-2"><CrestIcon shape={home?.emblemShape || 'shield'} pattern={home?.emblemPattern || 'none'} c1={home?.crestPrimary || '#000'} c2={home?.crestSecondary || '#fff'} c3={home?.crestTertiary || '#000'} size="w-16 h-16" /><span className="font-black text-xs uppercase">{home?.name}</span></div><div className="text-5xl font-black">{selectedMatchDetail.homeScore} - {selectedMatchDetail.awayScore}</div><div className="flex flex-col items-center gap-2"><CrestIcon shape={away?.emblemShape || 'shield'} pattern={away?.emblemPattern || 'none'} c1={away?.crestPrimary || '#000'} c2={away?.crestSecondary || '#fff'} c3={away?.crestTertiary || '#000'} size="w-16 h-16" /><span className="font-black text-xs uppercase">{away?.name}</span></div></div>
+                  <div className="flex items-center justify-center gap-2 text-muted-foreground font-black uppercase text-[10px]">
+                    <MapPin className="w-3 h-3" /> {home?.venueName} ({home?.venueSurface})
+                  </div>
                 </div>
                 <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8 bg-card">{[hPlayer, aPlayer].map((p, pi) => ( <div key={`p-rep-${p?.id || pi}`} className="space-y-4"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center font-black text-primary">#{p?.jerseyNumber || '??'}</div><div><p className="font-black uppercase text-sm">{p?.name || 'Agente Invitado'}</p><p className="text-[10px] font-bold text-accent uppercase">{p?.position}</p></div></div>{p?.description && <p className="text-[10px] text-muted-foreground italic bg-muted/20 p-3 rounded-xl">{p.description}</p>}<div className="grid grid-cols-2 gap-2">{p?.attributes.map((a) => (<div key={`stat-${p?.id || pi}-${a.name}`} className="bg-muted/30 p-2 rounded-lg border flex justify-between items-center"><span className="text-[8px] font-black uppercase opacity-50">{a.name}</span><span className="text-[10px] font-black">{a.value}</span></div>))}</div></div> ))}</div>
               </div>
@@ -325,17 +297,65 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
           {pendingMatch && (() => {
             const isHome = pendingMatch.match.homeId === tournament.managedParticipantId;
             const opponent = teams.find(t => t.id === (isHome ? pendingMatch.match.awayId : pendingMatch.match.homeId));
+            const homeTeam = teams.find(t => t.id === pendingMatch.match.homeId);
+            const opponentStanding = (standings.findIndex(s => s.id === opponent?.id) + 1) || '??';
             const aiP = pendingMatch.aiPlayer;
             return (
               <div className="flex flex-col h-full max-h-[95vh]">
-                <div className="bg-primary p-6 md:p-10 text-white border-b-4 border-black/10"><DialogHeader><DialogTitle className="text-2xl md:text-4xl font-black uppercase tracking-tighter text-white">Centro de Tácticas Arcade</DialogTitle><DialogDescription className="text-white/70 font-bold uppercase text-[10px] mt-2">Scouting y Desafío de Jornada {pendingMatch.match.matchday}</DialogDescription></DialogHeader></div>
+                <div className="bg-primary p-6 md:p-10 text-white border-b-4 border-black/10">
+                  <DialogHeader>
+                    <DialogTitle className="text-2xl md:text-4xl font-black uppercase tracking-tighter text-white">Centro de Tácticas Arcade</DialogTitle>
+                    <div className="flex flex-wrap gap-4 mt-2">
+                      <Badge className="bg-white/20 text-white border-none font-black text-[10px] uppercase flex gap-2">
+                        <Trophy className="w-3 h-3" /> Rival: {opponentStanding}º Lugar
+                      </Badge>
+                      <Badge className="bg-white/20 text-white border-none font-black text-[10px] uppercase flex gap-2">
+                        <MapPin className="w-3 h-3" /> {homeTeam?.venueName}
+                      </Badge>
+                    </div>
+                  </DialogHeader>
+                </div>
                 <div className="flex-1 overflow-y-auto p-4 md:p-10 space-y-8 scrollbar-hide">
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <div className="p-6 bg-muted/30 rounded-[3rem] space-y-8 border-2 border-dashed border-primary/20"><div className="flex flex-col items-center gap-4 text-center"><CrestIcon shape={opponent?.emblemShape || 'shield'} pattern={opponent?.emblemPattern || 'none'} c1={opponent?.crestPrimary || '#000'} c2={opponent?.crestSecondary || '#fff'} c3={opponent?.crestTertiary || '#000'} size="w-24 h-24" /><h3 className="text-2xl font-black uppercase tracking-tighter">{opponent?.name}</h3></div>{aiP && ( <div className="bg-card p-6 rounded-[2rem] shadow-2xl"><div className="flex items-center gap-5 mb-4"><div className="w-12 h-12 rounded-2xl bg-primary text-white flex items-center justify-center font-black text-xl">#{aiP.jerseyNumber}</div><div><p className="font-black uppercase text-xl truncate">{aiP.name}</p><Badge variant="outline" className="text-[10px] font-black">{aiP.position}</Badge></div></div>{aiP.description && <p className="text-[10px] text-muted-foreground italic mb-6 bg-muted/20 p-3 rounded-xl">{aiP.description}</p>}<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">{aiP.attributes.map((a) => (<div key={`scout-${a.name}`} className="bg-muted/40 p-2 rounded-xl border flex flex-col items-center gap-1"><span className="text-[8px] font-black uppercase text-muted-foreground">{a.name}</span><span className="text-sm font-black text-primary">{a.value}</span></div>))}</div></div> )}</div>
-                    <div className="flex flex-col gap-8 justify-center bg-muted/10 p-6 rounded-[3rem] border"><div className="space-y-4"><Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Designa tu Agente Élite</Label><Select value={selectedPlayerId} onValueChange={setSelectedPlayerId}><SelectTrigger className="h-16 rounded-[2rem] border-4 border-primary/20 text-lg font-black"><SelectValue placeholder="Elegir representante..." /></SelectTrigger><SelectContent className="rounded-[2rem]">{players.filter(p => p.teamId === tournament.managedParticipantId).map(p => (<SelectItem key={`arcade-sel-${p.id}`} value={p.id} className="font-bold uppercase text-xs">#{p.jerseyNumber} {p.name}</SelectItem>))}</SelectContent></Select></div><div className="flex items-center gap-4 justify-center"><Input type="number" value={arcadeHomeScore} onChange={e => setArcadeHomeScore(parseInt(e.target.value) || 0)} className="h-20 w-24 text-4xl font-black text-center rounded-[2rem] border-4" /><span className="text-4xl font-black opacity-10">VS</span><Input type="number" value={arcadeAwayScore} onChange={e => setArcadeAwayScore(parseInt(e.target.value) || 0)} className="h-20 w-24 text-4xl font-black text-center rounded-[2rem] border-4" /></div></div>
+                    <div className="p-6 bg-muted/30 rounded-[3rem] space-y-8 border-2 border-dashed border-primary/20">
+                      <div className="flex flex-col items-center gap-4 text-center">
+                        <CrestIcon shape={opponent?.emblemShape || 'shield'} pattern={opponent?.emblemPattern || 'none'} c1={opponent?.crestPrimary || '#000'} c2={opponent?.crestSecondary || '#fff'} c3={opponent?.crestTertiary || '#000'} size="w-24 h-24" />
+                        <h3 className="text-2xl font-black uppercase tracking-tighter">{opponent?.name}</h3>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase max-w-[200px]">{opponent?.description}</p>
+                      </div>
+                      {aiP && ( 
+                        <div className="bg-card p-6 rounded-[2rem] shadow-2xl">
+                          <div className="flex items-center gap-5 mb-4">
+                            <div className="w-12 h-12 rounded-2xl bg-primary text-white flex items-center justify-center font-black text-xl">#{aiP.jerseyNumber}</div>
+                            <div><p className="font-black uppercase text-xl truncate">{aiP.name}</p><Badge variant="outline" className="text-[10px] font-black">{aiP.position}</Badge></div>
+                          </div>
+                          {aiP.description && <p className="text-[10px] text-muted-foreground italic mb-6 bg-muted/20 p-3 rounded-xl">{aiP.description}</p>}
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {aiP.attributes.map((a) => (<div key={`scout-${a.name}`} className="bg-muted/40 p-2 rounded-xl border flex flex-col items-center gap-1"><span className="text-[8px] font-black uppercase text-muted-foreground">{a.name}</span><span className="text-sm font-black text-primary">{a.value}</span></div>))}
+                          </div>
+                        </div> 
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-8 justify-center bg-muted/10 p-6 rounded-[3rem] border">
+                      <div className="space-y-4">
+                        <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Designa tu Agente Élite</Label>
+                        <Select value={selectedPlayerId} onValueChange={setSelectedPlayerId}>
+                          <SelectTrigger className="h-16 rounded-[2rem] border-4 border-primary/20 text-lg font-black"><SelectValue placeholder="Elegir representante..." /></SelectTrigger>
+                          <SelectContent className="rounded-[2rem]">{players.filter(p => p.teamId === tournament.managedParticipantId).map(p => (<SelectItem key={`arcade-sel-${p.id}`} value={p.id} className="font-bold uppercase text-xs">#{p.jerseyNumber} {p.name}</SelectItem>))}</SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex items-center gap-4 justify-center">
+                        <Input type="number" value={arcadeHomeScore} onChange={e => setArcadeHomeScore(parseInt(e.target.value) || 0)} className="h-20 w-24 text-4xl font-black text-center rounded-[2rem] border-4" />
+                        <span className="text-4xl font-black opacity-10">VS</span>
+                        <Input type="number" value={arcadeAwayScore} onChange={e => setArcadeAwayScore(parseInt(e.target.value) || 0)} className="h-20 w-24 text-4xl font-black text-center rounded-[2rem] border-4" />
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div className="p-6 bg-muted/20 border-t flex flex-col md:flex-row gap-4"><Button variant="ghost" onClick={() => setPendingMatch(null)} className="flex-1 h-16 font-black rounded-3xl">CANCELAR</Button><Button disabled={!selectedPlayerId} onClick={() => { resolveMatch(tournament.id, pendingMatch.match.id, arcadeHomeScore, arcadeAwayScore, pendingMatch.isDual, isHome ? selectedPlayerId : aiP?.id, !isHome ? selectedPlayerId : aiP?.id); setPendingMatch(null); }} className="flex-[2] h-16 font-black rounded-3xl bg-primary text-white">GRABAR RESULTADO</Button></div>
+                <div className="p-6 bg-muted/20 border-t flex flex-col md:flex-row gap-4">
+                  <Button variant="ghost" onClick={() => setPendingMatch(null)} className="flex-1 h-16 font-black rounded-3xl">CANCELAR</Button>
+                  <Button disabled={!selectedPlayerId} onClick={() => { resolveMatch(tournament.id, pendingMatch.match.id, arcadeHomeScore, arcadeAwayScore, pendingMatch.isDual, isHome ? selectedPlayerId : aiP?.id, !isHome ? selectedPlayerId : aiP?.id); setPendingMatch(null); }} className="flex-[2] h-16 font-black rounded-3xl bg-primary text-white">GRABAR RESULTADO</Button>
+                </div>
               </div>
             );
           })()}
@@ -344,7 +364,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
 
       <Dialog open={isTransferMenuOpen} onOpenChange={setIsTransferCenterOpen}>
         <DialogContent className="max-w-2xl rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden">
-          <div className="bg-primary p-6 text-white border-b"><DialogHeader><DialogTitle className="text-2xl font-black uppercase flex items-center gap-3"><ArrowLeftRight className="w-6 h-6" /> Oficina de Traspasos</DialogTitle><DialogDescription className="text-white/80 font-bold text-xs uppercase mt-1">Movimientos estratégicos manuales</DialogDescription></DialogHeader></div>
+          <div className="bg-primary p-6 text-white border-b"><DialogHeader><DialogTitle className="text-2xl font-black uppercase flex items-center gap-3"><ArrowLeftRight className="w-6 h-6" /> Oficina de Traspasos</DialogTitle><DialogDescription className="text-white/80 font-bold text-xs uppercase mt-1">Realiza movimientos estratégicos entre clubs.</DialogDescription></DialogHeader></div>
           <div className="p-8 space-y-6"><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="space-y-2"><Label>Jugador</Label><Select onValueChange={setSelectedPlayerId}><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Elegir..." /></SelectTrigger><SelectContent>{players.map(p => (<SelectItem key={`tr-p-${p.id}`} value={p.id}>{p.name}</SelectItem>))}</SelectContent></Select></div><div className="space-y-2"><Label>Destino</Label><Select onValueChange={(v) => { if (selectedPlayerId) { transferPlayer(selectedPlayerId, v === 'free' ? undefined : v); setIsTransferCenterOpen(false); toast({ title: "Traspaso OK" }); } }}><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Destino..." /></SelectTrigger><SelectContent><SelectItem value="free">Agente Libre</SelectItem>{teams.map(t => (<SelectItem key={`tr-t-${t.id}`} value={t.id}>{t.name}</SelectItem>))}</SelectContent></Select></div></div></div>
         </DialogContent>
       </Dialog>
