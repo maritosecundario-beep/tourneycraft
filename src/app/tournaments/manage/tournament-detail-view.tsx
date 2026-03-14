@@ -232,14 +232,14 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                 (tournament.leagueType === 'groups' || tournament.leagueType === 'conferences') && tournament.groups ? (
                   <Tabs defaultValue={tournament.groups[0]?.id}>
                     <TabsList className="bg-muted/10 p-1 mb-6 flex overflow-x-auto scrollbar-hide w-full gap-1">
-                      {tournament.groups.map((g) => (
-                        <TabsTrigger key={`cal-tab-${g.id || 'def'}`} value={g.id || 'default'} className="text-[10px] font-black uppercase flex-1">
+                      {tournament.groups.map((g, idx) => (
+                        <TabsTrigger key={`cal-tab-${g.id || idx}`} value={g.id || `g-${idx}`} className="text-[10px] font-black uppercase flex-1">
                           {g.name}
                         </TabsTrigger>
                       ))}
                     </TabsList>
-                    {tournament.groups.map((g) => ( 
-                      <TabsContent key={`cal-cont-${g.id || 'def'}`} value={g.id || 'default'} className="space-y-8">
+                    {tournament.groups.map((g, idx) => ( 
+                      <TabsContent key={`cal-cont-${g.id || idx}`} value={g.id || `g-${idx}`} className="space-y-8">
                         {renderMatchdayList(tournament.matches.filter(m => g.participantIds.includes(m.homeId) || g.participantIds.includes(m.awayId)))}
                       </TabsContent> 
                     ))}
@@ -254,8 +254,8 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                 <Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden">
                   {tournament.groups ? (
                     <div className="space-y-12 p-6">
-                      {tournament.groups.map(group => (
-                        <div key={`d-st-${group.id || 'def'}`} className="space-y-4">
+                      {tournament.groups.map((group, idx) => (
+                        <div key={`d-st-${group.id || idx}`} className="space-y-4">
                           <h3 className="text-xl font-black uppercase text-accent">{group.name}</h3>
                           {renderStandingsTable(dualStandings.filter(s => group.participantIds.includes(s.id)))}
                         </div>
@@ -269,14 +269,14 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                 {tournament.groups ? (
                   <Tabs defaultValue={tournament.groups[0]?.id}>
                     <TabsList className="bg-muted/10 p-1 mb-6 flex overflow-x-auto scrollbar-hide w-full gap-1">
-                      {tournament.groups.map(g => (
-                        <TabsTrigger key={`d-cal-tab-${g.id || 'def'}`} value={g.id || 'default'} className="text-[10px] font-black uppercase flex-1">
+                      {tournament.groups.map((g, idx) => (
+                        <TabsTrigger key={`d-cal-tab-${g.id || idx}`} value={g.id || `g-${idx}`} className="text-[10px] font-black uppercase flex-1">
                           {g.name}
                         </TabsTrigger>
                       ))}
                     </TabsList>
-                    {tournament.groups.map(g => (
-                      <TabsContent key={`d-cal-cont-${g.id || 'def'}`} value={g.id || 'default'} className="space-y-8">
+                    {tournament.groups.map((g, idx) => (
+                      <TabsContent key={`d-cal-cont-${g.id || idx}`} value={g.id || `g-${idx}`} className="space-y-8">
                         {renderMatchdayList(tournament.dualLeagueMatches.filter(m => g.participantIds.includes(m.homeId) || g.participantIds.includes(m.awayId)), true)}
                       </TabsContent>
                     ))}
@@ -285,7 +285,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
               </div>
             </TabsContent>
 
-            <TabsContent value="standings" className="mt-6"><Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden">{tournament.groups ? ( <div className="space-y-12 p-6">{tournament.groups.map(group => ( <div key={`st-g-${group.id || 'def'}`} className="space-y-4"><div className="flex items-center gap-3 border-l-4 border-primary pl-4"><h3 className="text-xl font-black uppercase">{group.name}</h3><Badge className="bg-primary/10 text-primary border-none text-[9px] font-black">{group.participantIds.length} CLUBES</Badge></div>{renderStandingsTable(standings.filter(s => group.participantIds.includes(s.id)))}</div> ))}</div> ) : renderStandingsTable(standings)}</Card></TabsContent>
+            <TabsContent value="standings" className="mt-6"><Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden">{tournament.groups ? ( <div className="space-y-12 p-6">{tournament.groups.map((group, idx) => ( <div key={`st-g-${group.id || idx}`} className="space-y-4"><div className="flex items-center gap-3 border-l-4 border-primary pl-4"><h3 className="text-xl font-black uppercase">{group.name}</h3><Badge className="bg-primary/10 text-primary border-none text-[9px] font-black">{group.participantIds.length} CLUBES</Badge></div>{renderStandingsTable(standings.filter(s => group.participantIds.includes(s.id)))}</div> ))}</div> ) : renderStandingsTable(standings)}</Card></TabsContent>
 
             <TabsContent value="news" className="mt-6 space-y-4">
               {tournament.incidents?.length === 0 ? <div className="text-center py-20 bg-muted/10 rounded-[2rem] border-2 border-dashed font-bold text-muted-foreground uppercase text-xs">Sin noticias.</div> : (
@@ -304,11 +304,10 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
 
         <div className="space-y-8">
           <Card className="border-none shadow-xl rounded-[2rem] bg-gradient-to-br from-primary to-primary/80 text-white overflow-hidden"><CardHeader className="p-6 pb-0"><CardTitle className="text-2xl font-black uppercase text-white">Leyes de l'Horta</CardTitle></CardHeader><CardContent className="p-6 space-y-4"><div className="flex justify-between items-center bg-white/10 p-4 rounded-2xl"><span className="text-[10px] font-black uppercase">Puntuación</span><span className="text-[10px] font-black uppercase">{tournament.scoringRuleType} ({tournament.scoringValue})</span></div><div className="grid grid-cols-2 gap-3"><div className="bg-black/10 p-3 rounded-xl text-center"><p className="text-[8px] opacity-70 uppercase font-black">PLAYOFFS</p><p className="text-lg font-black">{tournament.playoffSpots}</p></div><div className="bg-black/10 p-3 rounded-xl text-center"><p className="text-[8px] opacity-70 uppercase font-black">DESCENSO</p><p className="text-lg font-black">{tournament.relegationSpots}</p></div></div></CardContent></Card>
-          <Card className="border-none shadow-xl rounded-[2rem]"><CardHeader><h3 className="font-black uppercase text-sm flex items-center gap-2"><TrendingUp className="text-emerald-500 w-4 h-4" /> Líderes de l'Horta</h3></CardHeader><CardContent className="space-y-4">{standings.slice(0, 3).map((row: any, idx: number) => { const team = teams.find(t => t.id === row.id); return ( <div key={`podium-${row.id}`} className="flex items-center gap-4 p-3 bg-muted/20 rounded-xl"><div className="w-8 h-8 rounded-full bg-card flex items-center justify-center font-black text-xs">{idx + 1}</div><div className="flex-1 overflow-hidden"><p className="font-black text-xs uppercase truncate">{team?.name}</p><p className="text-[9px] font-bold text-muted-foreground">{row.points} PTS • {row.budget.toLocaleString()} CR</p></div><CrestIcon shape={team?.emblemShape || 'shield'} pattern={team?.emblemPattern || 'none'} c1={team?.crestPrimary || '#000'} c2={team?.crestSecondary || '#fff'} c3={team?.crestTertiary || '#000'} size="w-8 h-8" /></div> ); })}</CardContent></Card>
+          <Card className="border-none shadow-xl rounded-[2rem]"><CardHeader><h3 className="font-black uppercase text-sm flex items-center gap-2"><TrendingUp className="text-emerald-500 w-4 h-4" /> Líderes de l'Horta</h3></CardHeader><CardContent className="space-y-4">{standings.slice(0, 3).map((row: any, idx: number) => { const team = teams.find(t => t.id === row.id); return ( <div key={`podium-${row.id || idx}`} className="flex items-center gap-4 p-3 bg-muted/20 rounded-xl"><div className="w-8 h-8 rounded-full bg-card flex items-center justify-center font-black text-xs">{idx + 1}</div><div className="flex-1 overflow-hidden"><p className="font-black text-xs uppercase truncate">{team?.name}</p><p className="text-[9px] font-bold text-muted-foreground">{row.points} PTS • {row.budget.toLocaleString()} CR</p></div><CrestIcon shape={team?.emblemShape || 'shield'} pattern={team?.emblemPattern || 'none'} c1={team?.crestPrimary || '#000'} c2={team?.crestSecondary || '#fff'} c3={team?.crestTertiary || '#000'} size="w-8 h-8" /></div> ); })}</CardContent></Card>
         </div>
       </div>
 
-      {/* Modales */}
       <Dialog open={!!selectedMatchDetail} onOpenChange={(o) => !o && setSelectedMatchDetail(null)}>
         <DialogContent className="max-w-2xl rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden">
           {selectedMatchDetail && (() => {
@@ -319,11 +318,9 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                 <div className="bg-muted/10 p-8 border-b text-center space-y-6">
                   <DialogHeader><DialogTitle className="text-xl font-black uppercase text-center">Acta de Competición</DialogTitle><DialogDescription className="text-center font-bold text-[10px] uppercase text-muted-foreground">Informe técnico oficial</DialogDescription></DialogHeader>
                   <div className="flex items-center justify-center gap-8"><div className="flex flex-col items-center gap-2"><CrestIcon shape={home?.emblemShape || 'shield'} pattern={home?.emblemPattern || 'none'} c1={home?.crestPrimary || '#000'} c2={home?.crestSecondary || '#fff'} c3={home?.crestTertiary || '#000'} size="w-16 h-16" /><span className="font-black text-xs uppercase">{home?.name}</span></div><div className="text-5xl font-black">{selectedMatchDetail.homeScore} - {selectedMatchDetail.awayScore}</div><div className="flex flex-col items-center gap-2"><CrestIcon shape={away?.emblemShape || 'shield'} pattern={away?.emblemPattern || 'none'} c1={away?.crestPrimary || '#000'} c2={away?.crestSecondary || '#fff'} c3={away?.crestTertiary || '#000'} size="w-16 h-16" /><span className="font-black text-xs uppercase">{away?.name}</span></div></div>
-                  <div className="flex items-center justify-center gap-2 text-muted-foreground font-black uppercase text-[10px]">
-                    <MapPin className="w-3 h-3" /> {home?.venueName} ({home?.venueSurface})
-                  </div>
+                  <div className="flex items-center justify-center gap-2 text-muted-foreground font-black uppercase text-[10px]"><MapPin className="w-3 h-3" /> {home?.venueName} ({home?.venueSurface})</div>
                 </div>
-                <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8 bg-card">{[hPlayer, aPlayer].map((p, pi) => ( <div key={`p-rep-${p?.id || pi}`} className="space-y-4"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center font-black text-primary">#{p?.jerseyNumber || '??'}</div><div><p className="font-black uppercase text-sm">{p?.name || 'Agente Invitado'}</p><p className="text-[10px] font-bold text-accent uppercase">{p?.position}</p></div></div>{p?.description && <p className="text-[10px] text-muted-foreground italic bg-muted/20 p-3 rounded-xl">{p.description}</p>}<div className="grid grid-cols-2 gap-2">{p?.attributes.map((a) => (<div key={`stat-${p?.id || pi}-${a.name}`} className="bg-muted/30 p-2 rounded-lg border flex justify-between items-center"><span className="text-[8px] font-black uppercase opacity-50">{a.name}</span><span className="text-[10px] font-black">{a.value}</span></div>))}</div></div> ))}</div>
+                <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8 bg-card">{[hPlayer, aPlayer].map((p, pi) => ( <div key={`p-acta-${p?.id || pi}`} className="space-y-4"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center font-black text-primary">#{p?.jerseyNumber || '??'}</div><div><p className="font-black uppercase text-sm">{p?.name || 'Agente Invitado'}</p><p className="text-[10px] font-bold text-accent uppercase">{p?.position}</p></div></div>{p?.description && <p className="text-[10px] text-muted-foreground italic bg-muted/20 p-3 rounded-xl">{p.description}</p>}<div className="grid grid-cols-2 gap-2">{p?.attributes.map((a) => (<div key={`acta-stat-${p?.id || pi}-${a.name}`} className="bg-muted/30 p-2 rounded-lg border flex justify-between items-center"><span className="text-[8px] font-black uppercase opacity-50">{a.name}</span><span className="text-[10px] font-black">{a.value}</span></div>))}</div></div> ))}</div>
               </div>
             );
           })()}
@@ -344,12 +341,8 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                   <DialogHeader>
                     <DialogTitle className="text-2xl md:text-4xl font-black uppercase tracking-tighter text-white">Centro de Tácticas Arcade</DialogTitle>
                     <div className="flex flex-wrap gap-4 mt-2">
-                      <Badge className="bg-white/20 text-white border-none font-black text-[10px] uppercase flex gap-2">
-                        <Trophy className="w-3 h-3" /> Rival: {opponentStanding}º Lugar
-                      </Badge>
-                      <Badge className="bg-white/20 text-white border-none font-black text-[10px] uppercase flex gap-2">
-                        <MapPin className="w-3 h-3" /> {homeTeam?.venueName}
-                      </Badge>
+                      <Badge className="bg-white/20 text-white border-none font-black text-[10px] uppercase flex gap-2"><Trophy className="w-3 h-3" /> Rival: {opponentStanding}º Lugar</Badge>
+                      <Badge className="bg-white/20 text-white border-none font-black text-[10px] uppercase flex gap-2"><MapPin className="w-3 h-3" /> {homeTeam?.venueName} ({homeTeam?.venueSurface})</Badge>
                     </div>
                   </DialogHeader>
                 </div>
@@ -379,7 +372,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                         <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Designa tu Agente Élite</Label>
                         <Select value={selectedPlayerId} onValueChange={setSelectedPlayerId}>
                           <SelectTrigger className="h-16 rounded-[2rem] border-4 border-primary/20 text-lg font-black"><SelectValue placeholder="Elegir representante..." /></SelectTrigger>
-                          <SelectContent className="rounded-[2rem]">{players.filter(p => p.teamId === tournament.managedParticipantId).map(p => (<SelectItem key={`arcade-sel-${p.id}`} value={p.id} className="font-bold uppercase text-xs">#{p.jerseyNumber} {p.name}</SelectItem>))}</SelectContent>
+                          <SelectContent className="rounded-[2rem]">{players.filter(p => p.teamId === tournament.managedParticipantId && p.suspensionMatchdays === 0).map(p => (<SelectItem key={`arcade-sel-${p.id}`} value={p.id} className="font-bold uppercase text-xs">#{p.jerseyNumber} {p.name}</SelectItem>))}</SelectContent>
                         </Select>
                       </div>
                       <div className="flex items-center gap-4 justify-center">
@@ -403,36 +396,13 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
       <Dialog open={isTransferMenuOpen} onOpenChange={setIsTransferCenterOpen}>
         <DialogContent className="max-w-2xl rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden">
           <div className="bg-primary p-6 text-white border-b">
-            <DialogTitle className="text-2xl font-black uppercase flex items-center gap-3">
-              <ArrowLeftRight className="w-6 h-6" /> Oficina de Traspasos
-            </DialogTitle>
+            <DialogTitle className="text-2xl font-black uppercase flex items-center gap-3"><ArrowLeftRight className="w-6 h-6" /> Oficina de Traspasos</DialogTitle>
             <DialogDescription className="text-white/80 font-bold text-xs uppercase mt-1">Realiza movimientos estratégicos entre clubs.</DialogDescription>
           </div>
           <div className="p-8 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label>Agente a Transferir</Label>
-                <Select onValueChange={setSelectedPlayerId}>
-                  <SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Elegir agente..." /></SelectTrigger>
-                  <SelectContent>{players.map(p => (<SelectItem key={`tr-p-${p.id}`} value={p.id}>{p.name}</SelectItem>))}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Nuevo Destino</Label>
-                <Select onValueChange={(v) => { 
-                  if (selectedPlayerId) { 
-                    transferPlayer(selectedPlayerId, v === 'free' ? undefined : v); 
-                    setIsTransferCenterOpen(false); 
-                    toast({ title: "Traspaso Ejecutado" }); 
-                  } 
-                }}>
-                  <SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Destino..." /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="free">Agente Libre</SelectItem>
-                    {teams.map(t => (<SelectItem key={`tr-t-${t.id}`} value={t.id}>{t.name}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <div className="space-y-2"><Label>Agente a Transferir</Label><Select onValueChange={setSelectedPlayerId}><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Elegir agente..." /></SelectTrigger><SelectContent>{players.map(p => (<SelectItem key={`tr-p-${p.id}`} value={p.id}>{p.name}</SelectItem>))}</SelectContent></Select></div>
+              <div className="space-y-2"><Label>Nuevo Destino</Label><Select onValueChange={(v) => { if (selectedPlayerId) { transferPlayer(selectedPlayerId, v === 'free' ? undefined : v); setIsTransferCenterOpen(false); toast({ title: "Traspaso Ejecutado" }); } }}><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Destino..." /></SelectTrigger><SelectContent><SelectItem value="free">Agente Libre</SelectItem>{teams.map(t => (<SelectItem key={`tr-t-${t.id}`} value={t.id}>{t.name}</SelectItem>))}</SelectContent></Select></div>
             </div>
           </div>
         </DialogContent>
@@ -441,116 +411,26 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
       <Dialog open={isSanctionMenuOpen} onOpenChange={setIsSanctionMenuOpen}>
         <DialogContent className="max-w-2xl rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden">
           <div className="bg-destructive p-6 text-white border-b">
-            <DialogTitle className="text-2xl font-black uppercase flex items-center gap-3">
-              <ShieldAlert className="w-6 h-6" /> Comité de Disciplina
-            </DialogTitle>
+            <DialogTitle className="text-2xl font-black uppercase flex items-center gap-3"><ShieldAlert className="w-6 h-6" /> Comité de Disciplina</DialogTitle>
             <DialogDescription className="text-white/80 font-bold text-xs uppercase mt-1">Sanciones y suspensiones</DialogDescription>
           </div>
           <Tabs defaultValue="team">
-            <TabsList className="grid grid-cols-2 rounded-none h-14">
-              <TabsTrigger value="team" className="font-black text-xs uppercase">Multar Club</TabsTrigger>
-              <TabsTrigger value="player" className="font-black text-xs uppercase">Suspender Jugador</TabsTrigger>
-            </TabsList>
-            <TabsContent value="team" className="p-8 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label>Club Seleccionado</Label>
-                  <Select onValueChange={setSelectedPlayerId}>
-                    <SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Elegir club..." /></SelectTrigger>
-                    <SelectContent>{teams.map(t => (<SelectItem key={`sanc-t-${t.id}`} value={t.id}>{t.name}</SelectItem>))}</SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Cuantía de la Multa</Label>
-                  <Input type="number" placeholder="Ej: 50" onKeyDown={(e) => { 
-                    if (e.key === 'Enter' && selectedPlayerId) { 
-                      applySanction(tournament.id, 'team', selectedPlayerId, Number((e.target as HTMLInputElement).value)); 
-                      setIsSanctionMenuOpen(false); 
-                      toast({ title: "Sanción Aplicada" });
-                    } 
-                  }} className="h-12 rounded-xl" />
-                </div>
-              </div>
-            </TabsContent>
-            <TabsContent value="player" className="p-8 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label>Agente Seleccionado</Label>
-                  <Select onValueChange={setSelectedPlayerId}>
-                    <SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Elegir agente..." /></SelectTrigger>
-                    <SelectContent>{players.map(p => (<SelectItem key={`sanc-p-${p.id}`} value={p.id}>{p.name}</SelectItem>))}</SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Jornadas de Suspensión</Label>
-                  <Input type="number" placeholder="Ej: 3" onKeyDown={(e) => { 
-                    if (e.key === 'Enter' && selectedPlayerId) { 
-                      applySanction(tournament.id, 'player', selectedPlayerId, Number((e.target as HTMLInputElement).value)); 
-                      setIsSanctionMenuOpen(false); 
-                      toast({ title: "Suspensión Confirmada" });
-                    } 
-                  }} className="h-12 rounded-xl" />
-                </div>
-              </div>
-            </TabsContent>
+            <TabsList className="grid grid-cols-2 rounded-none h-14"><TabsTrigger value="team" className="font-black text-xs uppercase">Multar Club</TabsTrigger><TabsTrigger value="player" className="font-black text-xs uppercase">Suspender Jugador</TabsTrigger></TabsList>
+            <TabsContent value="team" className="p-8 space-y-6"><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="space-y-2"><Label>Club Seleccionado</Label><Select onValueChange={setSelectedPlayerId}><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Elegir club..." /></SelectTrigger><SelectContent>{teams.map(t => (<SelectItem key={`sanc-t-${t.id}`} value={t.id}>{t.name}</SelectItem>))}</SelectContent></Select></div><div className="space-y-2"><Label>Cuantía de la Multa</Label><Input type="number" placeholder="Ej: 50" onKeyDown={(e) => { if (e.key === 'Enter' && selectedPlayerId) { applySanction(tournament.id, 'team', selectedPlayerId, Number((e.target as HTMLInputElement).value)); setIsSanctionMenuOpen(false); toast({ title: "Sanción Aplicada" }); } }} className="h-12 rounded-xl" /></div></div></TabsContent>
+            <TabsContent value="player" className="p-8 space-y-6"><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="space-y-2"><Label>Agente Seleccionado</Label><Select onValueChange={setSelectedPlayerId}><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Elegir agente..." /></SelectTrigger><SelectContent>{players.map(p => (<SelectItem key={`sanc-p-${p.id}`} value={p.id}>{p.name}</SelectItem>))}</SelectContent></Select></div><div className="space-y-2"><Label>Jornadas de Suspensión</Label><Input type="number" placeholder="Ej: 3" onKeyDown={(e) => { if (e.key === 'Enter' && selectedPlayerId) { applySanction(tournament.id, 'player', selectedPlayerId, Number((e.target as HTMLInputElement).value)); setIsSanctionMenuOpen(false); toast({ title: "Suspensión Confirmada" }); } }} className="h-12 rounded-xl" /></div></div></TabsContent>
           </Tabs>
         </DialogContent>
       </Dialog>
 
       <Dialog open={isEditing} onOpenChange={setIsEditing}>
         <DialogContent className="rounded-[2.5rem] max-w-2xl max-h-[90vh] overflow-y-auto border-none shadow-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-black uppercase">Ajustes del Universo</DialogTitle>
-            <DialogDescription>Modifica todas las leyes de tu competición en tiempo real.</DialogDescription>
-          </DialogHeader>
+          <DialogHeader><DialogTitle className="text-2xl font-black uppercase">Ajustes del Universo</DialogTitle><DialogDescription>Modifica todas las leyes de tu competición en tiempo real.</DialogDescription></DialogHeader>
           <div className="space-y-8 py-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2"><Label>Nombre del Torneo</Label><Input value={editName} onChange={e => setEditName(e.target.value)} className="rounded-xl h-12" /></div>
-              <div className="space-y-2"><Label>Deporte</Label><Input value={editSport} onChange={e => setEditSport(e.target.value)} className="rounded-xl h-12" /></div>
-            </div>
-            <div className="space-y-4">
-              <h4 className="text-[10px] font-black uppercase border-b pb-2 text-primary tracking-widest">Reglas de Competición</h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="space-y-2 md:col-span-2">
-                  <Label>Sistema de Marcador</Label>
-                  <Select value={editScoringType} onValueChange={(v: any) => setEditScoringType(v)}>
-                    <SelectTrigger className="rounded-xl h-12"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="bestOfN">Sets Suma Exacta</SelectItem>
-                      <SelectItem value="firstToN">Primero en alcanzar N</SelectItem>
-                      <SelectItem value="nToNRange">Rango puntuación aleatoria</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Valor Meta (N)</Label>
-                  <Input type="number" value={editScoringValue} onChange={e => setEditScoringValue(Number(e.target.value))} className="rounded-xl h-12" />
-                </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-2"><Label>Plazas Playoff (Verde)</Label><Input type="number" value={editPlayoffSpots} onChange={e => setEditPlayoffSpots(Number(e.target.value))} className="rounded-xl h-12" /></div>
-              <div className="space-y-2"><Label>Plazas Descenso (Rojo)</Label><Input type="number" value={editRelegationSpots} onChange={e => setEditRelegationSpots(Number(e.target.value))} className="rounded-xl h-12" /></div>
-            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="space-y-2"><Label>Nombre del Torneo</Label><Input value={editName} onChange={e => setEditName(e.target.value)} className="rounded-xl h-12" /></div><div className="space-y-2"><Label>Deporte</Label><Input value={editSport} onChange={e => setEditSport(e.target.value)} className="rounded-xl h-12" /></div></div>
+            <div className="space-y-4"><h4 className="text-[10px] font-black uppercase border-b pb-2 text-primary tracking-widest">Reglas de Competición</h4><div className="grid grid-cols-1 md:grid-cols-3 gap-6"><div className="space-y-2 md:col-span-2"><Label>Sistema de Marcador</Label><Select value={editScoringType} onValueChange={(v: any) => setEditScoringType(v)}><SelectTrigger className="rounded-xl h-12"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="bestOfN">Sets Suma Exacta</SelectItem><SelectItem value="firstToN">Primero en alcanzar N</SelectItem><SelectItem value="nToNRange">Rango puntuación aleatoria</SelectItem></SelectContent></Select></div><div className="space-y-2"><Label>Valor Meta (N)</Label><Input type="number" value={editScoringValue} onChange={e => setEditScoringValue(Number(e.target.value))} className="rounded-xl h-12" /></div></div></div>
+            <div className="grid grid-cols-2 gap-6"><div className="space-y-2"><Label>Plazas Playoff (Verde)</Label><Input type="number" value={editPlayoffSpots} onChange={e => setEditPlayoffSpots(Number(e.target.value))} className="rounded-xl h-12" /></div><div className="space-y-2"><Label>Plazas Descenso (Rojo)</Label><Input type="number" value={editRelegationSpots} onChange={e => setEditRelegationSpots(Number(e.target.value))} className="rounded-xl h-12" /></div></div>
           </div>
-          <DialogFooter className="gap-2">
-            <Button variant="ghost" onClick={() => setIsEditing(false)} className="rounded-xl font-black">CANCELAR</Button>
-            <Button onClick={() => { 
-              if (!tournament) return; 
-              updateTournament({ 
-                ...tournament, 
-                name: editName, 
-                sport: editSport, 
-                scoringRuleType: editScoringType, 
-                scoringValue: editScoringValue, 
-                playoffSpots: editPlayoffSpots, 
-                relegationSpots: editRelegationSpots, 
-                variability: editVariability 
-              }); 
-              setIsEditing(false); 
-              toast({ title: "Ajustes Guardados" });
-            }} className="font-black rounded-xl px-8 bg-primary">GUARDAR LEYES</Button>
-          </DialogFooter>
+          <DialogFooter className="gap-2"><Button variant="ghost" onClick={() => setIsEditing(false)} className="rounded-xl font-black">CANCELAR</Button><Button onClick={() => { if (!tournament) return; updateTournament({ ...tournament, name: editName, sport: editSport, scoringRuleType: editScoringType, scoringValue: editScoringValue, playoffSpots: editPlayoffSpots, relegationSpots: editRelegationSpots, variability: editVariability }); setIsEditing(false); toast({ title: "Ajustes Guardados" }); }} className="font-black rounded-xl px-8 bg-primary">GUARDAR LEYES</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
