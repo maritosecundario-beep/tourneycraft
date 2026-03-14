@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { Search, Trash2, Pencil, Sparkles, Shield, Star, Coins, UserPlus, LayoutGrid, Users, UserCircle2, Info, ChevronRight, ArrowLeftRight } from 'lucide-react';
+import { Search, Trash2, Pencil, Sparkles, Shield, Star, Coins, UserPlus, LayoutGrid, Users, UserCircle2, Info, ChevronRight, ArrowLeftRight, CheckCircle2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/hooks/use-toast';
@@ -41,13 +41,14 @@ const ColorPicker = ({ label, value, onChange }: { label: string, value: string,
 );
 
 export default function TeamsPage() {
-  const { teams, players, settings, addTeam, updateTeam, deleteTeam, transferPlayer, addPlayer, deletePlayer } = useTournamentStore();
+  const { teams, players, settings, addTeam, updateTeam, deleteTeam, transferPlayer, addPlayer, updatePlayer, deletePlayer } = useTournamentStore();
   const { toast } = useToast();
   const [search, setSearch] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [isPlayerDialogOpen, setIsPlayerDialogOpen] = useState(false);
   const [playerTargetTeamId, setPlayerTargetTeamId] = useState<string | null>(null);
+  const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [viewingRosterTeamId, setViewingRosterTeamId] = useState<string | null>(null);
   
   // Manual Transfer State
@@ -74,7 +75,7 @@ export default function TeamsPage() {
   const [venueSurface, setVenueSurface] = useState<VenueSurface>('grass');
   const [venueSize, setVenueSize] = useState<VenueSize>('medium');
 
-  // New Player State
+  // Player Form State
   const [pName, setPName] = useState('');
   const [pDesc, setPDesc] = useState('');
   const [pPos, setPPos] = useState(settings.positions[0] || 'FW');
@@ -101,25 +102,44 @@ export default function TeamsPage() {
       setVenueSurface(editingTeam.venueSurface);
       setVenueSize(editingTeam.venueSize);
     } else {
-      resetForm();
+      resetTeamForm();
     }
   }, [editingTeam]);
 
   useEffect(() => {
-    if (isPlayerDialogOpen) {
-      const initialAttrs: Record<string, number> = {};
-      settings.attributeNames.forEach(attr => initialAttrs[attr] = 50);
-      setPAttrs(initialAttrs);
+    if (editingPlayer) {
+      setPName(editingPlayer.name);
+      setPDesc(editingPlayer.description || '');
+      setPPos(editingPlayer.position);
+      setPVal(editingPlayer.monetaryValue);
+      setPNum(editingPlayer.jerseyNumber);
+      
+      const attrsMap: Record<string, number> = {};
+      settings.attributeNames.forEach(attr => {
+        const found = editingPlayer.attributes.find(a => a.name === attr);
+        attrsMap[attr] = found ? found.value : 50;
+      });
+      setPAttrs(attrsMap);
+    } else {
+      resetPlayerForm();
     }
-  }, [isPlayerDialogOpen, settings.attributeNames]);
+  }, [editingPlayer, settings.attributeNames]);
 
-  const resetForm = () => {
+  const resetTeamForm = () => {
     setName(''); setDescription(''); setAbbreviation(''); setRating(50); setBudget(50);
     setCrestShape('shield'); setCrestPattern('none');
     setCrestC1(PREDEFINED_COLORS[24]); setCrestC2(PREDEFINED_COLORS[35]);
     setCrestC3(PREDEFINED_COLORS[35]); setCrestC4(undefined);
     setCrestBorder('thin'); setVenueName(''); setVenueCapacity(1000);
     setVenueSurface('grass'); setVenueSize('medium');
+  };
+
+  const resetPlayerForm = () => {
+    setPName(''); setPDesc(''); setPVal(10); setPNum(10);
+    setPPos(settings.positions[0] || 'FW');
+    const initialAttrs: Record<string, number> = {};
+    settings.attributeNames.forEach(attr => initialAttrs[attr] = 50);
+    setPAttrs(initialAttrs);
   };
 
   const handleSaveTeam = () => {
@@ -148,34 +168,42 @@ export default function TeamsPage() {
     setEditingTeam(null);
   };
 
-  const handleCreatePlayer = () => {
+  const handleSavePlayer = () => {
     if (!pName || !playerTargetTeamId) return;
     const targetTeam = teams.find(t => t.id === playerTargetTeamId);
     
-    const newPlayer: Player = {
-      id: Math.random().toString(36).substr(2, 9),
+    const playerData: Player = {
+      id: editingPlayer ? editingPlayer.id : Math.random().toString(36).substr(2, 9),
       name: pName,
       description: pDesc,
       monetaryValue: pVal,
       jerseyNumber: pNum,
       position: pPos,
       teamId: playerTargetTeamId,
-      suspensionMatchdays: 0,
+      suspensionMatchdays: editingPlayer ? editingPlayer.suspensionMatchdays : 0,
       attributes: Object.entries(pAttrs).map(([name, value]) => ({ name, value })),
-      uniformStyle: 'solid',
-      kitPrimary: targetTeam?.crestPrimary || PREDEFINED_COLORS[24],
-      kitSecondary: targetTeam?.crestSecondary || PREDEFINED_COLORS[35],
-      kitTertiary: targetTeam?.crestTertiary || targetTeam?.crestSecondary,
-      kitAccent: targetTeam?.crestAccent || targetTeam?.crestSecondary,
-      crestPlacement: 'left',
-      sponsorPlacement: 'middle',
-      brandPlacement: 'right',
-      crestSize: 'medium'
+      uniformStyle: editingPlayer?.uniformStyle || 'solid',
+      kitPrimary: editingPlayer?.kitPrimary || targetTeam?.crestPrimary || PREDEFINED_COLORS[24],
+      kitSecondary: editingPlayer?.kitSecondary || targetTeam?.crestSecondary || PREDEFINED_COLORS[35],
+      kitTertiary: editingPlayer?.kitTertiary || targetTeam?.crestTertiary || targetTeam?.crestSecondary,
+      kitAccent: editingPlayer?.kitAccent || targetTeam?.crestAccent || targetTeam?.crestSecondary,
+      crestPlacement: editingPlayer?.crestPlacement || 'left',
+      sponsorPlacement: editingPlayer?.sponsorPlacement || 'middle',
+      brandPlacement: editingPlayer?.brandPlacement || 'right',
+      crestSize: editingPlayer?.crestSize || 'medium'
     };
-    addPlayer(newPlayer);
-    toast({ title: "Jugador Reclutado", description: `${pName} se ha unido al club.` });
+
+    if (editingPlayer) {
+      updatePlayer(playerData);
+      toast({ title: "Agente Actualizado", description: `${pName} ha sido modificado.` });
+    } else {
+      addPlayer(playerData);
+      toast({ title: "Jugador Reclutado", description: `${pName} se ha unido al club.` });
+    }
+    
     setIsPlayerDialogOpen(false);
-    setPName(''); setPDesc(''); setPVal(10); setPNum(10);
+    setEditingPlayer(null);
+    resetPlayerForm();
   };
 
   const filteredTeams = teams.filter(t => 
@@ -335,7 +363,7 @@ export default function TeamsPage() {
                 <Button className="h-9 md:h-11 rounded-xl font-black text-[10px] md:text-sm" variant="secondary" onClick={() => { setEditingTeam(team); setIsDialogOpen(true); }}>
                   <Pencil className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" /> EDITAR
                 </Button>
-                <Button className="h-9 md:h-11 rounded-xl font-black text-[10px] md:text-sm" variant="default" onClick={() => { setPlayerTargetTeamId(team.id); setIsPlayerDialogOpen(true); }}>
+                <Button className="h-9 md:h-11 rounded-xl font-black text-[10px] md:text-sm" variant="default" onClick={() => { setPlayerTargetTeamId(team.id); setEditingPlayer(null); setIsPlayerDialogOpen(true); }}>
                   <UserPlus className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" /> RECLUTAR
                 </Button>
                 <Button variant="outline" className="h-9 md:h-11 rounded-xl font-black border-primary text-primary text-[10px] md:text-sm" onClick={() => setViewingRosterTeamId(team.id)}>
@@ -453,11 +481,12 @@ export default function TeamsPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isPlayerDialogOpen} onOpenChange={setIsPlayerDialogOpen}>
+      <Dialog open={isPlayerDialogOpen} onOpenChange={(open) => { setIsPlayerDialogOpen(open); if(!open) { setEditingPlayer(null); resetPlayerForm(); } }}>
         <DialogContent className="rounded-[1.5rem] md:rounded-[2.5rem] max-w-[95vw] md:max-w-[800px] p-0 overflow-hidden border-none shadow-2xl">
           <div className="p-4 md:p-6 bg-muted/20 border-b">
             <DialogTitle className="font-black uppercase flex items-center gap-2 text-sm md:text-base">
-              <UserCircle2 className="text-primary w-4 h-4 md:w-5 md:h-5" /> Reclutamiento para {teams.find(t => t.id === playerTargetTeamId)?.name}
+              <UserCircle2 className="text-primary w-4 h-4 md:w-5 md:h-5" /> 
+              {editingPlayer ? `Modificar a ${editingPlayer.name}` : `Reclutamiento para ${teams.find(t => t.id === playerTargetTeamId)?.name}`}
             </DialogTitle>
           </div>
           <Tabs defaultValue="base" className="w-full flex flex-col h-[80vh] md:h-[65vh]">
@@ -502,8 +531,8 @@ export default function TeamsPage() {
             </div>
 
             <div className="p-4 bg-muted/20 border-t flex justify-end gap-3">
-              <Button variant="ghost" onClick={() => setIsPlayerDialogOpen(false)} className="rounded-xl h-10 md:h-12 text-xs md:text-sm font-black px-4 md:px-8">CANCELAR</Button>
-              <Button onClick={handleCreatePlayer} disabled={!pName} className="rounded-xl h-10 md:h-12 text-xs md:text-sm font-black px-4 md:px-8 shadow-lg shadow-primary/20">CONFIRMAR</Button>
+              <Button variant="ghost" onClick={() => { setIsPlayerDialogOpen(false); setEditingPlayer(null); }} className="rounded-xl h-10 md:h-12 text-xs md:text-sm font-black px-4 md:px-8">CANCELAR</Button>
+              <Button onClick={handleSavePlayer} disabled={!pName} className="rounded-xl h-10 md:h-12 text-xs md:text-sm font-black px-4 md:px-8 shadow-lg shadow-primary/20">CONFIRMAR</Button>
             </div>
           </Tabs>
         </DialogContent>
@@ -530,7 +559,7 @@ export default function TeamsPage() {
                     </div>
                   ) : (
                     teamRoster.map(player => (
-                      <div key={player.id} className="p-3 md:p-4 bg-card border rounded-2xl flex items-center justify-between">
+                      <div key={player.id} className="p-3 md:p-4 bg-card border rounded-2xl flex items-center justify-between group hover:border-primary/50 transition-colors">
                         <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
                           <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-primary/10 flex items-center justify-center font-black text-primary text-xs md:text-sm shrink-0">#{player.jerseyNumber}</div>
                           <div className="overflow-hidden">
@@ -538,9 +567,16 @@ export default function TeamsPage() {
                             <Badge variant="secondary" className="text-[8px] md:text-[9px] h-4 mt-0.5 font-black">{player.position}</Badge>
                           </div>
                         </div>
-                        <div className="text-right shrink-0 flex items-center gap-2">
-                          <p className="font-black text-[10px] md:text-xs text-accent">{player.monetaryValue}</p>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8 text-destructive" onClick={() => {
+                        <div className="text-right shrink-0 flex items-center gap-1 md:gap-2">
+                          <p className="font-black text-[10px] md:text-xs text-accent mr-2">{player.monetaryValue}</p>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8 text-primary hover:bg-primary/10" onClick={() => {
+                            setEditingPlayer(player);
+                            setPlayerTargetTeamId(viewingRosterTeam.id);
+                            setIsPlayerDialogOpen(true);
+                          }}>
+                            <Pencil className="w-3 h-3 md:w-4 md:h-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8 text-destructive hover:bg-destructive/10" onClick={() => {
                             if(confirm(`¿Despedir a ${player.name}?`)) deletePlayer(player.id);
                           }}>
                             <Trash2 className="w-3 h-3 md:w-4 md:h-4" />

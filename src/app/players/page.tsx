@@ -243,6 +243,7 @@ export default function PlayersPage() {
       toast({ title: "Agente Reclutado", description: `${name} ya está disponible.` });
     }
     setIsDialogOpen(false);
+    setEditingPlayer(null);
   };
 
   const freeAgents = players.filter(p => !p.teamId);
@@ -260,11 +261,11 @@ export default function PlayersPage() {
           </h1>
           <p className="text-muted-foreground">Jugadores sin equipo con marca personal propia.</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(o) => { setIsDialogOpen(o); if(!o) setEditingPlayer(null); }}>
           <DialogTrigger asChild><Button className="font-black rounded-xl h-12 shadow-lg shadow-primary/20"><UserPlus className="w-4 h-4 mr-2" /> RECLUTAR</Button></DialogTrigger>
           <DialogContent className="max-w-[900px] p-0 overflow-hidden rounded-[2rem] border-none shadow-2xl">
             <div className="p-6 bg-muted/20 border-b flex justify-between items-center">
-              <DialogTitle className="font-black uppercase">Ficha de Agente Élite</DialogTitle>
+              <DialogTitle className="font-black uppercase">{editingPlayer ? `Ficha de ${editingPlayer.name}` : 'Ficha de Agente Élite'}</DialogTitle>
             </div>
             <Tabs defaultValue="base" className="w-full flex flex-col h-[80vh]">
               <TabsList className="grid grid-cols-3 rounded-none h-14 border-b bg-card p-1">
@@ -397,7 +398,7 @@ export default function PlayersPage() {
               </div>
 
               <div className="p-4 bg-muted/20 border-t flex justify-end gap-3">
-                <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="rounded-xl h-12 px-8 font-black">CANCELAR</Button>
+                <Button variant="ghost" onClick={() => { setIsDialogOpen(false); setEditingPlayer(null); }} className="rounded-xl h-12 px-8 font-black">CANCELAR</Button>
                 <Button onClick={handleSavePlayer} className="rounded-xl h-12 px-8 font-black shadow-lg shadow-primary/20">CONFIRMAR AGENTE</Button>
               </div>
             </Tabs>
