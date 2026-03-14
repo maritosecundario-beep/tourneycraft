@@ -84,22 +84,21 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
     let aScore = 0;
     const val = t.scoringValue || 9;
 
-    // Lógica de rating con ventaja de local y factor caos
-    const hRating = (hTeam?.rating || 50) + 5; // +5 Local advantage
+    const hRating = (hTeam?.rating || 50) + 5; 
     const aRating = aTeam?.rating || 50;
     const totalRating = hRating + aRating;
     const chaosFactor = (t.variability || 15) / 100;
     
-    // Probabilidad base de ganar
     const homeWinProb = (hRating / totalRating) + (Math.random() * chaosFactor - (chaosFactor / 2));
 
     if (t.scoringRuleType === 'bestOfN') {
-      const homeSets = Math.random() < homeWinProb ? Math.ceil(val / 2) + Math.floor(Math.random() * (val / 2)) : Math.floor(Math.random() * (val / 2));
-      hScore = Math.min(val, homeSets);
+      const homeWins = Math.random() < homeWinProb;
+      hScore = homeWins ? Math.ceil(val / 2) + Math.floor(Math.random() * (val / 2)) : Math.floor(Math.random() * (val / 2));
+      hScore = Math.min(val, hScore);
       aScore = val - hScore;
     } else if (t.scoringRuleType === 'firstToN') {
-      const winnerIdx = Math.random() < homeWinProb ? 0 : 1;
-      if (winnerIdx === 0) {
+      const homeWins = Math.random() < homeWinProb;
+      if (homeWins) {
         hScore = val;
         aScore = Math.floor(Math.random() * val);
       } else {
@@ -157,7 +156,6 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
     const aTeam = teams.find(t => t.id === match.awayId);
     const { hScore, aScore } = generateCalculatedScore(tournament, hTeam, aTeam);
     
-    // Asignación de jugadores estrella (70% mejor jugador)
     const getBestPlayerId = (teamId: string) => {
       const teamPlayers = players.filter(p => p.teamId === teamId);
       if (teamPlayers.length === 0) return undefined;
@@ -205,7 +203,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
       !isUserHome ? selectedPlayerId : pendingMatch.aiPlayer?.id
     );
     setPendingMatch(null);
-    toast({ title: "Duelo Finalizado", description: "Resultado grabado en l'Horta." });
+    toast({ title: "Duelo Finalizado", description: "Resultado grabado." });
   };
 
   const handleSaveSettings = () => {
@@ -237,14 +235,14 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
     const newGroups = [...(tournament.groups || [])];
     newGroups.push({ id: `g-${Date.now()}`, name: `Nuevo Grupo ${newGroups.length + 1}`, participantIds: [] });
     updateTournament({ ...tournament, groups: newGroups });
-    toast({ title: "Conferencia Añadida" });
+    toast({ title: "Grupo Añadido" });
   };
 
   const removeGroup = (groupId: string) => {
     if (!tournament) return;
     const newGroups = (tournament.groups || []).filter(g => g.id !== groupId);
     updateTournament({ ...tournament, groups: newGroups });
-    toast({ title: "Conferencia Eliminada" });
+    toast({ title: "Grupo Eliminado" });
   };
 
   const moveTeamToGroup = (participantId: string, toGroupId: string | null) => {
@@ -260,6 +258,11 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
   const standings = useMemo(() => {
     if (!tournament) return [];
     return getStandings(tournament.matches, tournament.participants);
+  }, [tournament, teams]);
+
+  const dualStandings = useMemo(() => {
+    if (!tournament || !tournament.dualLeagueEnabled) return [];
+    return getStandings(tournament.dualLeagueMatches || [], tournament.participants);
   }, [tournament, teams]);
 
   const unassignedTeams = useMemo(() => {
@@ -289,7 +292,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
             const isRelegation = idx >= rows.length - (tournament?.relegationSpots || 0);
             
             return (
-              <TableRow key={`standing-v5-${row.id || idx}`} className={cn(
+              <TableRow key={`standing-row-${tournament?.id}-${row.id}-${idx}`} className={cn(
                 isPlayoff && "bg-emerald-500/5 hover:bg-emerald-500/10",
                 isRelegation && "bg-destructive/5 hover:bg-destructive/10"
               )}>
@@ -316,7 +319,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
     );
   };
 
-  const renderMatchdayList = (matchList: Match[]) => {
+  const renderMatchdayList = (matchList: Match[], isDual: boolean = false) => {
     const grouped: Record<number, Match[]> = {};
     matchList.forEach(m => {
       if (!grouped[m.matchday]) grouped[m.matchday] = [];
@@ -328,27 +331,29 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
     if (entries.length === 0) {
       return (
         <div className="text-center py-20 bg-muted/10 rounded-[2rem] border-2 border-dashed">
-          <p className="font-bold text-muted-foreground uppercase text-xs">Sin partidos para esta selección.</p>
+          <p className="font-bold text-muted-foreground uppercase text-xs">Sin partidos programados.</p>
         </div>
       );
     }
 
     return entries.map(([day, dayMatches]) => (
-      <div key={`matchday-block-v5-${day}-${tournament?.id}`} className="space-y-4">
+      <div key={`matchday-block-${tournament?.id}-${isDual ? 'dual' : 'main'}-${day}`} className="space-y-4">
         <div className="flex items-center justify-between px-2">
           <Badge variant="secondary" className="bg-primary text-white font-black uppercase">JORNADA {day}</Badge>
-          <Button size="sm" variant="ghost" onClick={() => handleSimulateMatchday(Number(day), matchList)} className="text-[10px] font-black h-8 px-4 border border-primary/20">
-            SIMULAR JORNADA <ChevronRight className="w-3 h-3 ml-1" />
-          </Button>
+          {!isDual && (
+            <Button size="sm" variant="ghost" onClick={() => handleSimulateMatchday(Number(day), matchList)} className="text-[10px] font-black h-8 px-4 border border-primary/20">
+              SIMULAR JORNADA <ChevronRight className="w-3 h-3 ml-1" />
+            </Button>
+          )}
         </div>
         <div className="grid gap-3">
-          {dayMatches.map((m) => {
+          {dayMatches.map((m, mIdx) => {
             const home = teams.find(t => t.id === m.homeId);
             const away = teams.find(t => t.id === m.awayId);
             if (!home || !away) return null;
             return (
               <Card 
-                key={`match-row-v5-${m.id}`} 
+                key={`match-row-${m.id || mIdx}-${isDual ? 'dual' : 'main'}`} 
                 onClick={() => m.isSimulated && setSelectedMatchDetail(m)}
                 className={cn(
                   "border-none shadow-md hover:shadow-lg transition-all rounded-2xl overflow-hidden group cursor-pointer",
@@ -364,7 +369,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                     {m.isSimulated ? (
                       <div className="text-lg font-black bg-muted/30 py-1 rounded-xl group-hover:bg-primary/10 transition-colors">{m.homeScore} - {m.awayScore}</div>
                     ) : (
-                      <Button size="sm" onClick={(e) => { e.stopPropagation(); tournament?.mode === 'arcade' && (m.homeId === tournament.managedParticipantId || m.awayId === tournament.managedParticipantId) ? handleSimulateArcade(m, false) : handleSimulateNormal(m, false); }} className="w-full h-10 rounded-xl font-black bg-primary">SIM</Button>
+                      <Button size="sm" onClick={(e) => { e.stopPropagation(); tournament?.mode === 'arcade' && (m.homeId === tournament.managedParticipantId || m.awayId === tournament.managedParticipantId) ? handleSimulateArcade(m, isDual) : handleSimulateNormal(m, isDual); }} className="w-full h-10 rounded-xl font-black bg-primary">SIM</Button>
                     )}
                   </div>
                   <div className="flex-1 flex items-center justify-start gap-2 text-left overflow-hidden">
@@ -380,7 +385,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
     ));
   };
 
-  if (!tournament) return <div className="p-20 text-center animate-pulse">Cargando Competición...</div>;
+  if (!tournament) return <div className="p-20 text-center animate-pulse font-black uppercase text-muted-foreground">Cargando Competición...</div>;
 
   const userTeam = teams.find(t => t.id === tournament.managedParticipantId);
   const userTeamPlayers = players.filter(p => p.teamId === userTeam?.id);
@@ -415,13 +420,13 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
               {tournament.matches.length === 0 ? (
                 <div className="text-center py-20 bg-muted/10 rounded-[2rem] border-2 border-dashed">
                   <p className="font-bold text-muted-foreground uppercase text-xs">Sin partidos programados.</p>
-                  <Button onClick={() => generateSchedule(tournament.id)} className="mt-4 font-black">GENERAR CALENDARIO</Button>
+                  <Button onClick={() => generateSchedule(tournament.id)} className="mt-4 font-black rounded-xl">GENERAR CALENDARIO</Button>
                 </div>
               ) : (
                 (tournament.leagueType === 'groups' || tournament.leagueType === 'conferences') && tournament.groups && tournament.groups.length > 0 ? (
                   <Tabs defaultValue={tournament.groups[0].id}>
                     <TabsList className="bg-muted/10 p-1 mb-6 flex overflow-x-auto scrollbar-hide w-full gap-1">
-                      {tournament.groups.map((g, idx) => <TabsTrigger key={`cal-tab-${g.id}`} value={g.id} className="text-[10px] font-black uppercase flex-1">{g.name}</TabsTrigger>)}
+                      {tournament.groups.map((g) => <TabsTrigger key={`cal-tab-${g.id}`} value={g.id} className="text-[10px] font-black uppercase flex-1">{g.name}</TabsTrigger>)}
                     </TabsList>
                     {tournament.groups.map((g) => (
                       <TabsContent key={`cal-content-${g.id}`} value={g.id} className="space-y-8">
@@ -431,6 +436,55 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                   </Tabs>
                 ) : renderMatchdayList(tournament.matches)
               )}
+            </TabsContent>
+
+            <TabsContent value="dual" className="mt-6 space-y-12">
+              <div className="space-y-6">
+                <div className="flex items-center gap-3 border-l-4 border-accent pl-4">
+                  <h3 className="text-xl font-black uppercase tracking-tighter">Ranking Liga Dual (Filiales)</h3>
+                  <Badge className="bg-accent text-accent-foreground border-none text-[9px] font-black uppercase">ESPEJO</Badge>
+                </div>
+                <Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden">
+                  {tournament.groups && tournament.groups.length > 0 ? (
+                    <div className="space-y-12 p-6">
+                      {tournament.groups.map(group => {
+                        const groupStandings = dualStandings.filter(s => group.participantIds.includes(s.id));
+                        return (
+                          <div key={`stand-dual-group-${group.id}`} className="space-y-4">
+                            <div className="flex items-center gap-3 border-l-4 border-accent pl-4">
+                              <h3 className="text-xl font-black uppercase tracking-tighter">{group.name}</h3>
+                            </div>
+                            {renderStandingsTable(groupStandings)}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    renderStandingsTable(dualStandings)
+                  )}
+                </Card>
+              </div>
+
+              <div className="space-y-6">
+                <div className="flex items-center gap-3 border-l-4 border-accent pl-4">
+                  <h3 className="text-xl font-black uppercase tracking-tighter">Calendario Liga Dual</h3>
+                  <Badge variant="outline" className="text-[9px] font-black uppercase">Invertido</Badge>
+                </div>
+                <div className="space-y-8">
+                  {tournament.leagueType === 'groups' && tournament.groups && tournament.groups.length > 0 ? (
+                    <Tabs defaultValue={tournament.groups[0].id}>
+                      <TabsList className="bg-muted/10 p-1 mb-6 flex overflow-x-auto scrollbar-hide w-full gap-1">
+                        {tournament.groups.map((g) => <TabsTrigger key={`cal-dual-tab-${g.id}`} value={g.id} className="text-[10px] font-black uppercase flex-1">{g.name}</TabsTrigger>)}
+                      </TabsList>
+                      {tournament.groups.map((g) => (
+                        <TabsContent key={`cal-dual-content-${g.id}`} value={g.id} className="space-y-8">
+                          {renderMatchdayList((tournament.dualLeagueMatches || []).filter(m => g.participantIds.includes(m.homeId) || g.participantIds.includes(m.awayId)), true)}
+                        </TabsContent>
+                      ))}
+                    </Tabs>
+                  ) : renderMatchdayList(tournament.dualLeagueMatches || [], true)}
+                </div>
+              </div>
             </TabsContent>
 
             <TabsContent value="groups" className="mt-6 space-y-6">
@@ -542,7 +596,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
               {standings.slice(0, 3).map((row: any, idx: number) => {
                 const team = teams.find(t => t.id === row.id);
                 return (
-                  <div key={`podium-v5-${row.id}`} className="flex items-center gap-4 p-3 bg-muted/20 rounded-xl">
+                  <div key={`podium-v5-${row.id}-${idx}`} className="flex items-center gap-4 p-3 bg-muted/20 rounded-xl">
                     <div className="w-8 h-8 rounded-full bg-card flex items-center justify-center font-black text-xs">{idx + 1}</div>
                     <div className="flex-1 overflow-hidden">
                       <p className="font-black text-xs uppercase truncate">{team?.name}</p>
@@ -570,8 +624,8 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
               <div className="flex flex-col">
                 <div className="bg-muted/10 p-8 border-b text-center space-y-6">
                   <DialogHeader>
-                    <DialogTitle className="hidden">Detalles del Partido</DialogTitle>
-                    <DialogDescription className="hidden">Resumen técnico de las estrellas que disputaron el encuentro.</DialogDescription>
+                    <DialogTitle className="text-xl font-black uppercase text-center">Informe de Encuentro</DialogTitle>
+                    <DialogDescription className="text-center font-bold text-[10px] uppercase text-muted-foreground">Acta oficial de la competición de l'Horta</DialogDescription>
                   </DialogHeader>
                   <div className="flex items-center justify-center gap-8">
                     <div className="flex flex-col items-center gap-2">
@@ -591,13 +645,13 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                   {[hPlayer, aPlayer].map((p, pIdx) => (
                     <div key={`match-player-stat-${p?.id || pIdx}`} className="space-y-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center font-black text-primary">#{p?.jerseyNumber}</div>
+                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center font-black text-primary">#{p?.jerseyNumber || '??'}</div>
                         <div>
                           <p className="font-black uppercase text-sm">{p?.name || 'Agente Reservado'}</p>
-                          <p className="text-[10px] font-bold text-accent uppercase">{p?.position}</p>
+                          <p className="text-[10px] font-bold text-accent uppercase">{p?.position || 'N/A'}</p>
                         </div>
                       </div>
-                      {p?.description && <p className="text-[10px] text-muted-foreground italic leading-relaxed">{p.description}</p>}
+                      {p?.description && <p className="text-[10px] text-muted-foreground italic leading-relaxed bg-muted/20 p-3 rounded-xl">{p.description}</p>}
                       <div className="grid grid-cols-2 gap-2">
                         {p?.attributes.map((attr, aIdx) => (
                           <div key={`att-v5-${aIdx}`} className="bg-muted/30 p-2 rounded-lg border flex justify-between items-center">
@@ -633,7 +687,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                 <DialogHeader className="bg-gradient-to-r from-primary to-primary/80 p-6 md:p-10 text-white border-b-4 border-black/10 shrink-0">
                   <div className="flex justify-between items-center mb-4">
                     <Badge className="bg-white/20 text-white border-none uppercase text-[10px] tracking-widest font-black px-4 py-1">Tactics Center Arcade</Badge>
-                    <span className="font-black uppercase text-xs flex items-center gap-2 text-white/90"><Sword className="w-4 h-4" /> Jornada {pendingMatch.match.matchday}</span>
+                    <span className="font-black uppercase text-xs flex items-center gap-2 text-white/90"><Sword className="w-4 h-4" /> Jornada {pendingMatch.match.matchday} {pendingMatch.isDual && "(Dual)"}</span>
                   </div>
                   <DialogTitle className="text-2xl md:text-4xl font-black uppercase tracking-tighter text-white">
                     {isHome ? "Local en l'Horta" : "Visitante de l'Horta"}
@@ -746,7 +800,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                     onClick={executeArcadeDuel} 
                     className="flex-[2] h-16 md:h-20 font-black rounded-3xl shadow-2xl bg-primary text-white text-lg md:text-xl flex items-center justify-center gap-4 transition-all active:scale-95"
                   >
-                    <CheckCircle2 className="w-7 h-7" /> GRABAR EN L'HORTA
+                    <CheckCircle2 className="w-7 h-7" /> GRABAR RESULTADO
                   </Button>
                 </div>
               </div>
@@ -760,7 +814,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
         <DialogContent className="rounded-[2.5rem] max-w-2xl max-h-[90vh] overflow-y-auto border-none shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-2xl font-black uppercase">Ajustes del Universo</DialogTitle>
-            <DialogDescription>Modifica todas las leyes de tu competición de l'Horta.</DialogDescription>
+            <DialogDescription>Modifica todas las leyes de tu competición.</DialogDescription>
           </DialogHeader>
           <div className="space-y-8 py-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -776,9 +830,9 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                   <Select value={editScoringType} onValueChange={(v: any) => setEditScoringType(v)}>
                     <SelectTrigger className="rounded-xl h-12"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="bestOfN">Al mejor de N (Suma Exacta)</SelectItem>
+                      <SelectItem value="bestOfN">Al mejor de N (Sets)</SelectItem>
                       <SelectItem value="firstToN">Primero en marcar N</SelectItem>
-                      <SelectItem value="nToNRange">Rango total (Suma)</SelectItem>
+                      <SelectItem value="nToNRange">Rango de puntuación total</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

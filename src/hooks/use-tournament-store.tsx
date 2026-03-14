@@ -113,7 +113,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     const hTeam = teams.find(team => team.id === hId);
     const aTeam = teams.find(team => team.id === aId);
     
-    // Simulación basada en ratings + Home Advantage (+5%) + Chaos Factor
     const hRating = (hTeam?.rating || 50) + 5;
     const aRating = aTeam?.rating || 50;
     const chaos = (t.variability || 15) / 100;
