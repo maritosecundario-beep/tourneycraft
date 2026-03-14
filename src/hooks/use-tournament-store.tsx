@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { Team, Player, Tournament, GlobalSettings, Match } from '@/lib/types';
+import { Team, Player, Tournament, GlobalSettings, Match, TournamentIncident } from '@/lib/types';
 import hortaData from '@/data/horta-league.json';
 
 interface TournamentContextType {
@@ -24,6 +24,7 @@ interface TournamentContextType {
   generateSchedule: (tournamentId: string) => void;
   resetSchedule: (tournamentId: string) => void;
   resolveMatch: (tournamentId: string, matchId: string, homeScore: number, awayScore: number, isDual: boolean, homePlayerId?: string, awayPlayerId?: string) => void;
+  applySanction: (tournamentId: string, type: 'team' | 'player', targetId: string, value: number) => void;
 }
 
 const defaultSettings: GlobalSettings = {
@@ -77,18 +78,21 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     const hTeam = teams.find(team => team.id === hId);
     const aTeam = teams.find(team => team.id === aId);
     
+    // Advantage for local: +5% rating boost
     const hRating = (hTeam?.rating || 50) + 5;
     const aRating = aTeam?.rating || 50;
     const chaos = (t.variability || 15) / 100;
     const total = hRating + aRating;
+    
+    // Base probability with home advantage and random variation
     const baseWinProb = (hRating / total) + (Math.random() * chaos - (chaos / 2));
 
     if (t.scoringRuleType === 'bestOfN') {
-      const homeWins = Math.random() < baseWinProb;
-      hScore = homeWins ? Math.ceil(val / 2) + Math.floor(Math.random() * (val / 2)) : Math.floor(Math.random() * (val / 2));
-      hScore = Math.min(val, hScore);
+      // Sum must be exactly val
+      hScore = Math.round(val * baseWinProb);
       aScore = val - hScore;
     } else if (t.scoringRuleType === 'firstToN') {
+      // Winner must be exactly val
       const homeWins = Math.random() < baseWinProb;
       if (homeWins) {
         hScore = val;
@@ -98,6 +102,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         hScore = Math.floor(Math.random() * val);
       }
     } else if (t.scoringRuleType === 'nToNRange') {
+      // Sum must be between rangeMin and rangeMax
       const min = t.nToNRangeMin || 0;
       const max = t.nToNRangeMax || 10;
       const totalSum = Math.floor(Math.random() * (max - min + 1)) + min;
@@ -106,6 +111,14 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     }
     return { hScore, aScore };
   }, [teams]);
+
+  const getBestPlayerId = useCallback((teamId: string) => {
+    const teamPlayers = players.filter(p => p.teamId === teamId && p.suspensionMatchdays === 0);
+    if (teamPlayers.length === 0) return undefined;
+    const sorted = [...teamPlayers].sort((a, b) => b.monetaryValue - a.monetaryValue);
+    // 70% chance for the highest value player
+    return Math.random() < 0.7 ? sorted[0].id : sorted[Math.floor(Math.random() * sorted.length)].id;
+  }, [players]);
 
   const createSchedule = useCallback((t: Tournament): Tournament => {
     const schedule: Match[] = [];
@@ -130,6 +143,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
             const mId = `${t.id}${groupPrefix}-m-${matchIdCounter++}`;
             schedule.push({ id: mId, homeId: home, awayId: away, matchday, isSimulated: false });
             if (t.dualLeagueEnabled) {
+              // Inverted home/away for dual league
               dualSchedule.push({ id: `dual-${mId}`, homeId: away, awayId: home, matchday, isSimulated: false });
             }
           }
@@ -147,7 +161,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         createMatchesForList(t.participants);
       }
     }
-    return { ...t, matches: schedule, dualLeagueMatches: dualSchedule, currentMatchday: 1 };
+    return { ...t, matches: schedule, dualLeagueMatches: dualSchedule, currentMatchday: 1, incidents: t.incidents || [] };
   }, []);
 
   const generateSchedule = useCallback((tournamentId: string) => {
@@ -162,8 +176,55 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     setTournaments(prev => prev.map(t => {
       if (t.id !== tournamentId) return t;
       
+      const targetMatch = (isDual ? t.dualLeagueMatches : t.matches).find(m => m.id === matchId);
+      if (!targetMatch) return t;
+
+      // Logic for random incidents (20% transfer, 5% sanction) per simulation call
+      const newIncidents: TournamentIncident[] = [...(t.incidents || [])];
+      
+      if (!isDual && Math.random() < 0.20) {
+        // Tactical Transfer between AI teams
+        const otherTeams = teams.filter(team => team.id !== t.managedParticipantId);
+        if (otherTeams.length >= 2) {
+          const seller = otherTeams[Math.floor(Math.random() * otherTeams.length)];
+          const buyer = otherTeams.filter(team => team.id !== seller.id)[Math.floor(Math.random() * (otherTeams.length - 1))];
+          const sellerPlayers = players.filter(p => p.teamId === seller.id);
+          if (sellerPlayers.length > 0) {
+            const player = sellerPlayers[Math.floor(Math.random() * sellerPlayers.length)];
+            if (buyer.budget >= player.monetaryValue) {
+              newIncidents.push({
+                id: `inc-${Date.now()}`,
+                date: new Date().toLocaleDateString(),
+                message: `Traspaso Táctico: ${player.name} deja ${seller.name} por ${buyer.name} (${player.monetaryValue} ${settings.currency})`,
+                type: 'transfer'
+              });
+              // We'll apply this change at the end of the mapping to avoid state collision
+              setTimeout(() => transferPlayer(player.id, buyer.id), 0);
+            }
+          }
+        }
+      }
+
+      if (!isDual && Math.random() < 0.05) {
+        // Random Sanction
+        const randomTeam = teams[Math.floor(Math.random() * teams.length)];
+        const penalty = Math.floor(Math.random() * 50) + 10;
+        newIncidents.push({
+          id: `inc-sanc-${Date.now()}`,
+          date: new Date().toLocaleDateString(),
+          message: `Sanción Administrativa: ${randomTeam.name} multado con ${penalty} ${settings.currency} por irregularidades.`,
+          type: 'sanction'
+        });
+        setTimeout(() => setTeams(prev => prev.map(team => team.id === randomTeam.id ? { ...team, budget: Math.max(0, team.budget - penalty) } : team)), 0);
+      }
+
+      // Designate players if not provided
+      const hPlayerId = homePlayerId || getBestPlayerId(targetMatch.homeId);
+      const aPlayerId = awayPlayerId || getBestPlayerId(targetMatch.awayId);
+
       const updateMatches = (matches: Match[]) => matches.map(m => {
         if (m.id === matchId) {
+          // Economy rewards only for main league
           if (!isDual) {
             setTeams(tPrev => tPrev.map(team => {
               if (team.id === m.homeId || team.id === m.awayId) {
@@ -181,41 +242,44 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
             homeScore, 
             awayScore, 
             isSimulated: true, 
-            homePlayerId, 
-            awayPlayerId, 
+            homePlayerId: hPlayerId, 
+            awayPlayerId: aPlayerId, 
             winnerId: homeScore > awayScore ? m.homeId : homeScore < awayScore ? m.awayId : undefined 
           };
         }
         return m;
       });
 
-      if (isDual) return { ...t, dualLeagueMatches: updateMatches(t.dualLeagueMatches || []) };
+      // Decrement suspensions for all participating players in the tournament
+      setPlayers(pPrev => pPrev.map(p => {
+        if (p.suspensionMatchdays > 0) {
+          // If the player's team played this matchday, decrement
+          const playedThisDay = targetMatch.homeId === p.teamId || targetMatch.awayId === p.teamId;
+          if (playedThisDay) return { ...p, suspensionMatchdays: p.suspensionMatchdays - 1 };
+        }
+        return p;
+      }));
+
+      if (isDual) return { ...t, dualLeagueMatches: updateMatches(t.dualLeagueMatches || []), incidents: newIncidents };
       
+      // If simulated main, auto-simulate dual if enabled
       let nextDualMatches = t.dualLeagueMatches || [];
       if (t.dualLeagueEnabled && !isDual) {
         const dualMatchId = `dual-${matchId}`;
         const targetDual = nextDualMatches.find(dm => dm.id === dualMatchId);
         if (targetDual && !targetDual.isSimulated) {
           const scores = generateScoreByRules(t, targetDual.homeId, targetDual.awayId);
-          
-          const getAutoBestPlayerId = (teamId: string) => {
-            const teamPlayers = players.filter(p => p.teamId === teamId);
-            if (teamPlayers.length === 0) return undefined;
-            const sorted = [...teamPlayers].sort((a, b) => b.monetaryValue - a.monetaryValue);
-            return Math.random() < 0.7 ? sorted[0].id : sorted[Math.floor(Math.random() * teamPlayers.length)].id;
-          };
-
           nextDualMatches = nextDualMatches.map(dm => 
             dm.id === dualMatchId 
-              ? { ...dm, homeScore: scores.hScore, awayScore: scores.aScore, isSimulated: true, homePlayerId: getAutoBestPlayerId(dm.homeId), awayPlayerId: getAutoBestPlayerId(dm.awayId), winnerId: scores.hScore > scores.aScore ? dm.homeId : scores.hScore < scores.aScore ? dm.awayId : undefined } 
+              ? { ...dm, homeScore: scores.hScore, awayScore: scores.aScore, isSimulated: true, homePlayerId: getBestPlayerId(dm.homeId), awayPlayerId: getBestPlayerId(dm.awayId), winnerId: scores.hScore > scores.aScore ? dm.homeId : scores.hScore < scores.aScore ? dm.awayId : undefined } 
               : dm
           );
         }
       }
 
-      return { ...t, matches: updateMatches(t.matches || []), dualLeagueMatches: nextDualMatches };
+      return { ...t, matches: updateMatches(t.matches || []), dualLeagueMatches: nextDualMatches, incidents: newIncidents };
     }));
-  }, [generateScoreByRules, players]);
+  }, [generateScoreByRules, players, teams, getBestPlayerId, settings.currency]);
 
   const transferPlayer = useCallback((playerId: string, toTeamId: string | undefined) => {
     setPlayers(prev => prev.map(p => {
@@ -232,6 +296,27 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       return p;
     }));
   }, []);
+
+  const applySanction = useCallback((tournamentId: string, type: 'team' | 'player', targetId: string, value: number) => {
+    if (type === 'team') {
+      setTeams(prev => prev.map(t => t.id === targetId ? { ...t, budget: Math.max(0, t.budget - value) } : t));
+    } else {
+      setPlayers(prev => prev.map(p => p.id === targetId ? { ...p, suspensionMatchdays: value } : p));
+    }
+    setTournaments(prev => prev.map(t => {
+      if (t.id !== tournamentId) return t;
+      const targetName = type === 'team' ? teams.find(x => x.id === targetId)?.name : players.find(x => x.id === targetId)?.name;
+      return {
+        ...t,
+        incidents: [...(t.incidents || []), {
+          id: `manual-sanc-${Date.now()}`,
+          date: new Date().toLocaleDateString(),
+          message: `Sanción del Comité: ${targetName} recibe castigo de ${value} ${type === 'team' ? settings.currency : 'jornadas'}.`,
+          type: 'sanction'
+        }]
+      };
+    }));
+  }, [teams, players, settings.currency]);
 
   const importData = useCallback((data: any, merge: boolean) => {
     if (merge) {
@@ -259,8 +344,8 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   const updateSettings = (s: Partial<GlobalSettings>) => setSettings(p => ({ ...p, ...s }));
 
   const value = useMemo(() => ({
-    teams, players, tournaments, settings, addTeam, updateTeam, deleteTeam, addPlayer, updatePlayer, deletePlayer, addTournament, updateTournament, deleteTournament, updateSettings, importData, transferPlayer, generateSchedule, resetSchedule, resolveMatch
-  }), [teams, players, tournaments, settings, generateSchedule, resetSchedule, resolveMatch, transferPlayer, importData, createSchedule]);
+    teams, players, tournaments, settings, addTeam, updateTeam, deleteTeam, addPlayer, updatePlayer, deletePlayer, addTournament, updateTournament, deleteTournament, updateSettings, importData, transferPlayer, generateSchedule, resetSchedule, resolveMatch, applySanction
+  }), [teams, players, tournaments, settings, generateSchedule, resetSchedule, resolveMatch, transferPlayer, importData, applySanction]);
 
   return <TournamentContext.Provider value={value}>{children}</TournamentContext.Provider>;
 }

@@ -94,6 +94,13 @@ export type TournamentGroup = {
   participantIds: string[];
 };
 
+export type TournamentIncident = {
+  id: string;
+  date: string;
+  message: string;
+  type: 'transfer' | 'sanction' | 'info';
+};
+
 export type Tournament = {
   id: string;
   name: string;
@@ -127,6 +134,7 @@ export type Tournament = {
   relegationSpots: number;
   currentSeason: number;
   currentMatchday: number;
+  incidents: TournamentIncident[];
 };
 
 export type GlobalSettings = {
