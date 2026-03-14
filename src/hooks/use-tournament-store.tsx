@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
@@ -104,19 +105,29 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     }
   }, [teams, players, tournaments, settings, isLoaded, user?.uid, db]);
 
-  const generateScoreByRules = useCallback((t: Tournament) => {
+  const generateScoreByRules = useCallback((t: Tournament, hId: string, aId: string) => {
     let hScore = 0;
     let aScore = 0;
     const val = t.scoringValue || 9;
+    
+    const hTeam = teams.find(team => team.id === hId);
+    const aTeam = teams.find(team => team.id === aId);
+    
+    // Simulación basada en ratings + Home Advantage (+5%) + Chaos Factor
+    const hRating = (hTeam?.rating || 50) + 5;
+    const aRating = aTeam?.rating || 50;
+    const chaos = (t.variability || 15) / 100;
+    const total = hRating + aRating;
+    const baseWinProb = (hRating / total) + (Math.random() * chaos - (chaos / 2));
 
     if (t.scoringRuleType === 'bestOfN') {
-      // Definición Usuario: Suma total debe ser exactamente N
-      hScore = Math.floor(Math.random() * (val + 1));
+      const homeWins = Math.random() < baseWinProb;
+      hScore = homeWins ? Math.ceil(val / 2) + Math.floor(Math.random() * (val / 2)) : Math.floor(Math.random() * (val / 2));
+      hScore = Math.min(val, hScore);
       aScore = val - hScore;
     } else if (t.scoringRuleType === 'firstToN') {
-      // Definición Usuario: El ganador tiene exactamente N
-      const winnerIsHome = Math.random() > 0.5;
-      if (winnerIsHome) {
+      const homeWins = Math.random() < baseWinProb;
+      if (homeWins) {
         hScore = val;
         aScore = Math.floor(Math.random() * val);
       } else {
@@ -124,18 +135,14 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         hScore = Math.floor(Math.random() * val);
       }
     } else if (t.scoringRuleType === 'nToNRange') {
-      // Definición Usuario: Suma total dentro del rango [min, max]
       const min = t.nToNRangeMin || 0;
       const max = t.nToNRangeMax || 10;
       const totalSum = Math.floor(Math.random() * (max - min + 1)) + min;
-      hScore = Math.floor(Math.random() * (totalSum + 1));
+      hScore = Math.round(totalSum * baseWinProb);
       aScore = totalSum - hScore;
-    } else {
-      hScore = Math.floor(Math.random() * 5);
-      aScore = Math.floor(Math.random() * 5);
     }
     return { hScore, aScore };
-  }, []);
+  }, [teams]);
 
   const createSchedule = useCallback((t: Tournament): Tournament => {
     const schedule: Match[] = [];
@@ -226,10 +233,18 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         const dualMatchId = `dual-${matchId}`;
         const targetDual = nextDualMatches.find(dm => dm.id === dualMatchId);
         if (targetDual && !targetDual.isSimulated) {
-          const scores = generateScoreByRules(t);
+          const scores = generateScoreByRules(t, targetDual.homeId, targetDual.awayId);
+          
+          const getAutoBestPlayerId = (teamId: string) => {
+            const teamPlayers = players.filter(p => p.teamId === teamId);
+            if (teamPlayers.length === 0) return undefined;
+            const sorted = [...teamPlayers].sort((a, b) => b.monetaryValue - a.monetaryValue);
+            return Math.random() < 0.7 ? sorted[0].id : sorted[Math.floor(Math.random() * teamPlayers.length)].id;
+          };
+
           nextDualMatches = nextDualMatches.map(dm => 
             dm.id === dualMatchId 
-              ? { ...dm, homeScore: scores.hScore, awayScore: scores.aScore, isSimulated: true, winnerId: scores.hScore > scores.aScore ? dm.homeId : scores.hScore < scores.aScore ? dm.awayId : undefined } 
+              ? { ...dm, homeScore: scores.hScore, awayScore: scores.aScore, isSimulated: true, homePlayerId: getAutoBestPlayerId(dm.homeId), awayPlayerId: getAutoBestPlayerId(dm.awayId), winnerId: scores.hScore > scores.aScore ? dm.homeId : scores.hScore < scores.aScore ? dm.awayId : undefined } 
               : dm
           );
         }
@@ -237,7 +252,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
 
       return { ...t, matches: updateMatches(t.matches || []), dualLeagueMatches: nextDualMatches };
     }));
-  }, [generateScoreByRules]);
+  }, [generateScoreByRules, players]);
 
   const transferPlayer = useCallback((playerId: string, toTeamId: string | undefined) => {
     setPlayers(prev => prev.map(p => {
