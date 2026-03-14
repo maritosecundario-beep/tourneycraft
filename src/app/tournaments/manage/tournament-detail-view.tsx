@@ -1,10 +1,9 @@
-
 "use client";
 
 import { useEffect, useState, useMemo } from 'react';
 import { useTournamentStore } from '@/hooks/use-tournament-store';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Trophy, RefreshCw, ArrowLeft, Star, Coins, Settings2, Trash2, ChevronRight, UserCircle2, Users, AlertTriangle, Plus, X, Sword, Target, CheckCircle2, LayoutGrid, Info, ShieldAlert, TrendingUp, History, ArrowLeftRight, Play, MapPin } from 'lucide-react';
+import { Trophy, RefreshCw, ArrowLeft, Star, Coins, Settings2, Trash2, ChevronRight, UserCircle2, Users, AlertTriangle, Plus, X, Sword, Target, CheckCircle2, LayoutGrid, Info, ShieldAlert, TrendingUp, History, ArrowLeftRight, Play, MapPin, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { CrestIcon } from '@/components/ui/crest-icon';
@@ -52,8 +51,6 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
   const [editLossPts, setEditLossPts] = useState(0);
   const [editScoringType, setEditScoringType] = useState<ScoringRuleType>('bestOfN');
   const [editScoringValue, setEditScoringValue] = useState(9);
-  const [editRangeMin, setEditRangeMin] = useState(0);
-  const [editRangeMax, setEditRangeMax] = useState(10);
   const [editPlayoffSpots, setEditPlayoffSpots] = useState(8);
   const [editRelegationSpots, setEditRelegationSpots] = useState(4);
   const [editVariability, setEditVariability] = useState(15);
@@ -69,8 +66,6 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
       setEditLossPts(found.lossPoints || 0);
       setEditScoringType(found.scoringRuleType);
       setEditScoringValue(found.scoringValue || 9);
-      setEditRangeMin(found.nToNRangeMin || 0);
-      setEditRangeMax(found.nToNRangeMax || 10);
       setEditPlayoffSpots(found.playoffSpots || 0);
       setEditRelegationSpots(found.relegationSpots || 0);
       setEditVariability(found.variability || 15);
@@ -80,7 +75,8 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
   const getStandings = (matchList: Match[], participants: string[]) => {
     const stats: Record<string, any> = {};
     participants.forEach((pId) => {
-      stats[pId] = { id: pId, played: 0, win: 0, draw: 0, loss: 0, points: 0, gf: 0, ga: 0, diff: 0, budget: teams.find(t => t.id === pId)?.budget || 0 };
+      const teamObj = teams.find(t => t.id === pId);
+      stats[pId] = { id: pId, played: 0, win: 0, draw: 0, loss: 0, points: 0, gf: 0, ga: 0, diff: 0, budget: teamObj?.budget || 0 };
     });
 
     matchList.filter(m => m.isSimulated).forEach(m => {
@@ -235,16 +231,58 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
               {tournament.matches.length === 0 ? <div className="text-center py-20 bg-muted/10 rounded-[2rem] border-2 border-dashed"><p className="font-bold text-muted-foreground uppercase text-xs">Sin partidos.</p><Button onClick={() => generateSchedule(tournament.id)} className="mt-4 font-black rounded-xl">GENERAR CALENDARIO</Button></div> : (
                 (tournament.leagueType === 'groups' || tournament.leagueType === 'conferences') && tournament.groups ? (
                   <Tabs defaultValue={tournament.groups[0]?.id}>
-                    <TabsList className="bg-muted/10 p-1 mb-6 flex overflow-x-auto scrollbar-hide w-full gap-1">{tournament.groups.map((g) => <TabsTrigger key={`cal-tab-${g.id || 'def'}`} value={g.id} className="text-[10px] font-black uppercase flex-1">{g.name}</TabsTrigger>)}</TabsList>
-                    {tournament.groups.map((g) => ( <TabsContent key={`cal-cont-${g.id || 'def'}`} value={g.id} className="space-y-8">{renderMatchdayList(tournament.matches.filter(m => g.participantIds.includes(m.homeId) || g.participantIds.includes(m.awayId)))}</TabsContent> ))}
+                    <TabsList className="bg-muted/10 p-1 mb-6 flex overflow-x-auto scrollbar-hide w-full gap-1">
+                      {tournament.groups.map((g) => (
+                        <TabsTrigger key={`cal-tab-${g.id || 'def'}`} value={g.id || 'default'} className="text-[10px] font-black uppercase flex-1">
+                          {g.name}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                    {tournament.groups.map((g) => ( 
+                      <TabsContent key={`cal-cont-${g.id || 'def'}`} value={g.id || 'default'} className="space-y-8">
+                        {renderMatchdayList(tournament.matches.filter(m => g.participantIds.includes(m.homeId) || g.participantIds.includes(m.awayId)))}
+                      </TabsContent> 
+                    ))}
                   </Tabs>
                 ) : renderMatchdayList(tournament.matches)
               )}
             </TabsContent>
 
             <TabsContent value="dual" className="mt-6 space-y-12">
-              <div className="space-y-6"><h3 className="text-xl font-black uppercase border-l-4 border-accent pl-4">Ranking Liga Dual</h3><Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden">{tournament.groups ? ( <div className="space-y-12 p-6">{tournament.groups.map(group => ( <div key={`d-st-${group.id || 'def'}`} className="space-y-4"><h3 className="text-xl font-black uppercase text-accent">{group.name}</h3>{renderStandingsTable(dualStandings.filter(s => group.participantIds.includes(s.id)))}</div> ))}</div> ) : renderStandingsTable(dualStandings)}</Card></div>
-              <div className="space-y-6"><h3 className="text-xl font-black uppercase border-l-4 border-accent pl-4">Calendario Dual (Invertido)</h3>{tournament.groups ? ( <Tabs defaultValue={tournament.groups[0]?.id}><TabsList className="bg-muted/10 p-1 mb-6 flex overflow-x-auto scrollbar-hide w-full gap-1">{tournament.groups.map(g => <TabsTrigger key={`d-cal-tab-${g.id || 'def'}`} value={g.id} className="text-[10px] font-black uppercase flex-1">{g.name}</TabsTrigger>)}</TabsList>{tournament.groups.map(g => ( <TabsContent key={`d-cal-cont-${g.id || 'def'}`} value={g.id} className="space-y-8">{renderMatchdayList(tournament.dualLeagueMatches.filter(m => g.participantIds.includes(m.homeId) || g.participantIds.includes(m.awayId)), true)}</TabsContent> ))}</Tabs> ) : renderMatchdayList(tournament.dualLeagueMatches, true)}</div>
+              <div className="space-y-6">
+                <h3 className="text-xl font-black uppercase border-l-4 border-accent pl-4">Ranking Liga Dual (Filiales)</h3>
+                <Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden">
+                  {tournament.groups ? (
+                    <div className="space-y-12 p-6">
+                      {tournament.groups.map(group => (
+                        <div key={`d-st-${group.id || 'def'}`} className="space-y-4">
+                          <h3 className="text-xl font-black uppercase text-accent">{group.name}</h3>
+                          {renderStandingsTable(dualStandings.filter(s => group.participantIds.includes(s.id)))}
+                        </div>
+                      ))}
+                    </div>
+                  ) : renderStandingsTable(dualStandings)}
+                </Card>
+              </div>
+              <div className="space-y-6">
+                <h3 className="text-xl font-black uppercase border-l-4 border-accent pl-4">Calendario Dual (Espejo Invertido)</h3>
+                {tournament.groups ? (
+                  <Tabs defaultValue={tournament.groups[0]?.id}>
+                    <TabsList className="bg-muted/10 p-1 mb-6 flex overflow-x-auto scrollbar-hide w-full gap-1">
+                      {tournament.groups.map(g => (
+                        <TabsTrigger key={`d-cal-tab-${g.id || 'def'}`} value={g.id || 'default'} className="text-[10px] font-black uppercase flex-1">
+                          {g.name}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                    {tournament.groups.map(g => (
+                      <TabsContent key={`d-cal-cont-${g.id || 'def'}`} value={g.id || 'default'} className="space-y-8">
+                        {renderMatchdayList(tournament.dualLeagueMatches.filter(m => g.participantIds.includes(m.homeId) || g.participantIds.includes(m.awayId)), true)}
+                      </TabsContent>
+                    ))}
+                  </Tabs>
+                ) : renderMatchdayList(tournament.dualLeagueMatches, true)}
+              </div>
             </TabsContent>
 
             <TabsContent value="standings" className="mt-6"><Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden">{tournament.groups ? ( <div className="space-y-12 p-6">{tournament.groups.map(group => ( <div key={`st-g-${group.id || 'def'}`} className="space-y-4"><div className="flex items-center gap-3 border-l-4 border-primary pl-4"><h3 className="text-xl font-black uppercase">{group.name}</h3><Badge className="bg-primary/10 text-primary border-none text-[9px] font-black">{group.participantIds.length} CLUBES</Badge></div>{renderStandingsTable(standings.filter(s => group.participantIds.includes(s.id)))}</div> ))}</div> ) : renderStandingsTable(standings)}</Card></TabsContent>
@@ -364,29 +402,155 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
 
       <Dialog open={isTransferMenuOpen} onOpenChange={setIsTransferCenterOpen}>
         <DialogContent className="max-w-2xl rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden">
-          <div className="bg-primary p-6 text-white border-b"><DialogHeader><DialogTitle className="text-2xl font-black uppercase flex items-center gap-3"><ArrowLeftRight className="w-6 h-6" /> Oficina de Traspasos</DialogTitle><DialogDescription className="text-white/80 font-bold text-xs uppercase mt-1">Realiza movimientos estratégicos entre clubs.</DialogDescription></DialogHeader></div>
-          <div className="p-8 space-y-6"><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="space-y-2"><Label>Jugador</Label><Select onValueChange={setSelectedPlayerId}><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Elegir..." /></SelectTrigger><SelectContent>{players.map(p => (<SelectItem key={`tr-p-${p.id}`} value={p.id}>{p.name}</SelectItem>))}</SelectContent></Select></div><div className="space-y-2"><Label>Destino</Label><Select onValueChange={(v) => { if (selectedPlayerId) { transferPlayer(selectedPlayerId, v === 'free' ? undefined : v); setIsTransferCenterOpen(false); toast({ title: "Traspaso OK" }); } }}><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Destino..." /></SelectTrigger><SelectContent><SelectItem value="free">Agente Libre</SelectItem>{teams.map(t => (<SelectItem key={`tr-t-${t.id}`} value={t.id}>{t.name}</SelectItem>))}</SelectContent></Select></div></div></div>
+          <div className="bg-primary p-6 text-white border-b">
+            <DialogTitle className="text-2xl font-black uppercase flex items-center gap-3">
+              <ArrowLeftRight className="w-6 h-6" /> Oficina de Traspasos
+            </DialogTitle>
+            <DialogDescription className="text-white/80 font-bold text-xs uppercase mt-1">Realiza movimientos estratégicos entre clubs.</DialogDescription>
+          </div>
+          <div className="p-8 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label>Agente a Transferir</Label>
+                <Select onValueChange={setSelectedPlayerId}>
+                  <SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Elegir agente..." /></SelectTrigger>
+                  <SelectContent>{players.map(p => (<SelectItem key={`tr-p-${p.id}`} value={p.id}>{p.name}</SelectItem>))}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Nuevo Destino</Label>
+                <Select onValueChange={(v) => { 
+                  if (selectedPlayerId) { 
+                    transferPlayer(selectedPlayerId, v === 'free' ? undefined : v); 
+                    setIsTransferCenterOpen(false); 
+                    toast({ title: "Traspaso Ejecutado" }); 
+                  } 
+                }}>
+                  <SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Destino..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="free">Agente Libre</SelectItem>
+                    {teams.map(t => (<SelectItem key={`tr-t-${t.id}`} value={t.id}>{t.name}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={isSanctionMenuOpen} onOpenChange={setIsSanctionMenuOpen}>
         <DialogContent className="max-w-2xl rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden">
-          <div className="bg-destructive p-6 text-white border-b"><DialogHeader><DialogTitle className="text-2xl font-black uppercase flex items-center gap-3"><ShieldAlert className="w-6 h-6" /> Comité de Disciplina</DialogTitle><DialogDescription className="text-white/80 font-bold text-xs uppercase mt-1">Sanciones y suspensiones</DialogDescription></DialogHeader></div>
-          <Tabs defaultValue="team"><TabsList className="grid grid-cols-2 rounded-none h-14"><TabsTrigger value="team" className="font-black text-xs uppercase">Multar Club</TabsTrigger><TabsTrigger value="player" className="font-black text-xs uppercase">Suspender Jugador</TabsTrigger></TabsList>
-            <TabsContent value="team" className="p-8 space-y-6"><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="space-y-2"><Label>Club</Label><Select onValueChange={setSelectedPlayerId}><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Elegir..." /></SelectTrigger><SelectContent>{teams.map(t => (<SelectItem key={`sanc-t-${t.id}`} value={t.id}>{t.name}</SelectItem>))}</SelectContent></Select></div><div className="space-y-2"><Label>Multa</Label><Input type="number" onKeyDown={(e) => { if (e.key === 'Enter' && selectedPlayerId) { applySanction(tournament.id, 'team', selectedPlayerId, Number((e.target as HTMLInputElement).value)); setIsSanctionMenuOpen(false); } }} className="h-12 rounded-xl" /></div></div></TabsContent>
-            <TabsContent value="player" className="p-8 space-y-6"><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="space-y-2"><Label>Jugador</Label><Select onValueChange={setSelectedPlayerId}><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Elegir..." /></SelectTrigger><SelectContent>{players.map(p => (<SelectItem key={`sanc-p-${p.id}`} value={p.id}>{p.name}</SelectItem>))}</SelectContent></Select></div><div className="space-y-2"><Label>Jornadas</Label><Input type="number" onKeyDown={(e) => { if (e.key === 'Enter' && selectedPlayerId) { applySanction(tournament.id, 'player', selectedPlayerId, Number((e.target as HTMLInputElement).value)); setIsSanctionMenuOpen(false); } }} className="h-12 rounded-xl" /></div></div></TabsContent>
+          <div className="bg-destructive p-6 text-white border-b">
+            <DialogTitle className="text-2xl font-black uppercase flex items-center gap-3">
+              <ShieldAlert className="w-6 h-6" /> Comité de Disciplina
+            </DialogTitle>
+            <DialogDescription className="text-white/80 font-bold text-xs uppercase mt-1">Sanciones y suspensiones</DialogDescription>
+          </div>
+          <Tabs defaultValue="team">
+            <TabsList className="grid grid-cols-2 rounded-none h-14">
+              <TabsTrigger value="team" className="font-black text-xs uppercase">Multar Club</TabsTrigger>
+              <TabsTrigger value="player" className="font-black text-xs uppercase">Suspender Jugador</TabsTrigger>
+            </TabsList>
+            <TabsContent value="team" className="p-8 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label>Club Seleccionado</Label>
+                  <Select onValueChange={setSelectedPlayerId}>
+                    <SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Elegir club..." /></SelectTrigger>
+                    <SelectContent>{teams.map(t => (<SelectItem key={`sanc-t-${t.id}`} value={t.id}>{t.name}</SelectItem>))}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Cuantía de la Multa</Label>
+                  <Input type="number" placeholder="Ej: 50" onKeyDown={(e) => { 
+                    if (e.key === 'Enter' && selectedPlayerId) { 
+                      applySanction(tournament.id, 'team', selectedPlayerId, Number((e.target as HTMLInputElement).value)); 
+                      setIsSanctionMenuOpen(false); 
+                      toast({ title: "Sanción Aplicada" });
+                    } 
+                  }} className="h-12 rounded-xl" />
+                </div>
+              </div>
+            </TabsContent>
+            <TabsContent value="player" className="p-8 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label>Agente Seleccionado</Label>
+                  <Select onValueChange={setSelectedPlayerId}>
+                    <SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Elegir agente..." /></SelectTrigger>
+                    <SelectContent>{players.map(p => (<SelectItem key={`sanc-p-${p.id}`} value={p.id}>{p.name}</SelectItem>))}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Jornadas de Suspensión</Label>
+                  <Input type="number" placeholder="Ej: 3" onKeyDown={(e) => { 
+                    if (e.key === 'Enter' && selectedPlayerId) { 
+                      applySanction(tournament.id, 'player', selectedPlayerId, Number((e.target as HTMLInputElement).value)); 
+                      setIsSanctionMenuOpen(false); 
+                      toast({ title: "Suspensión Confirmada" });
+                    } 
+                  }} className="h-12 rounded-xl" />
+                </div>
+              </div>
+            </TabsContent>
           </Tabs>
         </DialogContent>
       </Dialog>
 
       <Dialog open={isEditing} onOpenChange={setIsEditing}>
         <DialogContent className="rounded-[2.5rem] max-w-2xl max-h-[90vh] overflow-y-auto border-none shadow-2xl">
-          <DialogHeader><DialogTitle className="text-2xl font-black uppercase">Ajustes del Universo</DialogTitle><DialogDescription>Modifica todas las leyes de tu competición.</DialogDescription></DialogHeader>
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-black uppercase">Ajustes del Universo</DialogTitle>
+            <DialogDescription>Modifica todas las leyes de tu competición en tiempo real.</DialogDescription>
+          </DialogHeader>
           <div className="space-y-8 py-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="space-y-2"><Label>Nombre</Label><Input value={editName} onChange={e => setEditName(e.target.value)} className="rounded-xl h-12" /></div><div className="space-y-2"><Label>Deporte</Label><Input value={editSport} onChange={e => setEditSport(e.target.value)} className="rounded-xl h-12" /></div></div>
-            <div className="space-y-4"><h4 className="text-[10px] font-black uppercase border-b pb-2 text-primary">Reglas</h4><div className="grid grid-cols-1 md:grid-cols-3 gap-6"><div className="space-y-2 md:col-span-2"><Label>Sistema</Label><Select value={editScoringType} onValueChange={(v: any) => setEditScoringType(v)}><SelectTrigger className="rounded-xl h-12"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="bestOfN">Sets Suma Exacta</SelectItem><SelectItem value="firstToN">Primero a N</SelectItem><SelectItem value="nToNRange">Rango puntuación</SelectItem></SelectContent></Select></div><div className="space-y-2"><Label>Valor Meta</Label><Input type="number" value={editScoringValue} onChange={e => setEditScoringValue(Number(e.target.value))} className="rounded-xl h-12" /></div></div></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2"><Label>Nombre del Torneo</Label><Input value={editName} onChange={e => setEditName(e.target.value)} className="rounded-xl h-12" /></div>
+              <div className="space-y-2"><Label>Deporte</Label><Input value={editSport} onChange={e => setEditSport(e.target.value)} className="rounded-xl h-12" /></div>
+            </div>
+            <div className="space-y-4">
+              <h4 className="text-[10px] font-black uppercase border-b pb-2 text-primary tracking-widest">Reglas de Competición</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Sistema de Marcador</Label>
+                  <Select value={editScoringType} onValueChange={(v: any) => setEditScoringType(v)}>
+                    <SelectTrigger className="rounded-xl h-12"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="bestOfN">Sets Suma Exacta</SelectItem>
+                      <SelectItem value="firstToN">Primero en alcanzar N</SelectItem>
+                      <SelectItem value="nToNRange">Rango puntuación aleatoria</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Valor Meta (N)</Label>
+                  <Input type="number" value={editScoringValue} onChange={e => setEditScoringValue(Number(e.target.value))} className="rounded-xl h-12" />
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-6">
+              <div className="space-y-2"><Label>Plazas Playoff (Verde)</Label><Input type="number" value={editPlayoffSpots} onChange={e => setEditPlayoffSpots(Number(e.target.value))} className="rounded-xl h-12" /></div>
+              <div className="space-y-2"><Label>Plazas Descenso (Rojo)</Label><Input type="number" value={editRelegationSpots} onChange={e => setEditRelegationSpots(Number(e.target.value))} className="rounded-xl h-12" /></div>
+            </div>
           </div>
-          <DialogFooter className="gap-2"><Button variant="ghost" onClick={() => setIsEditing(false)} className="rounded-xl font-black">CANCELAR</Button><Button onClick={() => { if (!tournament) return; updateTournament({ ...tournament, name: editName, sport: editSport, winPoints: editWinPts, drawPoints: editDrawPts, lossPoints: editLossPts, scoringRuleType: editScoringType, scoringValue: editScoringValue, playoffSpots: editPlayoffSpots, relegationSpots: editRelegationSpots, variability: editVariability }); setIsEditing(false); }} className="font-black rounded-xl px-8 bg-primary">GUARDAR</Button></DialogFooter>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setIsEditing(false)} className="rounded-xl font-black">CANCELAR</Button>
+            <Button onClick={() => { 
+              if (!tournament) return; 
+              updateTournament({ 
+                ...tournament, 
+                name: editName, 
+                sport: editSport, 
+                scoringRuleType: editScoringType, 
+                scoringValue: editScoringValue, 
+                playoffSpots: editPlayoffSpots, 
+                relegationSpots: editRelegationSpots, 
+                variability: editVariability 
+              }); 
+              setIsEditing(false); 
+              toast({ title: "Ajustes Guardados" });
+            }} className="font-black rounded-xl px-8 bg-primary">GUARDAR LEYES</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
