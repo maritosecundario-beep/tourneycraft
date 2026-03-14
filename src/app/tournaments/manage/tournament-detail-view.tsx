@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useTournamentStore } from '@/hooks/use-tournament-store';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Trophy, RefreshCw, ArrowLeft, Star, Coins, Settings2, Trash2, ChevronRight, UserCircle2, Users, AlertTriangle, Plus, X, Sword, Target, CheckCircle2, LayoutGrid, Info, ShieldAlert, TrendingUp, History, ArrowLeftRight, Play, MapPin, Pencil } from 'lucide-react';
+import { Trophy, RefreshCw, ArrowLeft, Star, Coins, Settings2, Trash2, UserCircle2, Users, Plus, X, ArrowLeftRight, Play, MapPin, ShieldAlert, History, UserCheck, TrendingUp, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { CrestIcon } from '@/components/ui/crest-icon';
@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Match, Tournament, ScoringRuleType, Player, Team } from '@/lib/types';
+import { Match, Tournament, ScoringRuleType, Player } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 interface TournamentDetailViewProps {
@@ -26,34 +26,27 @@ interface TournamentDetailViewProps {
 export function TournamentDetailView({ id }: TournamentDetailViewProps) {
   const { tournaments, teams, players, resolveMatch, simulateMatchday, generateSchedule, resetSchedule, resetMatchday, updateTournament, settings, transferPlayer, applySanction, processIncidentDecision } = useTournamentStore();
   const { toast } = useToast();
-  
   const [tournament, setTournament] = useState<Tournament | null>(null);
   
   // Menus State
   const [isTransferMenuOpen, setIsTransferCenterOpen] = useState(false);
   const [isSanctionMenuOpen, setIsSanctionMenuOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
-  // Arcade Simulation State
+  // Simulation State
   const [pendingMatch, setPendingMatch] = useState<{ match: Match; isDual: boolean; aiPlayer: Player | null } | null>(null);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>('');
   const [arcadeHomeScore, setArcadeHomeScore] = useState<number>(0);
   const [arcadeAwayScore, setArcadeAwayScore] = useState<number>(0);
-
-  // Match Details State
   const [selectedMatchDetail, setSelectedMatchDetail] = useState<Match | null>(null);
   
   // Edit State
-  const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [editSport, setEditSport] = useState('');
-  const [editWinPts, setEditWinPts] = useState(3);
-  const [editDrawPts, setEditDrawPts] = useState(1);
-  const [editLossPts, setEditLossPts] = useState(0);
   const [editScoringType, setEditScoringType] = useState<ScoringRuleType>('bestOfN');
   const [editScoringValue, setEditScoringValue] = useState(9);
   const [editPlayoffSpots, setEditPlayoffSpots] = useState(8);
   const [editRelegationSpots, setEditRelegationSpots] = useState(4);
-  const [editVariability, setEditVariability] = useState(15);
 
   useEffect(() => {
     const found = tournaments.find(t => t.id === id);
@@ -61,14 +54,10 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
       setTournament(found);
       setEditName(found.name);
       setEditSport(found.sport);
-      setEditWinPts(found.winPoints || 0);
-      setEditDrawPts(found.drawPoints || 0);
-      setEditLossPts(found.lossPoints || 0);
       setEditScoringType(found.scoringRuleType);
       setEditScoringValue(found.scoringValue || 9);
       setEditPlayoffSpots(found.playoffSpots || 0);
       setEditRelegationSpots(found.relegationSpots || 0);
-      setEditVariability(found.variability || 15);
     }
   }, [tournaments, id]);
 
@@ -78,7 +67,6 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
       const teamObj = teams.find(t => t.id === pId);
       stats[pId] = { id: pId, played: 0, win: 0, draw: 0, loss: 0, points: 0, gf: 0, ga: 0, diff: 0, budget: teamObj?.budget || 0 };
     });
-
     matchList.filter(m => m.isSimulated).forEach(m => {
       if (stats[m.homeId] && stats[m.awayId]) {
         stats[m.homeId].played++; stats[m.awayId].played++;
@@ -89,7 +77,6 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
         else { stats[m.homeId].draw++; stats[m.homeId].points += (tournament?.drawPoints || 0); stats[m.awayId].draw++; stats[m.awayId].points += (tournament?.drawPoints || 0); }
       }
     });
-
     return Object.values(stats).map((s: any) => ({ ...s, diff: s.gf - s.ga })).sort((a: any, b: any) => {
       if (b.points !== a.points) return b.points - a.points;
       return b.diff - a.diff;
@@ -130,11 +117,6 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
       </TableBody>
     </Table>
   );
-
-  const handleSimulateNormal = (match: Match, isDual: boolean) => {
-    if (!tournament) return;
-    resolveMatch(tournament.id, match.id, 0, 0, isDual, undefined, undefined, true);
-  };
 
   const handleSimulateArcade = (match: Match, isDual: boolean) => {
     const opponentTeamId = match.homeId === tournament?.managedParticipantId ? match.awayId : match.homeId;
@@ -180,7 +162,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                       </div>
                       <div className="w-20 text-center shrink-0">
                         {m.isSimulated ? ( <div className="text-lg font-black bg-muted/30 py-1 rounded-xl">{m.homeScore} - {m.awayScore}</div> ) : (
-                          <Button size="sm" onClick={(e) => { e.stopPropagation(); isArcadeMatch ? handleSimulateArcade(m, isDual) : handleSimulateNormal(m, isDual); }} className="w-full h-10 rounded-xl font-black bg-primary">
+                          <Button size="sm" onClick={(e) => { e.stopPropagation(); isArcadeMatch ? handleSimulateArcade(m, isDual) : resolveMatch(tournament!.id, m.id, 0, 0, isDual, undefined, undefined, true); }} className="w-full h-10 rounded-xl font-black bg-primary">
                             {isArcadeMatch ? 'TACT' : 'SIM'}
                           </Button>
                         )}
@@ -250,7 +232,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
 
             <TabsContent value="dual" className="mt-6 space-y-12">
               <div className="space-y-6">
-                <h3 className="text-xl font-black uppercase border-l-4 border-accent pl-4">Ranking Liga Dual (Filiales)</h3>
+                <h3 className="text-xl font-black uppercase border-l-4 border-accent pl-4">Ranking Liga Dual</h3>
                 <Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden">
                   {tournament.groups ? (
                     <div className="space-y-12 p-6">
@@ -265,7 +247,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                 </Card>
               </div>
               <div className="space-y-6">
-                <h3 className="text-xl font-black uppercase border-l-4 border-accent pl-4">Calendario Dual (Espejo Invertido)</h3>
+                <h3 className="text-xl font-black uppercase border-l-4 border-accent pl-4">Calendario Dual</h3>
                 {tournament.groups ? (
                   <Tabs defaultValue={tournament.groups[0]?.id}>
                     <TabsList className="bg-muted/10 p-1 mb-6 flex overflow-x-auto scrollbar-hide w-full gap-1">
@@ -430,7 +412,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
             <div className="space-y-4"><h4 className="text-[10px] font-black uppercase border-b pb-2 text-primary tracking-widest">Reglas de Competición</h4><div className="grid grid-cols-1 md:grid-cols-3 gap-6"><div className="space-y-2 md:col-span-2"><Label>Sistema de Marcador</Label><Select value={editScoringType} onValueChange={(v: any) => setEditScoringType(v)}><SelectTrigger className="rounded-xl h-12"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="bestOfN">Sets Suma Exacta</SelectItem><SelectItem value="firstToN">Primero en alcanzar N</SelectItem><SelectItem value="nToNRange">Rango puntuación aleatoria</SelectItem></SelectContent></Select></div><div className="space-y-2"><Label>Valor Meta (N)</Label><Input type="number" value={editScoringValue} onChange={e => setEditScoringValue(Number(e.target.value))} className="rounded-xl h-12" /></div></div></div>
             <div className="grid grid-cols-2 gap-6"><div className="space-y-2"><Label>Plazas Playoff (Verde)</Label><Input type="number" value={editPlayoffSpots} onChange={e => setEditPlayoffSpots(Number(e.target.value))} className="rounded-xl h-12" /></div><div className="space-y-2"><Label>Plazas Descenso (Rojo)</Label><Input type="number" value={editRelegationSpots} onChange={e => setEditRelegationSpots(Number(e.target.value))} className="rounded-xl h-12" /></div></div>
           </div>
-          <DialogFooter className="gap-2"><Button variant="ghost" onClick={() => setIsEditing(false)} className="rounded-xl font-black">CANCELAR</Button><Button onClick={() => { if (!tournament) return; updateTournament({ ...tournament, name: editName, sport: editSport, scoringRuleType: editScoringType, scoringValue: editScoringValue, playoffSpots: editPlayoffSpots, relegationSpots: editRelegationSpots, variability: editVariability }); setIsEditing(false); toast({ title: "Ajustes Guardados" }); }} className="font-black rounded-xl px-8 bg-primary">GUARDAR LEYES</Button></DialogFooter>
+          <DialogFooter className="gap-2"><Button variant="ghost" onClick={() => setIsEditing(false)} className="rounded-xl font-black">CANCELAR</Button><Button onClick={() => { if (!tournament) return; updateTournament({ ...tournament, name: editName, sport: editSport, scoringRuleType: editScoringType, scoringValue: editScoringValue, playoffSpots: editPlayoffSpots, relegationSpots: editRelegationSpots }); setIsEditing(false); toast({ title: "Ajustes Guardados" }); }} className="font-black rounded-xl px-8 bg-primary">GUARDAR LEYES</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

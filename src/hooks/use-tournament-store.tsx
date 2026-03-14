@@ -77,7 +77,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     const teamPlayers = players.filter(p => p.teamId === teamId && p.suspensionMatchdays === 0);
     if (teamPlayers.length === 0) return undefined;
     const sorted = [...teamPlayers].sort((a, b) => b.monetaryValue - a.monetaryValue);
-    // 70% chance for the best, 30% for random among available
     return Math.random() < 0.7 ? sorted[0].id : sorted[Math.floor(Math.random() * sorted.length)].id;
   }, [players]);
 
@@ -85,7 +84,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     let hScore = 0;
     let aScore = 0;
     const val = t.scoringValue || 9;
-    
     const hTeam = teams.find(team => team.id === hId);
     const aTeam = teams.find(team => team.id === aId);
     
@@ -174,21 +172,16 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       
       const resetList = (mList: Match[]) => mList.map(m => {
         if (m.matchday === matchdayNumber && m.isSimulated) {
-          // Revert budget changes
-          const homeTeam = teams.find(x => x.id === m.homeId);
-          const awayTeam = teams.find(x => x.id === m.awayId);
-          if (homeTeam && awayTeam) {
-            const isHomeWin = (m.homeScore || 0) > (m.awayScore || 0);
-            const isAwayWin = (m.awayScore || 0) > (m.homeScore || 0);
-            const hChange = isHomeWin ? (t.winReward || 0) : isAwayWin ? -(t.lossPenalty || 0) : (t.drawReward || 0);
-            const aChange = isAwayWin ? (t.winReward || 0) : isHomeWin ? -(t.lossPenalty || 0) : (t.drawReward || 0);
-            
-            setTimeout(() => setTeams(tPrev => tPrev.map(team => {
-              if (team.id === m.homeId) return { ...team, budget: Math.max(0, team.budget - hChange) };
-              if (team.id === m.awayId) return { ...team, budget: Math.max(0, team.budget - aChange) };
-              return team;
-            })), 0);
-          }
+          const isHomeWin = (m.homeScore || 0) > (m.awayScore || 0);
+          const isAwayWin = (m.awayScore || 0) > (m.homeScore || 0);
+          const hChange = isHomeWin ? (t.winReward || 0) : isAwayWin ? -(t.lossPenalty || 0) : (t.drawReward || 0);
+          const aChange = isAwayWin ? (t.winReward || 0) : isHomeWin ? -(t.lossPenalty || 0) : (t.drawReward || 0);
+          
+          setTimeout(() => setTeams(tPrev => tPrev.map(team => {
+            if (team.id === m.homeId) return { ...team, budget: Math.max(0, team.budget - hChange) };
+            if (team.id === m.awayId) return { ...team, budget: Math.max(0, team.budget - aChange) };
+            return team;
+          })), 0);
           return { ...m, isSimulated: false, homeScore: undefined, awayScore: undefined, homePlayerId: undefined, awayPlayerId: undefined };
         }
         return m;
@@ -201,7 +194,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         incidents: (t.incidents || []).filter(inc => !inc.message.includes(`Jornada ${matchdayNumber}`))
       };
     }));
-  }, [teams]);
+  }, []);
 
   const transferPlayerInternal = useCallback((playerId: string, toTeamId: string | undefined) => {
     setPlayers(prev => prev.map(p => {
@@ -237,8 +230,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       }
 
       const newIncidents: TournamentIncident[] = [...(t.incidents || [])];
-      
-      // Random incidents (20% transfer, 5% sanction) only on primary league auto-sim
       if (!isDual && autoSim) {
         if (Math.random() < 0.20) {
           const seller = teams[Math.floor(Math.random() * teams.length)];
@@ -262,7 +253,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
             }
           }
         }
-
         if (Math.random() < 0.05) {
           const randomTeam = teams[Math.floor(Math.random() * teams.length)];
           const penalty = Math.floor(Math.random() * 50) + 10;
@@ -279,7 +269,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       const finalHPlayerId = homePlayerId || getBestPlayerId(targetMatch.homeId);
       const finalAPlayerId = awayPlayerId || getBestPlayerId(targetMatch.awayId);
 
-      // Decrement suspensions for participating teams
       setTimeout(() => setPlayers(pPrev => pPrev.map(p => {
         if ((p.teamId === targetMatch.homeId || p.teamId === targetMatch.awayId) && p.suspensionMatchdays > 0) {
           return { ...p, suspensionMatchdays: p.suspensionMatchdays - 1 };
@@ -287,7 +276,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         return p;
       })), 0);
 
-      // Economic updates
       if (!isDual) {
         setTimeout(() => setTeams(tPrev => tPrev.map(team => {
           if (team.id === targetMatch.homeId || team.id === targetMatch.awayId) {
@@ -314,7 +302,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       if (isDual) {
         nextDualMatches = updateMatchList(t.dualLeagueMatches || []);
       } else if (t.dualLeagueEnabled) {
-        // Auto-simulate dual match mirroring this one
         const dualMatchId = `dual-${matchId}`;
         const targetDual = nextDualMatches.find(dm => dm.id === dualMatchId);
         if (targetDual && !targetDual.isSimulated) {
@@ -330,22 +317,15 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   const simulateMatchday = useCallback((tournamentId: string, matchdayNumber?: number) => {
     setTournaments(prev => prev.map(t => {
       if (t.id !== tournamentId) return t;
-      
       const unplayed = t.matches.filter(m => !m.isSimulated);
       if (unplayed.length === 0) return t;
-      
       const targetDay = matchdayNumber !== undefined ? matchdayNumber : Math.min(...unplayed.map(m => m.matchday));
       const dayMatches = t.matches.filter(m => m.matchday === targetDay && !m.isSimulated);
-      
       let nextT = { ...t };
       dayMatches.forEach(m => {
-        // Skip user match in Arcade mode
         const isUserMatch = t.mode === 'arcade' && (m.homeId === t.managedParticipantId || m.awayId === t.managedParticipantId);
         if (isUserMatch) return;
-
         const { hScore, aScore } = generateScoreByRules(t, m.homeId, m.awayId);
-        
-        // Handle economics immediately for batch sim
         setTimeout(() => setTeams(tPrev => tPrev.map(team => {
           if (team.id === m.homeId || team.id === m.awayId) {
             const isHome = team.id === m.homeId;
@@ -356,12 +336,9 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
           }
           return team;
         })), 0);
-
         const hPlayerId = getBestPlayerId(m.homeId);
         const aPlayerId = getBestPlayerId(m.awayId);
-
         nextT.matches = nextT.matches.map(nm => nm.id === m.id ? { ...nm, homeScore: hScore, awayScore: aScore, isSimulated: true, homePlayerId: hPlayerId, awayPlayerId: aPlayerId } : nm);
-
         if (t.dualLeagueEnabled) {
           const dualId = `dual-${m.id}`;
           const dualMatch = nextT.dualLeagueMatches.find(dm => dm.id === dualId);
@@ -371,7 +348,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
           }
         }
       });
-
       return { ...nextT, currentMatchday: Math.max(nextT.currentMatchday, targetDay) };
     }));
   }, [generateScoreByRules, getBestPlayerId]);
