@@ -24,6 +24,7 @@ interface TournamentContextType {
   importData: (data: any, merge: boolean) => void;
   generateSchedule: (tournamentId: string) => void;
   resetSchedule: (tournamentId: string) => void;
+  resetMatchday: (tournamentId: string, matchdayNumber: number) => void;
   resolveMatch: (tournamentId: string, matchId: string, homeScore: number, awayScore: number, isDual: boolean, homePlayerId?: string, awayPlayerId?: string) => void;
   simulateMatchday: (tournamentId: string, matchdayNumber?: number) => void;
   applySanction: (tournamentId: string, type: 'team' | 'player', targetId: string, value: number) => void;
@@ -90,24 +91,28 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     
     // Advantage for local: +5 point boost to rating
     const hRating = (hTeam?.rating || 50) + 5;
-    const aRating = aTeam?.rating || 50;
+    const aRating = (aTeam?.rating || 50);
     const chaos = (t.variability || 15) / 100;
-    const total = hRating + aRating;
     
-    const baseWinProb = (hRating / total) + (Math.random() * chaos - (chaos / 2));
+    // Weighted probability based on rating power
+    const power = 2.5; 
+    const hPower = Math.pow(hRating, power);
+    const aPower = Math.pow(aRating, power);
+    const baseWinProb = (hPower / (hPower + aPower)) + (Math.random() * chaos - (chaos / 2));
+    const winProb = Math.max(0.1, Math.min(0.9, baseWinProb));
 
     if (t.scoringRuleType === 'bestOfN') {
-      hScore = Math.round(val * baseWinProb);
+      hScore = Math.round(val * winProb);
       aScore = val - hScore;
     } else if (t.scoringRuleType === 'firstToN') {
-      const homeWins = Math.random() < baseWinProb;
+      const homeWins = Math.random() < winProb;
       if (homeWins) { hScore = val; aScore = Math.floor(Math.random() * val); } 
       else { aScore = val; hScore = Math.floor(Math.random() * val); }
     } else if (t.scoringRuleType === 'nToNRange') {
       const min = t.nToNRangeMin || 0;
       const max = t.nToNRangeMax || 10;
       const totalSum = Math.floor(Math.random() * (max - min + 1)) + min;
-      hScore = Math.round(totalSum * baseWinProb);
+      hScore = Math.round(totalSum * winProb);
       aScore = totalSum - hScore;
     }
     return { hScore, aScore };
@@ -164,6 +169,39 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     setTournaments(prev => prev.map(t => t.id === tournamentId ? { ...t, matches: [], dualLeagueMatches: [], currentMatchday: 1, incidents: [] } : t));
   }, []);
 
+  const resetMatchday = useCallback((tournamentId: string, matchdayNumber: number) => {
+    setTournaments(prev => prev.map(t => {
+      if (t.id !== tournamentId) return t;
+      
+      const resetList = (mList: Match[]) => mList.map(m => {
+        if (m.matchday === matchdayNumber && m.isSimulated) {
+          // Revert budget changes
+          setTeams(tPrev => tPrev.map(team => {
+            if (team.id === m.homeId || team.id === m.awayId) {
+              const isHome = team.id === m.homeId;
+              const hScore = m.homeScore || 0;
+              const aScore = m.awayScore || 0;
+              const isWin = (isHome && hScore > aScore) || (!isHome && aScore > hScore);
+              const isLoss = (isHome && aScore > hScore) || (!isHome && hScore > aScore);
+              let change = isWin ? (t.winReward || 0) : isLoss ? -(t.lossPenalty || 0) : (t.drawReward || 0);
+              return { ...team, budget: Math.max(0, (team.budget || 0) - change) };
+            }
+            return team;
+          }));
+          return { ...m, isSimulated: false, homeScore: undefined, awayScore: undefined, winnerId: undefined, homePlayerId: undefined, awayPlayerId: undefined };
+        }
+        return m;
+      });
+
+      return { 
+        ...t, 
+        matches: resetList(t.matches), 
+        dualLeagueMatches: resetList(t.dualLeagueMatches || []),
+        incidents: (t.incidents || []).filter(inc => !inc.message.includes(`Jornada ${matchdayNumber}`))
+      };
+    }));
+  }, []);
+
   const transferPlayerInternal = (playerId: string, toTeamId: string | undefined) => {
     setPlayers(prev => prev.map(p => {
       if (p.id === playerId) {
@@ -205,8 +243,8 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
                   id: `inc-${Date.now()}-${Math.random()}`,
                   date: new Date().toLocaleDateString(),
                   message: isOfferForUser 
-                    ? `OFERTA RECIBIDA: El club ${seller.name} ofrece a ${player.name} por ${player.monetaryValue} ${settings.currency}.`
-                    : `Traspaso Táctico: ${player.name} deja ${seller.name} por ${buyer.name} (${player.monetaryValue} ${settings.currency})`,
+                    ? `OFERTA RECIBIDA: El club ${seller.name} ofrece a ${player.name} por ${player.monetaryValue} ${settings.currency}. (Jornada ${targetMatch.matchday})`
+                    : `Traspaso Táctico: ${player.name} deja ${seller.name} por ${buyer.name} (${player.monetaryValue} ${settings.currency}) - Jornada ${targetMatch.matchday}`,
                   type: 'transfer',
                   status: isOfferForUser ? 'pending' : 'accepted',
                   playerId: player.id, fromTeamId: seller.id, toTeamId: buyer.id, value: player.monetaryValue
@@ -223,7 +261,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
           newIncidents.push({
             id: `inc-sanc-${Date.now()}-${Math.random()}`,
             date: new Date().toLocaleDateString(),
-            message: `Sanción Administrativa: ${randomTeam.name} multado con ${penalty} ${settings.currency} por irregularidades.`,
+            message: `Sanción Administrativa: ${randomTeam.name} multado con ${penalty} ${settings.currency} por irregularidades. (Jornada ${targetMatch.matchday})`,
             type: 'sanction'
           });
           setTimeout(() => setTeams(prev => prev.map(team => team.id === randomTeam.id ? { ...team, budget: Math.max(0, team.budget - penalty) } : team)), 0);
@@ -289,6 +327,10 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       
       let nextT = { ...t };
       dayMatches.forEach(m => {
+        // Skip user match in arcade mode to allow manual play
+        const isUserMatch = t.mode === 'arcade' && (m.homeId === t.managedParticipantId || m.awayId === t.managedParticipantId);
+        if (isUserMatch) return;
+
         const { hScore, aScore } = generateScoreByRules(t, m.homeId, m.awayId);
         
         // Finalize budget updates for this match
@@ -368,8 +410,8 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   const updateSettings = (s: Partial<GlobalSettings>) => setSettings(p => ({ ...p, ...s }));
 
   const value = useMemo(() => ({
-    teams, players, tournaments, settings, addTeam, updateTeam, deleteTeam, addPlayer, updatePlayer, deletePlayer, addTournament, updateTournament, deleteTournament, updateSettings, importData, transferPlayer, generateSchedule, resetSchedule, resolveMatch, simulateMatchday, applySanction, processIncidentDecision
-  }), [teams, players, tournaments, settings, generateSchedule, resetSchedule, resolveMatch, simulateMatchday, transferPlayer, importData, applySanction, processIncidentDecision]);
+    teams, players, tournaments, settings, addTeam, updateTeam, deleteTeam, addPlayer, updatePlayer, deletePlayer, addTournament, updateTournament, deleteTournament, updateSettings, importData, transferPlayer, generateSchedule, resetSchedule, resetMatchday, resolveMatch, simulateMatchday, applySanction, processIncidentDecision
+  }), [teams, players, tournaments, settings, generateSchedule, resetSchedule, resetMatchday, resolveMatch, simulateMatchday, transferPlayer, importData, applySanction, processIncidentDecision]);
 
   return <TournamentContext.Provider value={value}>{children}</TournamentContext.Provider>;
 }

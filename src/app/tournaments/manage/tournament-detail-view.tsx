@@ -25,7 +25,7 @@ interface TournamentDetailViewProps {
 }
 
 export function TournamentDetailView({ id }: TournamentDetailViewProps) {
-  const { tournaments, teams, players, resolveMatch, simulateMatchday, generateSchedule, resetSchedule, updateTournament, settings, transferPlayer, applySanction, processIncidentDecision } = useTournamentStore();
+  const { tournaments, teams, players, resolveMatch, simulateMatchday, generateSchedule, resetSchedule, resetMatchday, updateTournament, settings, transferPlayer, applySanction, processIncidentDecision } = useTournamentStore();
   const { toast } = useToast();
   
   const [tournament, setTournament] = useState<Tournament | null>(null);
@@ -186,16 +186,20 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
       <div className="space-y-12">
         {entries.map(([day, dayMatches]) => (
           <div key={`mday-${isDual ? 'd' : 'm'}-${day}`} className="space-y-4">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <Badge variant="secondary" className="bg-primary text-white font-black uppercase">JORNADA {day}</Badge>
               <Button size="xs" variant="outline" className="h-6 px-3 text-[8px] font-black uppercase rounded-lg border-primary/30 text-primary hover:bg-primary hover:text-white" onClick={() => simulateMatchday(tournament!.id, Number(day))}>
                 <Play className="w-2.5 h-2.5 mr-1 fill-current" /> SIMULAR JORNADA
+              </Button>
+              <Button size="xs" variant="outline" className="h-6 px-3 text-[8px] font-black uppercase rounded-lg border-destructive/30 text-destructive hover:bg-destructive hover:text-white" onClick={() => resetMatchday(tournament!.id, Number(day))}>
+                <RefreshCw className="w-2.5 h-2.5 mr-1" /> REINICIAR RESULTADOS
               </Button>
             </div>
             <div className="grid gap-3">
               {dayMatches.map((m) => {
                 const home = teams.find(t => t.id === m.homeId); const away = teams.find(t => t.id === m.awayId);
                 if (!home || !away) return null;
+                const isArcadeMatch = tournament?.mode === 'arcade' && (m.homeId === tournament.managedParticipantId || m.awayId === tournament.managedParticipantId);
                 return (
                   <Card key={`m-card-${m.id}`} onClick={() => m.isSimulated && setSelectedMatchDetail(m)} className={cn("border-none shadow-md transition-all rounded-2xl overflow-hidden cursor-pointer", m.isSimulated && "hover:border-primary/30 border-2 border-transparent")}>
                     <CardContent className="p-4 flex items-center justify-between gap-4 bg-card">
@@ -205,7 +209,9 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                       </div>
                       <div className="w-20 text-center shrink-0">
                         {m.isSimulated ? ( <div className="text-lg font-black bg-muted/30 py-1 rounded-xl">{m.homeScore} - {m.awayScore}</div> ) : (
-                          <Button size="sm" onClick={(e) => { e.stopPropagation(); tournament?.mode === 'arcade' && (m.homeId === tournament.managedParticipantId || m.awayId === tournament.managedParticipantId) ? handleSimulateArcade(m, isDual) : handleSimulateNormal(m, isDual); }} className="w-full h-10 rounded-xl font-black bg-primary">SIM</Button>
+                          <Button size="sm" onClick={(e) => { e.stopPropagation(); isArcadeMatch ? handleSimulateArcade(m, isDual) : handleSimulateNormal(m, isDual); }} className="w-full h-10 rounded-xl font-black bg-primary">
+                            {isArcadeMatch ? 'TACT' : 'SIM'}
+                          </Button>
                         )}
                       </div>
                       <div className="flex-1 flex items-center justify-start gap-2 text-left overflow-hidden">
@@ -236,7 +242,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
           <Button variant="outline" onClick={() => setIsTransferCenterOpen(true)} className="rounded-xl font-black h-12 border-primary text-primary"><ArrowLeftRight className="w-4 h-4 mr-2" /> TRASPASOS</Button>
           <Button variant="outline" onClick={() => setIsSanctionMenuOpen(true)} className="rounded-xl font-black h-12 border-destructive text-destructive"><ShieldAlert className="w-4 h-4 mr-2" /> SANCIONES</Button>
           <Button variant="outline" onClick={() => setIsEditing(true)} className="rounded-xl font-black h-12 border-primary text-primary"><Settings2 className="w-4 h-4 mr-2" /> AJUSTES PRO</Button>
-          <Button variant="outline" onClick={() => resetSchedule(tournament.id)} className="rounded-xl font-black h-12 border-destructive text-destructive"><Trash2 className="w-4 h-4 mr-2" /> REINICIAR</Button>
+          <Button variant="outline" onClick={() => resetSchedule(tournament.id)} className="rounded-xl font-black h-12 border-destructive text-destructive"><Trash2 className="w-4 h-4 mr-2" /> REINICIAR TORNEO</Button>
         </div>
       </header>
 
