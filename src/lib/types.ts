@@ -99,6 +99,11 @@ export type TournamentIncident = {
   date: string;
   message: string;
   type: 'transfer' | 'sanction' | 'info';
+  status?: 'pending' | 'accepted' | 'rejected';
+  playerId?: string;
+  fromTeamId?: string;
+  toTeamId?: string;
+  value?: number;
 };
 
 export type Tournament = {
