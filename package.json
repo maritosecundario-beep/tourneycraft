@@ -10,7 +10,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "static:export": "next build",
+    "static:export": "IS_CAPACITOR=true next build",
     "mobile:sync": "npx cap sync",
     "mobile:open": "npx cap open android"
   },
