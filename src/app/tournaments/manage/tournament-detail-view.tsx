@@ -249,7 +249,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
               <Button variant="outline" onClick={() => setIsSanctionMenuOpen(true)} className="rounded-xl font-black h-12 border-destructive text-destructive"><ShieldAlert className="w-4 h-4 mr-2" /> SANCIONES</Button>
             </>
           )}
-          <Button variant="outline" onClick={() => setIsEditing(true)} className="rounded-xl font-black h-12 border-primary text-primary"><Settings2 className="w-4 h-4 mr-2" /> AJUSTES PRO</Button>
+          <Button variant="outline" onClick={() => setIsEditing(true)} className="rounded-xl font-black h-12 border-primary text-primary"><Settings2 className="text-primary w-4 h-4 mr-2" /> AJUSTES PRO</Button>
           <Button variant="outline" onClick={() => resetSchedule(tournament.id)} className="rounded-xl font-black h-12 border-destructive text-destructive"><Trash2 className="w-4 h-4 mr-2" /> REINICIAR TORNEO</Button>
         </div>
       </header>
@@ -379,6 +379,109 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                 
                 <div className="p-4 bg-muted/20 text-center text-[10px] font-black uppercase opacity-50 border-t">
                   Haz click en un jugador para sumar puntos o declararlo vencedor
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Match Details / Acta de Partido */}
+      <Dialog open={!!selectedMatchDetail} onOpenChange={(o) => !o && setSelectedMatchDetail(null)}>
+        <DialogContent className="rounded-[2.5rem] max-w-3xl p-0 overflow-hidden border-none shadow-2xl">
+          {selectedMatchDetail && (() => {
+            const m = selectedMatchDetail;
+            const home = teams.find(t => t.id === m.homeId) || players.find(p => p.id === m.homeId);
+            const away = teams.find(t => t.id === m.awayId) || players.find(p => p.id === m.awayId);
+            const hPlayer = players.find(p => p.id === m.homePlayerId);
+            const aPlayer = players.find(p => p.id === m.awayPlayerId);
+
+            return (
+              <div className="flex flex-col max-h-[90vh]">
+                <div className="p-6 bg-primary text-white border-b flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xl font-black uppercase">Acta de Partido</h3>
+                    <p className="text-[10px] font-bold opacity-80 uppercase">Jornada {m.matchday} • {tournament.name}</p>
+                  </div>
+                  <History className="w-8 h-8 opacity-20" />
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-8 space-y-10">
+                  <div className="flex items-center justify-center gap-12 py-6 border-b border-dashed">
+                    <div className="text-center space-y-3">
+                      {home && 'abbreviation' in home ? <CrestIcon shape={(home as any).emblemShape} pattern={(home as any).emblemPattern} c1={(home as any).crestPrimary} c2={(home as any).crestSecondary} c3={(home as any).crestTertiary || (home as any).crestPrimary} size="w-16 h-16" /> : <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center text-3xl font-black">#{(home as any)?.jerseyNumber}</div>}
+                      <p className="font-black text-sm uppercase">{home?.name}</p>
+                    </div>
+                    <div className="text-6xl font-black">{m.homeScore} - {m.awayScore}</div>
+                    <div className="text-center space-y-3">
+                      {away && 'abbreviation' in away ? <CrestIcon shape={(away as any).emblemShape} pattern={(away as any).emblemPattern} c1={(away as any).crestPrimary} c2={(away as any).crestSecondary} c3={(away as any).crestTertiary || (away as any).crestPrimary} size="w-16 h-16" /> : <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center text-3xl font-black">#{(away as any)?.jerseyNumber}</div>}
+                      <p className="font-black text-sm uppercase">{away?.name}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3 border-l-4 border-accent pl-3">
+                        <UserCheck className="text-accent" />
+                        <h4 className="font-black uppercase text-sm">Estrella Local</h4>
+                      </div>
+                      {hPlayer ? (
+                        <Card className="bg-muted/20 border-none rounded-2xl p-4">
+                          <div className="flex items-center gap-4 mb-4">
+                            <div className="w-12 h-12 bg-primary text-white rounded-xl flex items-center justify-center font-black text-lg">#{hPlayer.jerseyNumber}</div>
+                            <div>
+                              <p className="font-black uppercase">{hPlayer.name}</p>
+                              <Badge variant="outline" className="text-[8px] h-4">{hPlayer.position}</Badge>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            {hPlayer.attributes.slice(0, 4).map(at => (
+                              <div key={at.name} className="flex justify-between items-center text-[10px]">
+                                <span className="font-bold opacity-60 uppercase">{at.name}</span>
+                                <div className="flex-1 mx-3 h-1 bg-muted rounded-full overflow-hidden">
+                                  <div className="h-full bg-accent" style={{ width: `${at.value}%` }} />
+                                </div>
+                                <span className="font-black">{at.value}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </Card>
+                      ) : <p className="text-[10px] italic opacity-50">Sin datos de jugador registrados.</p>}
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3 border-l-4 border-primary pl-3">
+                        <UserCheck className="text-primary" />
+                        <h4 className="font-black uppercase text-sm">Estrella Visitante</h4>
+                      </div>
+                      {aPlayer ? (
+                        <Card className="bg-muted/20 border-none rounded-2xl p-4">
+                          <div className="flex items-center gap-4 mb-4">
+                            <div className="w-12 h-12 bg-primary text-white rounded-xl flex items-center justify-center font-black text-lg">#{aPlayer.jerseyNumber}</div>
+                            <div>
+                              <p className="font-black uppercase">{aPlayer.name}</p>
+                              <Badge variant="outline" className="text-[8px] h-4">{aPlayer.position}</Badge>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            {aPlayer.attributes.slice(0, 4).map(at => (
+                              <div key={at.name} className="flex justify-between items-center text-[10px]">
+                                <span className="font-bold opacity-60 uppercase">{at.name}</span>
+                                <div className="flex-1 mx-3 h-1 bg-muted rounded-full overflow-hidden">
+                                  <div className="h-full bg-primary" style={{ width: `${at.value}%` }} />
+                                </div>
+                                <span className="font-black">{at.value}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </Card>
+                      ) : <p className="text-[10px] italic opacity-50">Sin datos de jugador registrados.</p>}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-muted/30 border-t flex justify-end">
+                  <Button onClick={() => setSelectedMatchDetail(null)} className="rounded-xl font-black px-8">CERRAR INFORME</Button>
                 </div>
               </div>
             );

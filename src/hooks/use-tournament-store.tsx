@@ -85,7 +85,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     let aScore = 0;
     const val = t.scoringValue || 9;
     
-    // Si es modo Challenge, las reglas normales no aplican del mismo modo, pero mantenemos compatibilidad
     if (t.mode === 'challenge') {
       const p1 = players.find(p => p.id === hId);
       const p2 = players.find(p => p.id === aId);
@@ -93,7 +92,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       const p2Avg = p2 ? p2.attributes.reduce((a,b) => a + b.value, 0) / p2.attributes.length : 50;
       const winProb = p1Avg / (p1Avg + p2Avg);
       
-      // Simulación básica challenge
       for(let i=0; i<10; i++) {
         if(Math.random() < winProb) hScore++;
         else aScore++;
@@ -141,7 +139,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       const rounds = t.challengeRounds || 1;
       let day = 1;
 
-      for (let r = 0; round < rounds; r++) {
+      for (let r = 0; r < rounds; r++) {
         t.challengeSports.forEach((sport) => {
           const isHomeP1 = day % 2 !== 0;
           schedule.push({
