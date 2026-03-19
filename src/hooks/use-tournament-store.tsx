@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { Team, Player, Tournament, GlobalSettings, Match, TournamentIncident } from '@/lib/types';
+import { Team, Player, Tournament, GlobalSettings, Match, TournamentIncident, ChallengeSport } from '@/lib/types';
 import hortaData from '@/data/horta-league.json';
 
 interface TournamentContextType {
@@ -84,13 +84,28 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     let hScore = 0;
     let aScore = 0;
     const val = t.scoringValue || 9;
+    
+    // Si es modo Challenge, las reglas normales no aplican del mismo modo, pero mantenemos compatibilidad
+    if (t.mode === 'challenge') {
+      const p1 = players.find(p => p.id === hId);
+      const p2 = players.find(p => p.id === aId);
+      const p1Avg = p1 ? p1.attributes.reduce((a,b) => a + b.value, 0) / p1.attributes.length : 50;
+      const p2Avg = p2 ? p2.attributes.reduce((a,b) => a + b.value, 0) / p2.attributes.length : 50;
+      const winProb = p1Avg / (p1Avg + p2Avg);
+      
+      // Simulación básica challenge
+      for(let i=0; i<10; i++) {
+        if(Math.random() < winProb) hScore++;
+        else aScore++;
+      }
+      return { hScore, aScore };
+    }
+
     const hTeam = teams.find(team => team.id === hId);
     const aTeam = teams.find(team => team.id === aId);
-    
-    const hRating = (hTeam?.rating || 50) + 5; // Local advantage +5
+    const hRating = (hTeam?.rating || 50) + 5; 
     const aRating = (aTeam?.rating || 50);
     const chaos = (t.variability || 15) / 100;
-    
     const winProb = Math.max(0.05, Math.min(0.95, (hRating / (hRating + aRating)) + (Math.random() * chaos - chaos/2)));
 
     if (t.scoringRuleType === 'bestOfN') {
@@ -113,12 +128,34 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       }
     }
     return { hScore, aScore };
-  }, [teams]);
+  }, [teams, players]);
 
   const createSchedule = useCallback((t: Tournament): Tournament => {
     const schedule: Match[] = [];
     const dualSchedule: Match[] = [];
     let matchIdCounter = 1;
+
+    if (t.mode === 'challenge' && t.participants.length === 2 && t.challengeSports) {
+      const p1 = t.participants[0];
+      const p2 = t.participants[1];
+      const rounds = t.challengeRounds || 1;
+      let day = 1;
+
+      for (let r = 0; round < rounds; r++) {
+        t.challengeSports.forEach((sport) => {
+          const isHomeP1 = day % 2 !== 0;
+          schedule.push({
+            id: `${t.id}-ch-${matchIdCounter++}`,
+            homeId: isHomeP1 ? p1 : p2,
+            awayId: isHomeP1 ? p2 : p1,
+            matchday: day++,
+            isSimulated: false,
+            challengeSportId: sport.id
+          });
+        });
+      }
+      return { ...t, matches: schedule, currentMatchday: 1, incidents: [] };
+    }
 
     const createMatchesForList = (participants: string[], groupPrefix: string = "") => {
       const n = participants.length;
@@ -172,16 +209,18 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       
       const resetList = (mList: Match[]) => mList.map(m => {
         if (m.matchday === matchdayNumber && m.isSimulated) {
-          const isHomeWin = (m.homeScore || 0) > (m.awayScore || 0);
-          const isAwayWin = (m.awayScore || 0) > (m.homeScore || 0);
-          const hChange = isHomeWin ? (t.winReward || 0) : isAwayWin ? -(t.lossPenalty || 0) : (t.drawReward || 0);
-          const aChange = isAwayWin ? (t.winReward || 0) : isHomeWin ? -(t.lossPenalty || 0) : (t.drawReward || 0);
-          
-          setTimeout(() => setTeams(tPrev => tPrev.map(team => {
-            if (team.id === m.homeId) return { ...team, budget: Math.max(0, team.budget - hChange) };
-            if (team.id === m.awayId) return { ...team, budget: Math.max(0, team.budget - aChange) };
-            return team;
-          })), 0);
+          if (t.mode !== 'challenge') {
+            const isHomeWin = (m.homeScore || 0) > (m.awayScore || 0);
+            const isAwayWin = (m.awayScore || 0) > (m.homeScore || 0);
+            const hChange = isHomeWin ? (t.winReward || 0) : isAwayWin ? -(t.lossPenalty || 0) : (t.drawReward || 0);
+            const aChange = isAwayWin ? (t.winReward || 0) : isHomeWin ? -(t.lossPenalty || 0) : (t.drawReward || 0);
+            
+            setTimeout(() => setTeams(tPrev => tPrev.map(team => {
+              if (team.id === m.homeId) return { ...team, budget: Math.max(0, team.budget - hChange) };
+              if (team.id === m.awayId) return { ...team, budget: Math.max(0, team.budget - aChange) };
+              return team;
+            })), 0);
+          }
           return { ...m, isSimulated: false, homeScore: undefined, awayScore: undefined, homePlayerId: undefined, awayPlayerId: undefined };
         }
         return m;
@@ -230,53 +269,35 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       }
 
       const newIncidents: TournamentIncident[] = [...(t.incidents || [])];
-      if (!isDual && autoSim) {
+      if (t.mode !== 'challenge' && !isDual && autoSim) {
         if (Math.random() < 0.20) {
-          const seller = teams[Math.floor(Math.random() * teams.length)];
-          const buyer = teams[Math.floor(Math.random() * teams.length)];
-          const sellerPlayers = players.filter(p => p.teamId === seller.id);
-          if (sellerPlayers.length > 0 && seller.id !== buyer.id) {
-            const player = sellerPlayers[Math.floor(Math.random() * sellerPlayers.length)];
-            if (buyer.budget >= player.monetaryValue) {
-              const isOfferForUser = buyer.id === t.managedParticipantId;
-              newIncidents.push({
-                id: `inc-tr-${Date.now()}`,
-                date: `Jornada ${targetMatch.matchday}`,
-                message: isOfferForUser 
-                  ? `OFERTA: El ${seller.name} ofrece a ${player.name} por ${player.monetaryValue} ${settings.currency}.`
-                  : `Mercado: ${player.name} ficha por ${buyer.name} (${player.monetaryValue} ${settings.currency}).`,
-                type: 'transfer',
-                status: isOfferForUser ? 'pending' : 'accepted',
-                playerId: player.id, fromTeamId: seller.id, toTeamId: buyer.id, value: player.monetaryValue
-              });
-              if (!isOfferForUser) setTimeout(() => transferPlayerInternal(player.id, buyer.id), 0);
+          const validTeams = teams.filter(tm => t.participants.includes(tm.id));
+          if (validTeams.length >= 2) {
+            const seller = validTeams[Math.floor(Math.random() * validTeams.length)];
+            const buyer = validTeams[Math.floor(Math.random() * validTeams.length)];
+            const sellerPlayers = players.filter(p => p.teamId === seller.id);
+            if (sellerPlayers.length > 0 && seller.id !== buyer.id) {
+              const player = sellerPlayers[Math.floor(Math.random() * sellerPlayers.length)];
+              if (buyer.budget >= player.monetaryValue) {
+                const isOfferForUser = buyer.id === t.managedParticipantId;
+                newIncidents.push({
+                  id: `inc-tr-${Date.now()}`,
+                  date: `Jornada ${targetMatch.matchday}`,
+                  message: isOfferForUser 
+                    ? `OFERTA: El ${seller.name} ofrece a ${player.name} por ${player.monetaryValue} ${settings.currency}.`
+                    : `Mercado: ${player.name} ficha por ${buyer.name} (${player.monetaryValue} ${settings.currency}).`,
+                  type: 'transfer',
+                  status: isOfferForUser ? 'pending' : 'accepted',
+                  playerId: player.id, fromTeamId: seller.id, toTeamId: buyer.id, value: player.monetaryValue
+                });
+                if (!isOfferForUser) setTimeout(() => transferPlayerInternal(player.id, buyer.id), 0);
+              }
             }
           }
         }
-        if (Math.random() < 0.05) {
-          const randomTeam = teams[Math.floor(Math.random() * teams.length)];
-          const penalty = Math.floor(Math.random() * 50) + 10;
-          newIncidents.push({
-            id: `inc-sanc-${Date.now()}`,
-            date: `Jornada ${targetMatch.matchday}`,
-            message: `Multa: ${randomTeam.name} pierde ${penalty} ${settings.currency} por incidentes de grada.`,
-            type: 'sanction'
-          });
-          setTimeout(() => setTeams(prevT => prevT.map(team => team.id === randomTeam.id ? { ...team, budget: Math.max(0, team.budget - penalty) } : team)), 0);
-        }
       }
 
-      const finalHPlayerId = homePlayerId || getBestPlayerId(targetMatch.homeId);
-      const finalAPlayerId = awayPlayerId || getBestPlayerId(targetMatch.awayId);
-
-      setTimeout(() => setPlayers(pPrev => pPrev.map(p => {
-        if ((p.teamId === targetMatch.homeId || p.teamId === targetMatch.awayId) && p.suspensionMatchdays > 0) {
-          return { ...p, suspensionMatchdays: p.suspensionMatchdays - 1 };
-        }
-        return p;
-      })), 0);
-
-      if (!isDual) {
+      if (t.mode !== 'challenge' && !isDual) {
         setTimeout(() => setTeams(tPrev => tPrev.map(team => {
           if (team.id === targetMatch.homeId || team.id === targetMatch.awayId) {
             const isHome = team.id === targetMatch.homeId;
@@ -288,6 +309,9 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
           return team;
         })), 0);
       }
+
+      const finalHPlayerId = homePlayerId || (t.mode === 'challenge' ? targetMatch.homeId : getBestPlayerId(targetMatch.homeId));
+      const finalAPlayerId = awayPlayerId || (t.mode === 'challenge' ? targetMatch.awayId : getBestPlayerId(targetMatch.awayId));
 
       const updateMatchList = (mList: Match[]) => mList.map(m => {
         if (m.id === matchId) {
@@ -323,19 +347,21 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       const dayMatches = t.matches.filter(m => m.matchday === targetDay && !m.isSimulated);
       let nextT = { ...t };
       dayMatches.forEach(m => {
-        const isUserMatch = t.mode === 'arcade' && (m.homeId === t.managedParticipantId || m.awayId === t.managedParticipantId);
+        const isUserMatch = (t.mode === 'arcade' && (m.homeId === t.managedParticipantId || m.awayId === t.managedParticipantId)) || (t.mode === 'challenge');
         if (isUserMatch) return;
         const { hScore, aScore } = generateScoreByRules(t, m.homeId, m.awayId);
-        setTimeout(() => setTeams(tPrev => tPrev.map(team => {
-          if (team.id === m.homeId || team.id === m.awayId) {
-            const isHome = team.id === m.homeId;
-            const isWin = (isHome && hScore > aScore) || (!isHome && aScore > hScore);
-            const isLoss = (isHome && aScore > hScore) || (!isHome && hScore > aScore);
-            let change = isWin ? (t.winReward || 0) : isLoss ? -(t.lossPenalty || 0) : (t.drawReward || 0);
-            return { ...team, budget: Math.max(0, (team.budget || 0) + change) };
-          }
-          return team;
-        })), 0);
+        if (t.mode !== 'challenge') {
+          setTimeout(() => setTeams(tPrev => tPrev.map(team => {
+            if (team.id === m.homeId || team.id === m.awayId) {
+              const isHome = team.id === m.homeId;
+              const isWin = (isHome && hScore > aScore) || (!isHome && aScore > hScore);
+              const isLoss = (isHome && aScore > hScore) || (!isHome && hScore > aScore);
+              let change = isWin ? (t.winReward || 0) : isLoss ? -(t.lossPenalty || 0) : (t.drawReward || 0);
+              return { ...team, budget: Math.max(0, (team.budget || 0) + change) };
+            }
+            return team;
+          })), 0);
+        }
         const hPlayerId = getBestPlayerId(m.homeId);
         const aPlayerId = getBestPlayerId(m.awayId);
         nextT.matches = nextT.matches.map(nm => nm.id === m.id ? { ...nm, homeScore: hScore, awayScore: aScore, isSimulated: true, homePlayerId: hPlayerId, awayPlayerId: aPlayerId } : nm);

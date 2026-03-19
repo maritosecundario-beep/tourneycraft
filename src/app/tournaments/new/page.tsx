@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -10,9 +9,9 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Trophy, Users, Coins, Target, Sparkles, Group, Plus, X, AlertCircle, Settings2, CheckCircle2, RefreshCw, Wand2, Loader2 } from 'lucide-react';
+import { Trophy, Users, Coins, Target, Sparkles, Group, Plus, X, AlertCircle, Settings2, CheckCircle2, RefreshCw, Wand2, Loader2, UserPlus, Activity, Clock, Timer, ShieldCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { TournamentMode, TournamentFormat, TournamentEntryType, LeagueType, TournamentGroup, ScoringRuleType } from '@/lib/types';
+import { TournamentMode, TournamentFormat, TournamentEntryType, LeagueType, TournamentGroup, ScoringRuleType, ChallengeSport } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CrestIcon } from '@/components/ui/crest-icon';
@@ -23,7 +22,7 @@ import { Textarea } from '@/components/ui/textarea';
 
 export default function NewTournamentPage() {
   const router = useRouter();
-  const { addTournament, teams, settings } = useTournamentStore();
+  const { addTournament, teams, players, settings } = useTournamentStore();
   const { toast } = useToast();
   
   const [name, setName] = useState('');
@@ -36,23 +35,31 @@ export default function NewTournamentPage() {
   const [dualLeagueEnabled, setDualLeagueEnabled] = useState(false);
   const [managedParticipantId, setManagedParticipantId] = useState<string>('');
   
+  // Challenge State
+  const [challengeSports, setChallengeSports] = useState<ChallengeSport[]>([]);
+  const [challengeRounds, setChallengeRounds] = useState(1);
+  const [isSportModalOpen, setIsSportModalOpen] = useState(false);
+  
+  // New Sport Form
+  const [nsName, setNsName] = useState('');
+  const [nsNumeric, setNsNumeric] = useState(true);
+  const [nsPeriods, setNsPeriods] = useState(false);
+  const [nsNumPeriods, setNsNumPeriods] = useState(2);
+  const [nsDuration, setNsDuration] = useState(60);
+  const [nsRest, setNsRest] = useState(15);
+
   const [groups, setGroups] = useState<TournamentGroup[]>([
     { id: 'g1', name: 'Horta Sud', participantIds: [] },
     { id: 'g2', name: 'Horta Nord', participantIds: [] }
   ]);
   
-  // AI Agent State
-  const [isAIDialogOpen, setIsAIDialogOpen] = useState(false);
-  const [aiInstructions, setAiInstructions] = useState('');
-  const [isAILoading, setIsAILoading] = useState(false);
-
   // Rules
   const [winReward, setWinReward] = useState(10);
   const [lossPenalty, setLossPenalty] = useState(15);
   const [drawReward, setDrawReward] = useState(0);
-  const [winPoints, setWinPoints] = useState(1);
+  const [winPoints, setWinPoints] = useState(3);
   const [lossPoints, setLossPoints] = useState(0);
-  const [drawPoints, setDrawPoints] = useState(0);
+  const [drawPoints, setDrawPoints] = useState(1);
   
   const [scoringType, setScoringType] = useState<ScoringRuleType>('bestOfN');
   const [scoringValue, setScoringValue] = useState(9);
@@ -62,15 +69,9 @@ export default function NewTournamentPage() {
   const [playoffSpots, setPlayoffSpots] = useState(8);
   const [relegationSpots, setRelegationSpots] = useState(4);
 
-  const arcadeKey = useMemo(() => selectedParticipants.join('-'), [selectedParticipants]);
-
-  const arcadeTeamOptions = useMemo(() => {
-    return teams.filter(t => selectedParticipants.includes(t.id));
-  }, [teams, selectedParticipants]);
-
   const handleCreateManual = () => {
     if (!name || selectedParticipants.length < 2) {
-      toast({ title: "Configuración incompleta", description: "Nombre y al menos 2 equipos requeridos.", variant: "destructive" });
+      toast({ title: "Configuración incompleta", description: "Nombre y al menos 2 participantes requeridos.", variant: "destructive" });
       return;
     }
 
@@ -79,21 +80,40 @@ export default function NewTournamentPage() {
       return;
     }
 
+    if (mode === 'challenge') {
+      if (selectedParticipants.length !== 2) {
+        toast({ title: "Challenge Inválido", description: "Solo puedes elegir exactamente 2 jugadores.", variant: "destructive" });
+        return;
+      }
+      if (challengeSports.length === 0) {
+        toast({ title: "Sin Deportes", description: "Añade al menos un deporte al Challenge.", variant: "destructive" });
+        return;
+      }
+    }
+
     const newTourney = {
       id: Math.random().toString(36).substr(2, 9),
-      name, sport, entryType, mode, format, leagueType,
+      name, sport: mode === 'challenge' ? 'Multisport' : sport, 
+      entryType: mode === 'challenge' ? 'players' : entryType, 
+      mode, format: mode === 'challenge' ? 'league' : format, 
+      leagueType: mode === 'challenge' ? 'single-table' : leagueType,
       managedParticipantId: mode === 'arcade' ? managedParticipantId : undefined,
       scoringRuleType: scoringType, 
       scoringValue,
       nToNRangeMin: rangeMin,
       nToNRangeMax: rangeMax,
       participants: selectedParticipants, 
-      groups: (format === 'league' && leagueType === 'groups') ? groups : undefined,
+      groups: (format === 'league' && leagueType === 'groups' && mode !== 'challenge') ? groups : undefined,
       groupIsolation: true,
-      dualLeagueEnabled, dualLeagueMatches: [], winReward, lossPenalty, drawReward,
+      dualLeagueEnabled: mode === 'challenge' ? false : dualLeagueEnabled, 
+      dualLeagueMatches: [], winReward, lossPenalty, drawReward,
       winPoints, lossPoints, drawPoints,
-      matches: [], playoffSpots, relegationSpots, currentSeason: 1, currentMatchday: 1,
-      settingsLocked: false, variability: 15
+      matches: [], playoffSpots: mode === 'challenge' ? 0 : playoffSpots, 
+      relegationSpots: mode === 'challenge' ? 0 : relegationSpots, 
+      currentSeason: 1, currentMatchday: 1,
+      settingsLocked: false, variability: 15,
+      challengeSports: mode === 'challenge' ? challengeSports : undefined,
+      challengeRounds: mode === 'challenge' ? challengeRounds : undefined
     };
 
     addTournament(newTourney as any);
@@ -101,66 +121,20 @@ export default function NewTournamentPage() {
     router.push(`/tournaments`);
   };
 
-  const addGroup = () => {
-    const newId = `g-${Date.now()}`;
-    setGroups([...groups, { id: newId, name: `Grupo ${groups.length + 1}`, participantIds: [] }]);
-  };
-
-  const assignToGroup = (participantId: string, groupId: string) => {
-    setGroups(groups.map(g => {
-      const cleanedIds = g.participantIds.filter(id => id !== participantId);
-      if (g.id === groupId) {
-        return { ...g, participantIds: [...cleanedIds, participantId] };
-      }
-      return { ...g, participantIds: cleanedIds };
-    }));
-  };
-
-  const distributeAutomatically = () => {
-    if (selectedParticipants.length === 0 || groups.length === 0) return;
-    const newGroups = groups.map(g => ({ ...g, participantIds: [] }));
-    selectedParticipants.forEach((pId, index) => {
-      const groupIdx = index % groups.length;
-      newGroups[groupIdx].participantIds.push(pId);
-    });
-    setGroups(newGroups);
-    toast({ title: "Reparto Equitativo", description: "Equipos distribuidos entre las conferencias." });
-  };
-
-  const handleAIDistribution = async () => {
-    if (selectedParticipants.length === 0) {
-      toast({ title: "Sin equipos", description: "Selecciona equipos antes de usar la IA.", variant: "destructive" });
-      return;
-    }
-    
-    setIsAILoading(true);
-    try {
-      const participantData = teams.filter(t => selectedParticipants.includes(t.id)).map(t => ({
-        id: t.id,
-        name: t.name,
-        description: t.description
-      }));
-
-      const result = await aiGroupDistributor({
-        teams: participantData,
-        instructions: aiInstructions || "Distribuye los equipos de forma lógica y equilibrada.",
-        numGroups: groups.length
-      });
-
-      const newGroups = result.groups.map((g, idx) => ({
-        id: `ai-g-${Date.now()}-${idx}`,
-        name: g.name,
-        participantIds: g.participantIds
-      }));
-
-      setGroups(newGroups);
-      toast({ title: "Distribución de IA Aplicada", description: result.summary });
-      setIsAIDialogOpen(false);
-    } catch (e) {
-      toast({ title: "Error de IA", description: "No se pudo procesar la distribución.", variant: "destructive" });
-    } finally {
-      setIsAILoading(false);
-    }
+  const addSport = () => {
+    if (!nsName) return;
+    const newSport: ChallengeSport = {
+      id: `sport-${Date.now()}`,
+      name: nsName,
+      isNumeric: nsNumeric,
+      hasPeriods: nsPeriods,
+      numPeriods: nsPeriods ? nsNumPeriods : undefined,
+      periodDuration: nsPeriods ? nsDuration : undefined,
+      restDuration: nsPeriods ? nsRest : undefined,
+    };
+    setChallengeSports([...challengeSports, newSport]);
+    setIsSportModalOpen(false);
+    setNsName('');
   };
 
   return (
@@ -178,126 +152,135 @@ export default function NewTournamentPage() {
             <CardTitle className="text-lg font-black uppercase">Estructura Base</CardTitle>
           </CardHeader>
           <CardContent className="p-6 space-y-6">
-            <div className="space-y-2"><Label>Nombre del Torneo</Label><Input value={name} onChange={e => setName(e.target.value)} className="h-12 rounded-xl" placeholder="Ej: Lliga l'Horta Élite" /></div>
+            <div className="space-y-2"><Label>Nombre del Torneo</Label><Input value={name} onChange={e => setName(e.target.value)} className="h-12 rounded-xl" placeholder="Ej: Challenge l'Horta 2024" /></div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>Deporte</Label><Input value={sport} onChange={e => setSport(e.target.value)} className="h-12 rounded-xl" /></div>
               <div className="space-y-2">
                 <Label>Modo de Juego</Label>
-                <Select value={mode} onValueChange={(v: any) => setMode(v)}>
+                <Select value={mode} onValueChange={(v: any) => {
+                  setMode(v);
+                  if (v === 'challenge') {
+                    setEntryType('players');
+                    setFormat('league');
+                    setLeagueType('single-table');
+                    setSelectedParticipants([]);
+                  }
+                }}>
                   <SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
                   <SelectContent className="rounded-xl">
                     <SelectItem value="normal">Simulación Total</SelectItem>
                     <SelectItem value="arcade">Modo Arcade (Controlas Club)</SelectItem>
+                    <SelectItem value="challenge">MODO CHALLENGE (Innovación)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Participantes</Label>
+                <Select value={entryType} onValueChange={(v: any) => setEntryType(v)} disabled={mode === 'challenge'}>
+                  <SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="teams">Clubs / Equipos</SelectItem>
+                    <SelectItem value="players">Agentes Libres</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             
-            {mode === 'arcade' && (
-              <div className="space-y-2 p-4 bg-primary/5 border-2 border-primary/20 rounded-2xl" key={`arcade-sel-${arcadeKey}`}>
-                <Label className="flex items-center gap-2 font-black text-[10px] uppercase text-primary mb-2">
-                  <Target className="w-4 h-4" /> Tu Club de Gestión
-                </Label>
-                <Select value={managedParticipantId} onValueChange={setManagedParticipantId}>
-                  <SelectTrigger className="h-12 rounded-xl border-primary/30">
-                    <SelectValue placeholder={arcadeTeamOptions.length > 0 ? "Seleccionar club..." : "Inscribe equipos primero"} />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl">
-                    {arcadeTeamOptions.map(t => (
-                      <SelectItem key={`managed-opt-${t.id}`} value={t.id}>{t.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            {mode !== 'challenge' && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Formato</Label>
+                    <Select value={format} onValueChange={(v: any) => setFormat(v)}>
+                      <SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
+                      <SelectContent className="rounded-xl">
+                        <SelectItem value="league">Liga Regular</SelectItem>
+                        <SelectItem value="knockout">Eliminatoria Directa</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {format === 'league' && (
+                    <div className="space-y-2">
+                      <Label>Tipo de Liga</Label>
+                      <Select value={leagueType} onValueChange={(v: any) => setLeagueType(v)}>
+                        <SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          <SelectItem value="single-table">Tabla Única Global</SelectItem>
+                          <SelectItem value="groups">Conferencias / Grupos</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl border">
+                  <div className="space-y-0.5">
+                    <Label className="font-black uppercase text-[10px]">Liga Dual (Espejo)</Label>
+                    <p className="text-[9px] text-muted-foreground">Simula canteras en paralelo e invertido.</p>
+                  </div>
+                  <Switch checked={dualLeagueEnabled} onCheckedChange={setDualLeagueEnabled} />
+                </div>
+              </>
             )}
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Formato</Label>
-                <Select value={format} onValueChange={(v: any) => setFormat(v)}>
-                  <SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
-                  <SelectContent className="rounded-xl">
-                    <SelectItem value="league">Liga Regular</SelectItem>
-                    <SelectItem value="knockout">Eliminatoria Directa</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {format === 'league' && (
-                <div className="space-y-2">
-                  <Label>Tipo de Liga</Label>
-                  <Select value={leagueType} onValueChange={(v: any) => setLeagueType(v)}>
-                    <SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
-                    <SelectContent className="rounded-xl">
-                      <SelectItem value="single-table">Tabla Única Global</SelectItem>
-                      <SelectItem value="groups">Conferencias / Grupos</SelectItem>
-                    </SelectContent>
-                  </Select>
+            {mode === 'challenge' && (
+              <div className="space-y-4 p-6 bg-accent/5 border-2 border-accent/20 rounded-[2rem]">
+                <div className="flex justify-between items-center">
+                  <h3 className="font-black uppercase text-accent text-sm flex items-center gap-2"><Activity className="w-4 h-4" /> Disciplinas del Challenge</h3>
+                  <Button size="sm" onClick={() => setIsSportModalOpen(true)} className="rounded-lg h-8 bg-accent font-black text-[10px]"><Plus className="w-3 h-3 mr-1" /> AÑADIR DEPORTE</Button>
                 </div>
-              )}
-            </div>
-            <div className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl border">
-              <div className="space-y-0.5">
-                <Label className="font-black uppercase text-[10px]">Liga Dual (Espejo)</Label>
-                <p className="text-[9px] text-muted-foreground">Simula canteras en paralelo e invertido.</p>
+                <ScrollArea className="h-32">
+                  <div className="space-y-2">
+                    {challengeSports.length === 0 ? <p className="text-center text-[10px] py-8 text-muted-foreground opacity-50 uppercase font-black">Sin deportes añadidos</p> : 
+                      challengeSports.map(s => (
+                        <div key={s.id} className="flex items-center justify-between bg-card p-3 rounded-xl border">
+                          <div className="flex items-center gap-3">
+                            <Activity className="w-4 h-4 text-accent" />
+                            <div><p className="font-black text-xs uppercase">{s.name}</p><p className="text-[8px] opacity-50 uppercase">{s.isNumeric ? 'Numérico' : 'G/P'} {s.hasPeriods ? `• ${s.numPeriods} Periodos` : ''}</p></div>
+                          </div>
+                          <X className="w-4 h-4 text-destructive cursor-pointer" onClick={() => setChallengeSports(challengeSports.filter(x => x.id !== s.id))} />
+                        </div>
+                      ))
+                    }
+                  </div>
+                </ScrollArea>
+                <div className="pt-2">
+                  <Label className="text-[10px] font-black uppercase mb-2 block">Vueltas de Liga</Label>
+                  <Input type="number" value={challengeRounds} onChange={e => setChallengeRounds(Number(e.target.value))} className="h-10" />
+                </div>
               </div>
-              <Switch checked={dualLeagueEnabled} onCheckedChange={setDualLeagueEnabled} />
-            </div>
+            )}
           </CardContent>
         </Card>
 
         <Card className="border-none bg-card shadow-2xl rounded-[2.5rem] overflow-hidden">
           <CardHeader className="bg-primary/5 border-b p-6">
             <CardTitle className="text-lg font-black uppercase flex items-center gap-2">
-              <Settings2 className="text-primary" /> Reglas de Puntuación
+              <Settings2 className="text-primary" /> Sistema de Puntuación
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6 space-y-6">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Sistema de Marcador</Label>
-                <Select value={scoringType} onValueChange={(v: any) => setScoringType(v)}>
-                  <SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="bestOfN">El mejor de N (Sets)</SelectItem>
-                    <SelectItem value="firstToN">Primero en marcar N</SelectItem>
-                    <SelectItem value="nToNRange">Rango de puntuación total</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-center block">VICTORIA</Label><Input type="number" value={winPoints} onChange={e => setWinPoints(Number(e.target.value))} className="h-12 text-center rounded-xl font-black text-xl" /></div>
+              <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-center block">EMPATE</Label><Input type="number" value={drawPoints} onChange={e => setDrawPoints(Number(e.target.value))} className="h-12 text-center rounded-xl font-black text-xl" /></div>
+              <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-center block">DERROTA</Label><Input type="number" value={lossPoints} onChange={e => setLossPoints(Number(e.target.value))} className="h-12 text-center rounded-xl font-black text-xl" /></div>
+            </div>
 
-              {scoringType === 'nToNRange' ? (
-                <div className="grid grid-cols-2 gap-4 p-4 bg-muted/20 rounded-2xl">
-                  <div className="space-y-1">
-                    <Label className="text-[10px] font-black uppercase">Min Puntos</Label>
-                    <Input type="number" value={rangeMin} onChange={e => setRangeMin(Number(e.target.value))} />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[10px] font-black uppercase">Max Puntos</Label>
-                    <Input type="number" value={rangeMax} onChange={e => setRangeMax(Number(e.target.value))} />
-                  </div>
+            {mode !== 'challenge' && (
+              <div className="p-6 bg-accent/5 rounded-[2rem] border space-y-4">
+                <Label className="text-[10px] font-black uppercase text-accent flex items-center gap-2"><Coins className="w-4 h-4" /> Economía (CR)</Label>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-1"><Label className="text-[9px] text-center block uppercase font-bold">Gana (+)</Label><Input type="number" value={winReward} onChange={e => setWinReward(Number(e.target.value))} className="h-10 text-center" /></div>
+                  <div className="space-y-1"><Label className="text-[9px] text-center block uppercase font-bold">Pierde (-)</Label><Input type="number" value={lossPenalty} onChange={e => setLossPenalty(Number(e.target.value))} className="h-10 text-center" /></div>
+                  <div className="space-y-1"><Label className="text-[9px] text-center block uppercase font-bold">Empata</Label><Input type="number" value={drawReward} onChange={e => setDrawReward(Number(e.target.value))} className="h-10 text-center" /></div>
                 </div>
-              ) : (
-                <div className="space-y-2 p-4 bg-muted/20 rounded-2xl">
-                  <Label className="text-[10px] font-black uppercase">Valor N (Sets o Meta)</Label>
-                  <Input type="number" value={scoringValue} onChange={e => setScoringValue(Number(e.target.value))} />
-                </div>
-              )}
-            </div>
-
-            <div className="grid grid-cols-3 gap-4 border-t pt-6">
-              <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-center block">PTS V.</Label><Input type="number" value={winPoints} onChange={e => setWinPoints(Number(e.target.value))} className="h-10 text-center" /></div>
-              <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-center block">PTS D.</Label><Input type="number" value={lossPoints} onChange={e => setLossPoints(Number(e.target.value))} className="h-10 text-center" /></div>
-              <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-center block">PTS E.</Label><Input type="number" value={drawPoints} onChange={e => setDrawPoints(Number(e.target.value))} className="h-10 text-center" /></div>
-            </div>
-
-            <div className="p-6 bg-accent/5 rounded-[2rem] border space-y-4">
-              <Label className="text-[10px] font-black uppercase text-accent flex items-center gap-2"><Coins className="w-4 h-4" /> Economía (CR)</Label>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-1"><Label className="text-[9px] text-center block uppercase font-bold">Gana (+)</Label><Input type="number" value={winReward} onChange={e => setWinReward(Number(e.target.value))} className="h-10 text-center" /></div>
-                <div className="space-y-1"><Label className="text-[9px] text-center block uppercase font-bold">Pierde (-)</Label><Input type="number" value={lossPenalty} onChange={e => setLossPenalty(Number(e.target.value))} className="h-10 text-center" /></div>
-                <div className="space-y-1"><Label className="text-[9px] text-center block uppercase font-bold">Empata</Label><Input type="number" value={drawReward} onChange={e => setDrawReward(Number(e.target.value))} className="h-10 text-center" /></div>
               </div>
-            </div>
+            )}
+            
+            {mode === 'challenge' && (
+              <div className="p-6 bg-primary/10 rounded-[2rem] border-2 border-primary/20 flex items-center gap-4">
+                <ShieldCheck className="w-10 h-10 text-primary shrink-0" />
+                <p className="text-[10px] font-bold text-primary uppercase leading-tight">En el modo Challenge, la economía está desactivada. Solo importan los puntos deportivos por disciplina.</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -305,22 +288,37 @@ export default function NewTournamentPage() {
       <Card className="border-none bg-card shadow-2xl rounded-[3rem] p-8 space-y-8">
         <header className="flex flex-col md:flex-row justify-between items-center gap-4">
           <div>
-            <CardTitle className="text-xl font-black uppercase flex items-center gap-2"><Users className="text-primary" /> Inscripción de Equipos ({selectedParticipants.length})</CardTitle>
-            <p className="text-[10px] text-muted-foreground font-bold mt-1 uppercase">Marca los clubes participantes. Pulsa en el escudo para seleccionar.</p>
+            <CardTitle className="text-xl font-black uppercase flex items-center gap-2">
+              <Users className="text-primary" /> {mode === 'challenge' ? 'Selección de Dualistas' : 'Inscripción' } ({selectedParticipants.length}{mode === 'challenge' ? '/2' : ''})
+            </CardTitle>
+            <p className="text-[10px] text-muted-foreground font-bold mt-1 uppercase">
+              {mode === 'challenge' ? 'Selecciona exactamente 2 agentes para el duelo personal.' : 'Marca los clubes o agentes participantes.' }
+            </p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setSelectedParticipants(teams.map(t => t.id))} className="text-[10px] font-black uppercase h-10 px-6 border-primary text-primary">SELECCIONAR TODOS</Button>
-            <Button variant="outline" size="sm" onClick={() => { setSelectedParticipants([]); setGroups(groups.map(g => ({...g, participantIds: []}))); }} className="text-[10px] font-black uppercase h-10 px-6">LIMPIAR</Button>
-          </div>
+          {mode !== 'challenge' && (
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setSelectedParticipants((entryType === 'teams' ? teams : players).map(t => t.id))} className="text-[10px] font-black uppercase h-10 px-6 border-primary text-primary">SELECCIONAR TODOS</Button>
+              <Button variant="outline" size="sm" onClick={() => { setSelectedParticipants([]); setGroups(groups.map(g => ({...g, participantIds: []}))); }} className="text-[10px] font-black uppercase h-10 px-6">LIMPIAR</Button>
+            </div>
+          )}
         </header>
         <ScrollArea className="h-[400px]">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 pr-4 pb-4">
-            {teams.map((team) => {
-              const isSelected = selectedParticipants.includes(team.id);
+            {(entryType === 'teams' ? teams : players).map((item) => {
+              const isSelected = selectedParticipants.includes(item.id);
+              const isTeam = 'abbreviation' in item;
               return (
                 <button 
-                  key={`team-reg-card-${team.id}`} 
-                  onClick={() => setSelectedParticipants(prev => isSelected ? prev.filter(id => id !== team.id) : [...prev, team.id])}
+                  key={`reg-card-${item.id}`} 
+                  onClick={() => {
+                    if (mode === 'challenge') {
+                      if (isSelected) setSelectedParticipants(prev => prev.filter(id => id !== item.id));
+                      else if (selectedParticipants.length < 2) setSelectedParticipants(prev => [...prev, item.id]);
+                      else toast({ title: "Límite Challenge", description: "Solo puedes elegir 2 duelistas.", variant: "destructive" });
+                    } else {
+                      setSelectedParticipants(prev => isSelected ? prev.filter(id => id !== item.id) : [...prev, item.id]);
+                    }
+                  }}
                   className={cn(
                     "p-4 rounded-2xl border-2 transition-all text-left flex flex-col gap-2 relative group",
                     isSelected ? "bg-primary/10 border-primary shadow-md" : "bg-card border-muted/30 hover:border-primary/50"
@@ -328,7 +326,11 @@ export default function NewTournamentPage() {
                 >
                   <div className="flex items-center gap-3">
                     <div className="relative">
-                      <CrestIcon shape={team.emblemShape} pattern={team.emblemPattern} c1={team.crestPrimary} c2={team.crestSecondary} c3={team.crestTertiary || team.crestPrimary} size="w-10 h-10" />
+                      {isTeam ? (
+                        <CrestIcon shape={(item as any).emblemShape} pattern={(item as any).emblemPattern} c1={(item as any).crestPrimary} c2={(item as any).crestSecondary} c3={(item as any).crestTertiary || (item as any).crestPrimary} size="w-10 h-10" />
+                      ) : (
+                        <div className="w-10 h-10 rounded-xl bg-muted/20 flex items-center justify-center font-black text-xs">{(item as any).jerseyNumber}</div>
+                      )}
                       {isSelected && (
                         <div className="absolute -top-1 -right-1 bg-primary text-white rounded-full p-0.5 shadow-lg">
                           <CheckCircle2 className="w-3 h-3" />
@@ -336,8 +338,8 @@ export default function NewTournamentPage() {
                       )}
                     </div>
                     <div className="overflow-hidden">
-                      <span className="font-black text-[10px] uppercase truncate block">{team.name}</span>
-                      <span className="text-[9px] opacity-50 block">{team.abbreviation}</span>
+                      <span className="font-black text-[10px] uppercase truncate block">{item.name}</span>
+                      <span className="text-[9px] opacity-50 block">{isTeam ? (item as any).abbreviation : (item as any).position}</span>
                     </div>
                   </div>
                 </button>
@@ -347,153 +349,39 @@ export default function NewTournamentPage() {
         </ScrollArea>
       </Card>
 
-      {format === 'league' && leagueType === 'groups' && selectedParticipants.length > 0 && (
-        <div className="p-10 bg-accent/5 border-2 border-dashed border-accent/20 rounded-[3rem] space-y-8">
-          <header className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-accent/20 rounded-2xl flex items-center justify-center">
-                <Group className="text-accent w-7 h-7" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-black uppercase">Distribución Geográfica</h2>
-                <p className="text-[10px] text-muted-foreground font-bold uppercase">Organiza los equipos en conferencias regionales.</p>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2 justify-center">
-              <Button onClick={() => setIsAIDialogOpen(true)} className="h-12 rounded-xl font-black text-xs uppercase px-6 bg-accent shadow-lg shadow-accent/20">
-                <Sparkles className="w-4 h-4 mr-2" /> ASISTENTE IA
-              </Button>
-              <Button onClick={distributeAutomatically} variant="secondary" className="h-12 rounded-xl font-black text-xs uppercase px-6">
-                <RefreshCw className="w-4 h-4 mr-2" /> REPARTO EQUITATIVO
-              </Button>
-              <Button onClick={addGroup} variant="outline" className="h-12 rounded-xl border-accent text-accent font-black text-xs uppercase px-6">
-                <Plus className="w-4 h-4 mr-2" /> AÑADIR CONFERENCIA
-              </Button>
-            </div>
-          </header>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {groups.map((group, gIdx) => (
-              <Card key={`group-setup-card-${group.id || gIdx}`} className="rounded-[2.5rem] border bg-card shadow-2xl overflow-hidden">
-                <CardHeader className="bg-muted/10 p-6 flex flex-row justify-between items-center border-b">
-                  <div className="flex items-center gap-3">
-                    <Badge className="bg-accent text-accent-foreground font-black">{group.participantIds.length}</Badge>
-                    <Input 
-                      value={group.name} 
-                      onChange={(e) => setGroups(groups.map(g => g.id === group.id ? { ...g, name: e.target.value } : g))}
-                      className="h-10 bg-transparent border-none font-black uppercase text-lg focus-visible:ring-0 p-0 w-40"
-                    />
-                  </div>
-                  <X className="w-5 h-5 text-destructive cursor-pointer hover:scale-110 transition-transform" onClick={() => setGroups(groups.filter(g => g.id !== group.id))} />
-                </CardHeader>
-                <CardContent className="p-6 space-y-6">
-                  <ScrollArea className="h-[200px] bg-muted/20 rounded-2xl p-4 border-2 border-dashed border-muted">
-                    <div className="flex flex-wrap gap-2">
-                      {group.participantIds.length === 0 && (
-                        <div className="flex flex-col items-center justify-center w-full py-10 text-muted-foreground opacity-50">
-                          <AlertCircle className="w-8 h-8 mb-2" />
-                          <p className="text-[10px] font-black uppercase">Sin equipos asignados</p>
-                        </div>
-                      )}
-                      {group.participantIds.map((pId) => {
-                        const team = teams.find(t => t.id === pId);
-                        if (!team) return null;
-                        return (
-                          <Badge key={`assigned-pill-${group.id}-${pId}`} variant="secondary" className="bg-primary/10 text-primary border-primary/20 px-4 py-2 rounded-xl flex items-center gap-3">
-                            <CrestIcon shape={team.emblemShape} pattern={team.emblemPattern} c1={team.crestPrimary} c2={team.crestSecondary} c3={team.crestTertiary || team.crestPrimary} size="w-4 h-4" />
-                            <span className="text-[10px] font-black uppercase truncate max-w-[100px]">{team.name}</span>
-                            <X className="w-3 h-3 cursor-pointer hover:text-destructive" onClick={() => setGroups(groups.map(g => ({...g, participantIds: g.participantIds.filter(id => id !== pId)})))} />
-                          </Badge>
-                        );
-                      })}
-                    </div>
-                  </ScrollArea>
-                  
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest block ml-1">Transferir equipo aquí</Label>
-                    <Select onValueChange={(val) => assignToGroup(val, group.id)}>
-                      <SelectTrigger className="h-12 rounded-xl border-2">
-                        <SelectValue placeholder="Elegir club..." />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-xl">
-                        {selectedParticipants
-                          .filter(pId => !group.participantIds.includes(pId))
-                          .map(pId => {
-                            const team = teams.find(t => t.id === pId);
-                            if (!team) return null;
-                            return (
-                              <SelectItem key={`opt-group-${group.id}-${pId}`} value={pId}>
-                                {team.name}
-                              </SelectItem>
-                            );
-                          })
-                        }
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
-
       <div className="pt-12">
         <Button 
           onClick={handleCreateManual} 
-          disabled={selectedParticipants.length < 2 || !name} 
+          disabled={(mode === 'challenge' ? selectedParticipants.length !== 2 : selectedParticipants.length < 2) || !name} 
           className="w-full h-24 rounded-[3rem] text-3xl font-black bg-primary shadow-2xl shadow-primary/40 uppercase tracking-tighter"
         >
-          Lanzar Nuevo Universo
+          {mode === 'challenge' ? 'INICIAR DUELO CHALLENGE' : 'LANZAR NUEVO UNIVERSO' }
         </Button>
       </div>
 
-      {/* AI Group Distribution Dialog */}
-      <Dialog open={isAIDialogOpen} onOpenChange={setIsAIDialogOpen}>
-        <DialogContent className="max-w-md rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0">
+      <Dialog open={isSportModalOpen} onOpenChange={setIsSportModalOpen}>
+        <DialogContent className="rounded-[2.5rem] max-w-md border-none shadow-2xl p-0 overflow-hidden">
           <div className="bg-accent p-6 text-white border-b">
-            <DialogTitle className="text-2xl font-black uppercase flex items-center gap-3">
-              <Sparkles className="w-6 h-6" /> Arquitecto de Grupos IA
-            </DialogTitle>
-            <DialogDescription className="text-white/80 font-bold text-xs uppercase mt-1">
-              Deja que la IA organice tus conferencias de forma inteligente.
-            </DialogDescription>
+            <DialogTitle className="text-xl font-black uppercase flex items-center gap-2"><Activity /> Configurar Disciplina</DialogTitle>
           </div>
           <div className="p-8 space-y-6">
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Instrucciones de Distribución</Label>
-              <Textarea 
-                value={aiInstructions}
-                onChange={(e) => setAiInstructions(e.target.value)}
-                placeholder="Ej: Divídelos por su ubicación geográfica (Horta Sud vs Nord) o equilibra el nivel de los equipos según su descripción..."
-                className="min-h-[120px] rounded-2xl bg-muted/10 border-2"
-              />
+            <div className="space-y-2"><Label>Nombre del Deporte</Label><Input value={nsName} onChange={e => setNsName(e.target.value)} placeholder="Ej: Tenis de Mesa" /></div>
+            <div className="flex items-center justify-between p-4 bg-muted/20 rounded-xl border">
+              <Label className="font-black uppercase text-[10px]">Resultado Numérico</Label>
+              <Switch checked={nsNumeric} onCheckedChange={setNsNumeric} />
             </div>
-            
-            <div className="p-4 bg-accent/5 rounded-2xl border border-accent/20">
-              <p className="text-[10px] text-accent font-black uppercase leading-relaxed">
-                La IA analizará los nombres y descripciones de los {selectedParticipants.length} equipos para crear {groups.length} grupos coherentes.
-              </p>
+            <div className="flex items-center justify-between p-4 bg-muted/20 rounded-xl border">
+              <Label className="font-black uppercase text-[10px]">Habilitar Cronómetro / Periodos</Label>
+              <Switch checked={nsPeriods} onCheckedChange={setNsPeriods} />
             </div>
-
-            <Button 
-              onClick={handleAIDistribution} 
-              disabled={isAILoading}
-              className="w-full h-16 rounded-2xl font-black text-lg bg-accent hover:bg-accent/90 shadow-xl shadow-accent/20"
-            >
-              {isAILoading ? (
-                <>
-                  <Loader2 className="w-6 h-6 animate-spin mr-2" /> ARQUITECTANDO...
-                </>
-              ) : (
-                <>
-                  <Wand2 className="w-5 h-5 mr-2" /> EJECUTAR DISTRIBUCIÓN
-                </>
-              )}
-            </Button>
-          </div>
-          <div className="p-4 bg-muted/30 border-t flex justify-end">
-            <Button variant="ghost" onClick={() => setIsAIDialogOpen(false)} className="rounded-xl font-black uppercase text-[10px]">Cerrar</Button>
+            {nsPeriods && (
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-1"><Label className="text-[8px] font-black uppercase block text-center">Nº Periodos</Label><Input type="number" value={nsNumPeriods} onChange={e => setNsNumPeriods(Number(e.target.value))} /></div>
+                <div className="space-y-1"><Label className="text-[8px] font-black uppercase block text-center">Duración (seg)</Label><Input type="number" value={nsDuration} onChange={e => setNsDuration(Number(e.target.value))} /></div>
+                <div className="space-y-1"><Label className="text-[8px] font-black uppercase block text-center">Descanso (seg)</Label><Input type="number" value={nsRest} onChange={e => setNsRest(Number(e.target.value))} /></div>
+              </div>
+            )}
+            <Button onClick={addSport} className="w-full h-12 bg-accent font-black rounded-xl uppercase">GUARDAR DEPORTE</Button>
           </div>
         </DialogContent>
       </Dialog>

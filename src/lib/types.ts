@@ -69,10 +69,20 @@ export type Team = {
 
 export type ScoringRuleType = 'nToNRange' | 'bestOfN' | 'firstToN';
 
-export type TournamentMode = 'normal' | 'arcade';
+export type TournamentMode = 'normal' | 'arcade' | 'challenge';
 export type TournamentFormat = 'league' | 'knockout';
 export type LeagueType = 'single-table' | 'groups' | 'conferences';
 export type TournamentEntryType = 'teams' | 'players';
+
+export type ChallengeSport = {
+  id: string;
+  name: string;
+  isNumeric: boolean;
+  hasPeriods: boolean;
+  numPeriods?: number;
+  periodDuration?: number; // seconds
+  restDuration?: number; // seconds
+};
 
 export type Match = {
   id: string;
@@ -85,7 +95,8 @@ export type Match = {
   winnerId?: string;
   incidentLog?: string;
   homePlayerId?: string; 
-  awayPlayerId?: string; 
+  awayPlayerId?: string;
+  challengeSportId?: string; // Para modo Challenge
 };
 
 export type TournamentGroup = {
@@ -140,6 +151,9 @@ export type Tournament = {
   currentSeason: number;
   currentMatchday: number;
   incidents: TournamentIncident[];
+  // Challenge Exclusive
+  challengeSports?: ChallengeSport[];
+  challengeRounds?: number;
 };
 
 export type GlobalSettings = {
