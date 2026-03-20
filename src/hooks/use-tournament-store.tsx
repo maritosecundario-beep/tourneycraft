@@ -91,7 +91,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     const chaos = (t.variability || 15) / 100;
     const winProb = Math.max(0.05, Math.min(0.95, (hRating / (hRating + aRating)) + (Math.random() * chaos - chaos/2)));
 
-    // Binomial Simulation (Set by Set)
     for (let i = 0; i < val; i++) {
       if (Math.random() < winProb) hScore++;
       else aScore++;
@@ -152,6 +151,21 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     return { ...t, matches: schedule, dualLeagueMatches: dualSchedule, currentMatchday: 1, incidents: t.incidents || [] };
   }, []);
 
+  const generateSchedule = useCallback((tournamentId: string) => {
+    setTournaments(prev => prev.map(t => {
+      if (t.id !== tournamentId) return t;
+      return createSchedule(t);
+    }));
+  }, [createSchedule]);
+
+  const resetSchedule = useCallback((tournamentId: string) => {
+    setTournaments(prev => prev.map(t => {
+      if (t.id !== tournamentId) return t;
+      const resetList = (mList: Match[]) => mList.map(m => ({ ...m, isSimulated: false, homeScore: undefined, awayScore: undefined, homePlayerId: undefined, awayPlayerId: undefined }));
+      return { ...t, matches: resetList(t.matches), dualLeagueMatches: resetList(t.dualLeagueMatches || []), currentMatchday: 1, incidents: [] };
+    }));
+  }, []);
+
   const resolveMatch = useCallback((tournamentId: string, matchId: string, hScoreInput: number, aScoreInput: number, isDual: boolean, homePlayerId?: string, awayPlayerId?: string, autoSim?: boolean) => {
     setTournaments(prev => prev.map(t => {
       if (t.id !== tournamentId) return t;
@@ -171,7 +185,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
 
       const updateMatchList = (mList: Match[]) => mList.map(m => m.id === matchId ? { ...m, homeScore: hScore, awayScore: aScore, isSimulated: true, homePlayerId: hPlayerId, awayPlayerId: aPlayerId } : m);
 
-      // Economy Handling
       if (t.mode !== 'challenge' && !isDual) {
         const isHomeWin = hScore > aScore;
         const isAwayWin = aScore > hScore;
@@ -293,7 +306,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       if (type === 'team') setTeams(p => p.map(t => t.id === targetId ? { ...t, budget: Math.max(0, t.budget - val) } : t));
       else setPlayers(p => p.map(pl => pl.id === targetId ? { ...pl, suspensionMatchdays: val } : pl));
     },
-    processIncidentDecision: (tId: string, incId: string, accept: boolean) => {
+    processIncidentDecision: (tId: string, incidentId: string, accept: boolean) => {
       setTournaments(prev => prev.map(t => {
         if (t.id !== tId) return t;
         const inc = t.incidents.find(i => i.id === incId);

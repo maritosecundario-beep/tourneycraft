@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Match, Tournament, ScoringRuleType, Player, ChallengeSport } from '@/lib/types';
+import { Match, Tournament, ScoringRuleType, Player, ChallengeSport, Team } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 interface TournamentDetailViewProps {
@@ -29,10 +29,11 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
   const [tournament, setTournament] = useState<Tournament | null>(null);
   
   // UI State
-  const [isTransferMenuOpen, setIsTransferCenterOpen] = useState(false);
-  const [isSanctionMenuOpen, setIsSanctionMenuOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedMatchDetail, setSelectedMatchDetail] = useState<Match | null>(null);
+  const [manualMatch, setManualMatch] = useState<Match | null>(null);
+  const [mHomeScore, setMHomeScore] = useState(0);
+  const [mAwayScore, setMAwayScore] = useState(0);
 
   // Challenge Match State
   const [challengeMatch, setChallengeMatch] = useState<{ match: Match; sport: ChallengeSport } | null>(null);
@@ -60,13 +61,10 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
     }
   }, [tournaments, id]);
 
-  // Alert System (Sound + Vibration)
   const triggerAlert = useCallback(() => {
-    // Vibration
     if (typeof navigator !== 'undefined' && navigator.vibrate) {
-      navigator.vibrate([200, 100, 200]);
+      navigator.vibrate([300, 100, 300]);
     }
-    // Sound (Beep)
     try {
       const AudioContext = (window as any).AudioContext || (window as any).webkitAudioContext;
       if (AudioContext) {
@@ -82,11 +80,10 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
         oscillator.stop(context.currentTime + 0.5);
       }
     } catch (e) {
-      console.warn('Alerta sonora bloqueada por el navegador');
+      console.warn('Alerta sonora bloqueada');
     }
   }, []);
 
-  // Challenge Timer Effect
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (cStatus === 'playing' || cStatus === 'rest') {
@@ -103,7 +100,6 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
     return () => clearInterval(timer);
   }, [cStatus, triggerAlert]);
 
-  // Challenge State Transition Effect
   useEffect(() => {
     if (cTime === 0 && (cStatus === 'playing' || cStatus === 'rest')) {
       if (cStatus === 'playing') {
@@ -249,7 +245,19 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                             {sport && !sport.isNumeric ? (m.homeScore! > m.awayScore! ? 'WIN' : m.homeScore! < m.awayScore! ? 'LOSS' : 'DRAW') : `${m.homeScore} - ${m.awayScore}`}
                           </div> 
                         ) : (
-                          <Button size="sm" onClick={(e) => { e.stopPropagation(); tournament?.mode === 'challenge' ? handleStartChallenge(m) : resolveMatch(tournament!.id, m.id, 0, 0, false, undefined, undefined, true); }} className="w-full h-10 rounded-xl font-black bg-primary">
+                          <Button size="sm" onClick={(e) => { 
+                            e.stopPropagation(); 
+                            const isUser = tournament?.mode === 'arcade' && (m.homeId === tournament.managedParticipantId || m.awayId === tournament.managedParticipantId);
+                            if (tournament?.mode === 'challenge') {
+                              handleStartChallenge(m);
+                            } else if (isUser) {
+                              setManualMatch(m);
+                              setMHomeScore(0);
+                              setMAwayScore(0);
+                            } else {
+                              resolveMatch(tournament!.id, m.id, 0, 0, false, undefined, undefined, true); 
+                            }
+                          }} className="w-full h-10 rounded-xl font-black bg-primary">
                             {tournament?.mode === 'challenge' ? 'DUELO' : 'SIM'}
                           </Button>
                         )}
@@ -280,12 +288,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
           <div><h1 className="text-2xl md:text-3xl font-black uppercase tracking-tighter">{tournament.name}</h1><p className="text-muted-foreground uppercase font-black text-[10px] tracking-widest">{tournament.sport} • Season {tournament.currentSeason}</p></div>
         </div>
         <div className="flex flex-wrap gap-2">
-          {tournament.mode !== 'challenge' && (
-            <>
-              <Button variant="outline" onClick={() => setIsTransferCenterOpen(true)} className="rounded-xl font-black h-12 border-primary text-primary"><ArrowLeftRight className="w-4 h-4 mr-2" /> TRASPASOS</Button>
-              <Button variant="outline" onClick={() => setIsSanctionMenuOpen(true)} className="rounded-xl font-black h-12 border-destructive text-destructive"><ShieldAlert className="w-4 h-4 mr-2" /> SANCIONES</Button>
-            </>
-          )}
+          <Button variant="outline" onClick={() => generateSchedule(tournament.id)} className="rounded-xl font-black h-12 border-primary text-primary"><RefreshCw className="w-4 h-4 mr-2" /> REGENERAR CALENDARIO</Button>
           <Button variant="outline" onClick={() => setIsEditing(true)} className="rounded-xl font-black h-12 border-primary text-primary"><Settings2 className="text-primary w-4 h-4 mr-2" /> AJUSTES PRO</Button>
           <Button variant="outline" onClick={() => resetSchedule(tournament.id)} className="rounded-xl font-black h-12 border-destructive text-destructive"><Trash2 className="w-4 h-4 mr-2" /> REINICIAR</Button>
         </div>
@@ -372,6 +375,73 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
         </div>
       </div>
 
+      {/* Manual Match Arcade Center */}
+      <Dialog open={!!manualMatch} onOpenChange={(o) => !o && setManualMatch(null)}>
+        <DialogContent className="max-w-3xl rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden">
+          {manualMatch && (() => {
+            const home = teams.find(t => t.id === manualMatch.homeId) || players.find(p => p.id === manualMatch.homeId);
+            const away = teams.find(t => t.id === manualMatch.awayId) || players.find(p => p.id === manualMatch.awayId);
+            const isHomeUser = manualMatch.homeId === tournament?.managedParticipantId;
+            const rival = isHomeUser ? away : home;
+            const rivalRank = standings.findIndex(s => s.id === rival?.id) + 1;
+            const stadium = (home as Team)?.venueName || 'Campo Neutral';
+            const surface = (home as Team)?.venueSurface || 'Césped';
+            
+            return (
+              <div className="flex flex-col bg-card">
+                <div className="p-6 bg-primary text-white border-b flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xl font-black uppercase flex items-center gap-2"><MapPin className="w-5 h-5" /> Centro de Tácticas</h3>
+                    <p className="text-[10px] font-bold opacity-80 uppercase">{stadium} ({surface}) • Jornada {manualMatch.matchday}</p>
+                  </div>
+                  <div className="text-right bg-white/10 px-4 py-2 rounded-2xl">
+                    <p className="text-[8px] font-black uppercase opacity-70">Ranking Rival</p>
+                    <p className="text-2xl font-black">#{rivalRank}</p>
+                  </div>
+                </div>
+
+                <div className="p-10 space-y-10">
+                  <div className="flex items-center justify-center gap-12">
+                    <div className="text-center space-y-4">
+                      {home && 'abbreviation' in home ? <CrestIcon shape={(home as any).emblemShape} pattern={(home as any).emblemPattern} c1={(home as any).crestPrimary} c2={(home as any).crestSecondary} c3={(home as any).crestTertiary || (home as any).crestPrimary} size="w-24 h-24" /> : <div className="w-24 h-24 rounded-3xl bg-primary/10 flex items-center justify-center text-5xl font-black">#{(home as any)?.jerseyNumber}</div>}
+                      <p className="font-black text-sm uppercase">{home?.name}</p>
+                      <div className="flex items-center justify-center gap-2">
+                        <Button size="icon" variant="outline" onClick={() => setMHomeScore(Math.max(0, mHomeScore - 1))} className="h-8 w-8 rounded-lg">-</Button>
+                        <span className="text-4xl font-black w-12">{mHomeScore}</span>
+                        <Button size="icon" variant="outline" onClick={() => setMHomeScore(mHomeScore + 1)} className="h-8 w-8 rounded-lg">+</Button>
+                      </div>
+                    </div>
+                    
+                    <div className="text-4xl font-black opacity-20">VS</div>
+
+                    <div className="text-center space-y-4">
+                      {away && 'abbreviation' in away ? <CrestIcon shape={(away as any).emblemShape} pattern={(away as any).emblemPattern} c1={(away as any).crestPrimary} c2={(away as any).crestSecondary} c3={(away as any).crestTertiary || (away as any).crestPrimary} size="w-24 h-24" /> : <div className="w-24 h-24 rounded-3xl bg-primary/10 flex items-center justify-center text-5xl font-black">#{(away as any)?.jerseyNumber}</div>}
+                      <p className="font-black text-sm uppercase">{away?.name}</p>
+                      <div className="flex items-center justify-center gap-2">
+                        <Button size="icon" variant="outline" onClick={() => setMAwayScore(Math.max(0, mAwayScore - 1))} className="h-8 w-8 rounded-lg">-</Button>
+                        <span className="text-4xl font-black w-12">{mAwayScore}</span>
+                        <Button size="icon" variant="outline" onClick={() => setMAwayScore(mAwayScore + 1)} className="h-8 w-8 rounded-lg">+</Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Button 
+                    className="w-full h-16 rounded-2xl font-black text-lg bg-primary shadow-xl shadow-primary/20"
+                    onClick={() => {
+                      resolveMatch(tournament!.id, manualMatch.id, mHomeScore, mAwayScore, false);
+                      setManualMatch(null);
+                      toast({ title: "Resultado Confirmado" });
+                    }}
+                  >
+                    GUARDAR RESULTADO FINAL
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
       {/* Challenge Match Interface */}
       <Dialog open={!!challengeMatch} onOpenChange={(o) => !o && setChallengeMatch(null)}>
         <DialogContent className="max-w-4xl rounded-[3rem] border-none shadow-2xl p-0 overflow-hidden bg-background">
@@ -391,7 +461,6 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                 </div>
 
                 <div className="flex-1 flex flex-row items-stretch overflow-hidden">
-                  {/* Left Player */}
                   <div 
                     className="flex-1 group cursor-pointer relative overflow-hidden transition-all hover:bg-primary/5 border-r border-dashed"
                     onClick={() => {
@@ -407,7 +476,6 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                     </div>
                   </div>
 
-                  {/* Central Control */}
                   <div className="w-48 bg-muted/10 flex flex-col items-center justify-center gap-8 border-x border-dashed">
                     {sport.hasPeriods && (
                       <div className="text-center">
@@ -436,7 +504,6 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                     </div>
                   </div>
 
-                  {/* Right Player */}
                   <div 
                     className="flex-1 group cursor-pointer relative overflow-hidden transition-all hover:bg-primary/5"
                     onClick={() => {
