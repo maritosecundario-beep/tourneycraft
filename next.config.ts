@@ -4,12 +4,10 @@ import { withPlausibleProxy } from 'next-plausible';
 const nextConfig: NextConfig = {
   reactStrictMode: false,
   // La exportación estática ('export') rompe las funciones de servidor de Vercel (Genkit).
-  // Solo la activamos cuando compilamos específicamente para Capacitor/Móvil o GitHub Pages.
-  output: (process.env.IS_CAPACITOR === 'true' || process.env.GITHUB_PAGES === 'true') ? 'export' : undefined,
-  basePath: process.env.GITHUB_PAGES === 'true' ? '/tourneycraft' : '',
-  assetPrefix: process.env.GITHUB_PAGES === 'true' ? '/tourneycraft/' : '',
+  // Solo la activamos cuando compilamos específicamente para Capacitor/Móvil.
+  output: process.env.IS_CAPACITOR === 'true' ? 'export' : undefined,
   images: {
-    unoptimized: true, // Requerido para exportación estática y compatible con Vercel/GitHub Pages
+    unoptimized: true, // Requerido para exportación estática y compatible con Vercel
   },
   webpack: (config) => {
     config.externals.push('sharp');
