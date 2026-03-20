@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useTournamentStore } from '@/hooks/use-tournament-store';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Trophy, RefreshCw, ArrowLeft, Star, Coins, Settings2, Trash2, UserCircle2, Users, Plus, X, ArrowLeftRight, Play, MapPin, ShieldAlert, History, UserCheck, TrendingUp, Info, Activity, Clock, Timer, CheckCircle2, ChevronRight } from 'lucide-react';
@@ -24,14 +24,15 @@ interface TournamentDetailViewProps {
 }
 
 export function TournamentDetailView({ id }: TournamentDetailViewProps) {
-  const { tournaments, teams, players, resolveMatch, simulateMatchday, generateSchedule, resetSchedule, resetMatchday, updateTournament, settings, transferPlayer, applySanction, processIncidentDecision } = useTournamentStore();
+  const { tournaments, teams, players, resolveMatch, simulateMatchday, generateSchedule, resetSchedule, resetMatchday, updateTournament, settings, processIncidentDecision } = useTournamentStore();
   const { toast } = useToast();
   const [tournament, setTournament] = useState<Tournament | null>(null);
   
-  // Menus State
+  // UI State
   const [isTransferMenuOpen, setIsTransferCenterOpen] = useState(false);
   const [isSanctionMenuOpen, setIsSanctionMenuOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [selectedMatchDetail, setSelectedMatchDetail] = useState<Match | null>(null);
 
   // Challenge Match State
   const [challengeMatch, setChallengeMatch] = useState<{ match: Match; sport: ChallengeSport } | null>(null);
@@ -42,20 +43,11 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
   const [cPeriod, setCPeriod] = useState(1);
   const [cTime, setCTime] = useState(0);
 
-  // Simulation/Arcade State
-  const [pendingMatch, setPendingMatch] = useState<{ match: Match; isDual: boolean; aiPlayer: Player | null } | null>(null);
-  const [selectedPlayerId, setSelectedPlayerId] = useState<string>('');
-  const [arcadeHomeScore, setArcadeHomeScore] = useState<number>(0);
-  const [arcadeAwayScore, setArcadeAwayScore] = useState<number>(0);
-  const [selectedMatchDetail, setSelectedMatchDetail] = useState<Match | null>(null);
-  
   // Edit State
   const [editName, setEditName] = useState('');
   const [editSport, setEditSport] = useState('');
-  const [editScoringType, setEditScoringType] = useState<ScoringRuleType>('bestOfN');
-  const [editScoringValue, setEditScoringValue] = useState(9);
-  const [editPlayoffSpots, setEditPlayoffSpots] = useState(8);
-  const [editRelegationSpots, setEditRelegationSpots] = useState(4);
+  const [editPlayoffSpots, setEditPlayoffSpots] = useState(0);
+  const [editRelegationSpots, setEditRelegationSpots] = useState(0);
 
   useEffect(() => {
     const found = tournaments.find(t => t.id === id);
@@ -63,12 +55,36 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
       setTournament(found);
       setEditName(found.name);
       setEditSport(found.sport);
-      setEditScoringType(found.scoringRuleType);
-      setEditScoringValue(found.scoringValue || 9);
       setEditPlayoffSpots(found.playoffSpots || 0);
       setEditRelegationSpots(found.relegationSpots || 0);
     }
   }, [tournaments, id]);
+
+  // Alert System (Sound + Vibration)
+  const triggerAlert = useCallback(() => {
+    // Vibration
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate([200, 100, 200]);
+    }
+    // Sound (Beep)
+    try {
+      const AudioContext = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (AudioContext) {
+        const context = new AudioContext();
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(880, context.currentTime); 
+        gain.gain.setValueAtTime(0.1, context.currentTime);
+        oscillator.connect(gain);
+        gain.connect(context.destination);
+        oscillator.start();
+        oscillator.stop(context.currentTime + 0.5);
+      }
+    } catch (e) {
+      console.warn('Alerta sonora bloqueada por el navegador');
+    }
+  }, []);
 
   // Challenge Timer Effect
   useEffect(() => {
@@ -77,57 +93,71 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
       timer = setInterval(() => {
         setCTime(prev => {
           if (prev <= 1) {
-            if (cStatus === 'playing') {
-              if (cPeriod < (challengeMatch?.sport.numPeriods || 1)) {
-                setCStatus('rest');
-                return challengeMatch?.sport.restDuration || 0;
-              } else {
-                setCStatus('finished');
-                return 0;
-              }
-            } else {
-              setCStatus('playing');
-              setCPeriod(p => p + 1);
-              return challengeMatch?.sport.periodDuration || 0;
-            }
+            triggerAlert();
+            return 0;
           }
           return prev - 1;
         });
       }, 1000);
     }
     return () => clearInterval(timer);
-  }, [cStatus, cPeriod, challengeMatch]);
+  }, [cStatus, triggerAlert]);
 
-  const getStandings = (matchList: Match[], participants: string[]) => {
+  // Challenge State Transition Effect
+  useEffect(() => {
+    if (cTime === 0 && (cStatus === 'playing' || cStatus === 'rest')) {
+      if (cStatus === 'playing') {
+        const num = challengeMatch?.sport.numPeriods || 1;
+        if (cPeriod < num) {
+          setCStatus('rest');
+          setCTime(challengeMatch?.sport.restDuration || 0);
+        } else {
+          setCStatus('finished');
+        }
+      } else if (cStatus === 'rest') {
+        setCStatus('playing');
+        setCPeriod(p => p + 1);
+        setCTime(challengeMatch?.sport.periodDuration || 0);
+      }
+    }
+  }, [cTime, cStatus, cPeriod, challengeMatch]);
+
+  const standings = useMemo(() => {
+    if (!tournament) return [];
     const stats: Record<string, any> = {};
-    participants.forEach((pId) => {
+    tournament.participants.forEach(pId => {
       const teamObj = teams.find(t => t.id === pId) || players.find(p => p.id === pId);
       stats[pId] = { id: pId, played: 0, win: 0, draw: 0, loss: 0, points: 0, gf: 0, ga: 0, diff: 0, budget: (teamObj as any)?.budget || 0 };
     });
-    matchList.filter(m => m.isSimulated).forEach(m => {
+    tournament.matches.filter(m => m.isSimulated).forEach(m => {
       if (stats[m.homeId] && stats[m.awayId]) {
         stats[m.homeId].played++; stats[m.awayId].played++;
         stats[m.homeId].gf += (m.homeScore || 0); stats[m.homeId].ga += (m.awayScore || 0);
         stats[m.awayId].gf += (m.awayScore || 0); stats[m.awayId].ga += (m.homeScore || 0);
-        if (m.homeScore! > m.awayScore!) { stats[m.homeId].win++; stats[m.homeId].points += (tournament?.winPoints || 0); stats[m.awayId].loss++; stats[m.awayId].points += (tournament?.lossPoints || 0); } 
-        else if (m.awayScore! > m.homeScore!) { stats[m.awayId].win++; stats[m.awayId].points += (tournament?.winPoints || 0); stats[m.homeId].loss++; stats[m.homeId].points += (tournament?.lossPoints || 0); } 
-        else { stats[m.homeId].draw++; stats[m.homeId].points += (tournament?.drawPoints || 0); stats[m.awayId].draw++; stats[m.awayId].points += (tournament?.drawPoints || 0); }
+        if (m.homeScore! > m.awayScore!) { 
+          stats[m.homeId].win++; stats[m.homeId].points += (tournament.winPoints || 0); 
+          stats[m.awayId].loss++; stats[m.awayId].points += (tournament.lossPoints || 0); 
+        } else if (m.awayScore! > m.homeScore!) { 
+          stats[m.awayId].win++; stats[m.awayId].points += (tournament.winPoints || 0); 
+          stats[m.homeId].loss++; stats[m.homeId].points += (tournament.lossPoints || 0); 
+        } else { 
+          stats[m.homeId].draw++; stats[m.homeId].points += (tournament.drawPoints || 0); 
+          stats[m.awayId].draw++; stats[m.awayId].points += (tournament.drawPoints || 0); 
+        }
       }
     });
     return Object.values(stats).map((s: any) => ({ ...s, diff: s.gf - s.ga })).sort((a: any, b: any) => {
       if (b.points !== a.points) return b.points - a.points;
       return b.diff - a.diff;
     });
-  };
-
-  const standings = useMemo(() => tournament ? getStandings(tournament.matches, tournament.participants) : [], [tournament, teams, players]);
+  }, [tournament, teams, players]);
 
   const handleStartChallenge = (m: Match) => {
     const sport = tournament?.challengeSports?.find(s => s.id === m.challengeSportId);
     if (!sport) return;
     setChallengeMatch({ match: m, sport });
     setCHomeScore(0); setCAwayScore(0); setCWinner(null); setCPeriod(1);
-    setCStatus(sport.hasPeriods ? 'playing' : 'playing');
+    setCStatus('playing');
     setCTime(sport.periodDuration || 0);
   };
 
@@ -151,14 +181,21 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
           const isRelegation = tournament?.mode !== 'challenge' && idx >= rows.length - (tournament?.relegationSpots || 0);
           return (
             <TableRow key={`st-row-${row.id}`} className={cn(isPlayoff && "bg-emerald-500/5", isRelegation && "bg-destructive/5")}>
-              <TableCell className="font-black text-center"><span className={cn("text-[10px] w-6 h-6 flex items-center justify-center rounded-full mx-auto", isPlayoff ? "bg-emerald-500 text-white" : isRelegation ? "bg-destructive text-white" : "opacity-30")}>{idx + 1}</span></TableCell>
+              <TableCell className="font-black text-center">
+                <span className={cn("text-[10px] w-6 h-6 flex items-center justify-center rounded-full mx-auto", 
+                  isPlayoff ? "bg-emerald-500 text-white" : isRelegation ? "bg-destructive text-white" : "opacity-30")}>
+                  {idx + 1}
+                </span>
+              </TableCell>
               <TableCell className="font-black flex items-center gap-3">
                 {team ? (
                   <CrestIcon shape={team.emblemShape || 'shield'} pattern={team.emblemPattern || 'none'} c1={team.crestPrimary || '#000'} c2={team.crestSecondary || '#fff'} c3={team.crestTertiary || '#000'} size="w-6 h-6" />
                 ) : (
                   <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center text-[8px]">#{agent?.jerseyNumber}</div>
                 )}
-                <span className={cn("truncate text-xs uppercase", (team?.id === tournament?.managedParticipantId || agent?.id === tournament?.managedParticipantId) && "text-primary font-black")}>{team?.name || agent?.name}</span>
+                <span className={cn("truncate text-xs uppercase", (team?.id === tournament?.managedParticipantId || agent?.id === tournament?.managedParticipantId) && "text-primary font-black")}>
+                  {team?.name || agent?.name}
+                </span>
               </TableCell>
               <TableCell className="text-center text-xs">{row.played}</TableCell>
               <TableCell className="text-center text-xs font-bold text-muted-foreground">{row.diff > 0 ? `+${row.diff}` : row.diff}</TableCell>
@@ -184,11 +221,11 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
               <Badge variant="secondary" className="bg-primary text-white font-black uppercase">JORNADA {day}</Badge>
               {tournament?.mode !== 'challenge' && (
                 <>
-                  <Button size="sm" variant="outline" className="h-8 px-3 text-[10px] font-black uppercase rounded-lg border-primary/30 text-primary hover:bg-primary hover:text-white" onClick={() => simulateMatchday(tournament!.id, Number(day))}>
+                  <Button size="sm" variant="outline" className="h-8 px-3 text-[10px] font-black uppercase rounded-lg border-primary/30 text-primary hover:bg-primary" onClick={() => simulateMatchday(tournament!.id, Number(day))}>
                     <Play className="w-3 h-3 mr-1 fill-current" /> SIMULAR JORNADA
                   </Button>
-                  <Button size="sm" variant="outline" className="h-8 px-3 text-[10px] font-black uppercase rounded-lg border-destructive/30 text-destructive hover:bg-destructive hover:text-white" onClick={() => resetMatchday(tournament!.id, Number(day))}>
-                    <RefreshCw className="w-3 h-3 mr-1" /> REINICIAR RESULTADOS
+                  <Button size="sm" variant="outline" className="h-8 px-3 text-[10px] font-black uppercase rounded-lg border-destructive/30 text-destructive hover:bg-destructive" onClick={() => resetMatchday(tournament!.id, Number(day))}>
+                    <RefreshCw className="w-3 h-3 mr-1" /> REINICIAR
                   </Button>
                 </>
               )}
@@ -250,7 +287,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
             </>
           )}
           <Button variant="outline" onClick={() => setIsEditing(true)} className="rounded-xl font-black h-12 border-primary text-primary"><Settings2 className="text-primary w-4 h-4 mr-2" /> AJUSTES PRO</Button>
-          <Button variant="outline" onClick={() => resetSchedule(tournament.id)} className="rounded-xl font-black h-12 border-destructive text-destructive"><Trash2 className="w-4 h-4 mr-2" /> REINICIAR TORNEO</Button>
+          <Button variant="outline" onClick={() => resetSchedule(tournament.id)} className="rounded-xl font-black h-12 border-destructive text-destructive"><Trash2 className="w-4 h-4 mr-2" /> REINICIAR</Button>
         </div>
       </header>
 
@@ -263,11 +300,15 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
               {tournament.mode !== 'challenge' && <TabsTrigger value="news" className="flex-1 rounded-xl font-black uppercase text-xs">Noticias</TabsTrigger>}
             </TabsList>
 
-            <TabsContent value="matches" className="mt-6 space-y-8">
-              {tournament.matches.length === 0 ? <div className="text-center py-20 bg-muted/10 rounded-[2rem] border-2 border-dashed"><p className="font-bold text-muted-foreground uppercase text-xs">Sin partidos.</p><Button onClick={() => generateSchedule(tournament.id)} className="mt-4 font-black rounded-xl">GENERAR CALENDARIO</Button></div> : renderMatchdayList(tournament.matches)}
+            <TabsContent value="matches" className="mt-6">
+              {renderMatchdayList(tournament.matches)}
             </TabsContent>
 
-            <TabsContent value="standings" className="mt-6"><Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden">{tournament.groups ? ( <div className="space-y-12 p-6">{tournament.groups.map((group, idx) => ( <div key={`st-g-${group.id || idx}`} className="space-y-4"><div className="flex items-center gap-3 border-l-4 border-primary pl-4"><h3 className="text-xl font-black uppercase">{group.name}</h3><Badge className="bg-primary/10 text-primary border-none text-[9px] font-black">{group.participantIds.length} CLUBES</Badge></div>{renderStandingsTable(standings.filter(s => group.participantIds.includes(s.id)))}</div> ))}</div> ) : <div className="p-6">{renderStandingsTable(standings)}</div>}</Card></TabsContent>
+            <TabsContent value="standings" className="mt-6">
+              <Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden p-6">
+                {renderStandingsTable(standings)}
+              </Card>
+            </TabsContent>
 
             <TabsContent value="news" className="mt-6 space-y-4">
               {tournament.incidents?.length === 0 ? <div className="text-center py-20 bg-muted/10 rounded-[2rem] border-2 border-dashed font-bold text-muted-foreground uppercase text-xs">Sin noticias.</div> : (
@@ -275,7 +316,16 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                   <Card key={`news-card-${inc.id}`} className="border-none shadow-sm rounded-2xl overflow-hidden">
                     <CardContent className="p-4 flex items-center gap-4">
                       <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0", inc.type === 'transfer' ? "bg-accent/10 text-accent" : inc.type === 'sanction' ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary")}>{inc.type === 'transfer' ? <ArrowLeftRight className="w-5 h-5" /> : inc.type === 'sanction' ? <ShieldAlert className="w-5 h-5" /> : <Info className="w-5 h-5" />}</div>
-                      <div className="flex-1"><p className="text-xs font-black uppercase opacity-50 mb-0.5">{inc.date}</p><p className="text-sm font-bold">{inc.message}</p>{inc.status === 'pending' && ( <div className="flex gap-2 mt-3"><Button size="sm" className="bg-accent text-white font-black text-[10px]" onClick={() => processIncidentDecision(tournament.id, inc.id, true)}>ACEPTAR FONDOS</Button><Button size="sm" variant="outline" className="text-[10px] font-black" onClick={() => processIncidentDecision(tournament.id, inc.id, false)}>RECHAZAR</Button></div> )}</div>
+                      <div className="flex-1">
+                        <p className="text-xs font-black uppercase opacity-50 mb-0.5">{inc.date}</p>
+                        <p className="text-sm font-bold">{inc.message}</p>
+                        {inc.status === 'pending' && ( 
+                          <div className="flex gap-2 mt-3">
+                            <Button size="sm" className="bg-accent text-white font-black text-[10px]" onClick={() => processIncidentDecision(tournament.id, inc.id, true)}>ACEPTAR</Button>
+                            <Button size="sm" variant="outline" className="text-[10px] font-black" onClick={() => processIncidentDecision(tournament.id, inc.id, false)}>RECHAZAR</Button>
+                          </div> 
+                        )}
+                      </div>
                     </CardContent>
                   </Card>
                 ))
@@ -285,12 +335,40 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
         </div>
 
         <div className="space-y-8">
-          <Card className="border-none shadow-xl rounded-[2rem] bg-gradient-to-br from-primary to-primary/80 text-white overflow-hidden"><CardHeader className="p-6 pb-0"><CardTitle className="text-2xl font-black uppercase text-white">{tournament.mode === 'challenge' ? 'Challenge Rules' : "Leyes de l'Horta"}</CardTitle></CardHeader><CardContent className="p-6 space-y-4"><div className="flex justify-between items-center bg-white/10 p-4 rounded-2xl"><span className="text-[10px] font-black uppercase">Puntuación V/E/D</span><span className="text-[10px] font-black uppercase">{tournament.winPoints}/{tournament.drawPoints}/{tournament.lossPoints}</span></div>{tournament.mode !== 'challenge' && <div className="grid grid-cols-2 gap-3"><div className="bg-black/10 p-3 rounded-xl text-center"><p className="text-[8px] opacity-70 uppercase font-black">PLAYOFFS</p><p className="text-lg font-black">{tournament.playoffSpots}</p></div><div className="bg-black/10 p-3 rounded-xl text-center"><p className="text-[8px] opacity-70 uppercase font-black">DESCENSO</p><p className="text-lg font-black">{tournament.relegationSpots}</p></div></div>}</CardContent></Card>
-          <Card className="border-none shadow-xl rounded-[2rem]"><CardHeader><h3 className="font-black uppercase text-sm flex items-center gap-2"><TrendingUp className="text-emerald-500 w-4 h-4" /> Podium l'Horta</h3></CardHeader><CardContent className="space-y-4">{standings.slice(0, 3).map((row: any, idx: number) => { 
-            const team = teams.find(t => t.id === row.id); 
-            const agent = players.find(p => p.id === row.id);
-            return ( <div key={`podium-${row.id || idx}`} className="flex items-center gap-4 p-3 bg-muted/20 rounded-xl"><div className="w-8 h-8 rounded-full bg-card flex items-center justify-center font-black text-xs">{idx + 1}</div><div className="flex-1 overflow-hidden"><p className="font-black text-xs uppercase truncate">{team?.name || agent?.name}</p><p className="text-[9px] font-bold text-muted-foreground">{row.points} PTS {tournament.mode !== 'challenge' ? `• ${row.budget.toLocaleString()} CR` : ''}</p></div>{team ? <CrestIcon shape={team.emblemShape || 'shield'} pattern={team.emblemPattern || 'none'} c1={team.crestPrimary || '#000'} c2={team.crestSecondary || '#fff'} c3={team.crestTertiary || '#000'} size="w-8 h-8" /> : <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-[10px] font-black">#{agent?.jerseyNumber}</div>}</div> ); 
-          })}</CardContent></Card>
+          <Card className="border-none shadow-xl rounded-[2rem] bg-gradient-to-br from-primary to-primary/80 text-white overflow-hidden">
+            <CardHeader className="p-6 pb-0"><CardTitle className="text-2xl font-black uppercase text-white">{tournament.mode === 'challenge' ? 'Challenge Rules' : "Leyes de l'Horta"}</CardTitle></CardHeader>
+            <CardContent className="p-6 space-y-4">
+              <div className="flex justify-between items-center bg-white/10 p-4 rounded-2xl">
+                <span className="text-[10px] font-black uppercase">Puntuación V/E/D</span>
+                <span className="text-[10px] font-black uppercase">{tournament.winPoints}/{tournament.drawPoints}/{tournament.lossPoints}</span>
+              </div>
+              {tournament.mode !== 'challenge' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-black/10 p-3 rounded-xl text-center"><p className="text-[8px] opacity-70 uppercase font-black">PLAYOFFS</p><p className="text-lg font-black">{tournament.playoffSpots}</p></div>
+                  <div className="bg-black/10 p-3 rounded-xl text-center"><p className="text-[8px] opacity-70 uppercase font-black">DESCENSO</p><p className="text-lg font-black">{tournament.relegationSpots}</p></div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          <Card className="border-none shadow-xl rounded-[2rem]">
+            <CardHeader><h3 className="font-black uppercase text-sm flex items-center gap-2"><TrendingUp className="text-emerald-500 w-4 h-4" /> Podium l'Horta</h3></CardHeader>
+            <CardContent className="space-y-4">
+              {standings.slice(0, 3).map((row: any, idx: number) => { 
+                const team = teams.find(t => t.id === row.id); 
+                const agent = players.find(p => p.id === row.id);
+                return ( 
+                  <div key={`podium-${row.id || idx}`} className="flex items-center gap-4 p-3 bg-muted/20 rounded-xl">
+                    <div className="w-8 h-8 rounded-full bg-card flex items-center justify-center font-black text-xs">{idx + 1}</div>
+                    <div className="flex-1 overflow-hidden">
+                      <p className="font-black text-xs uppercase truncate">{team?.name || agent?.name}</p>
+                      <p className="text-[9px] font-bold text-muted-foreground">{row.points} PTS {tournament.mode !== 'challenge' ? `• ${row.budget.toLocaleString()} CR` : ''}</p>
+                    </div>
+                    {team ? <CrestIcon shape={team.emblemShape || 'shield'} pattern={team.emblemPattern || 'none'} c1={team.crestPrimary || '#000'} c2={team.crestSecondary || '#fff'} c3={team.crestTertiary || '#000'} size="w-8 h-8" /> : <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-[10px] font-black">#{agent?.jerseyNumber}</div>}
+                  </div> 
+                ); 
+              })}
+            </CardContent>
+          </Card>
         </div>
       </div>
 
@@ -317,7 +395,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                   <div 
                     className="flex-1 group cursor-pointer relative overflow-hidden transition-all hover:bg-primary/5 border-r border-dashed"
                     onClick={() => {
-                      if (cStatus !== 'playing' && sport.hasPeriods) return;
+                      if (cStatus !== 'playing') return;
                       if (sport.isNumeric) setCHomeScore(s => s + 1);
                       else { setCWinner('home'); setCStatus('finished'); }
                     }}
@@ -327,7 +405,6 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                       <h4 className="text-2xl font-black uppercase leading-tight">{hAgent?.name}</h4>
                       <div className="text-7xl font-black text-primary">{sport.isNumeric ? cHomeScore : (cWinner === 'home' ? 'WIN' : '')}</div>
                     </div>
-                    {sport.isNumeric && <div className="absolute top-4 right-4 bg-primary/20 p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"><Plus className="text-primary" /></div>}
                   </div>
 
                   {/* Central Control */}
@@ -337,7 +414,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                         <div className={cn("text-5xl font-black font-mono tracking-tighter", cTime < 10 && "text-destructive animate-pulse")}>
                           {Math.floor(cTime / 60)}:{(cTime % 60).toString().padStart(2, '0')}
                         </div>
-                        <p className="text-[10px] font-black uppercase text-muted-foreground mt-1">Countdown</p>
+                        <p className="text-[10px] font-black uppercase text-muted-foreground mt-1">{cStatus === 'rest' ? 'BREAK' : 'REMAINING'}</p>
                       </div>
                     )}
                     
@@ -363,7 +440,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                   <div 
                     className="flex-1 group cursor-pointer relative overflow-hidden transition-all hover:bg-primary/5"
                     onClick={() => {
-                      if (cStatus !== 'playing' && sport.hasPeriods) return;
+                      if (cStatus !== 'playing') return;
                       if (sport.isNumeric) setCAwayScore(s => s + 1);
                       else { setCWinner('away'); setCStatus('finished'); }
                     }}
@@ -373,12 +450,11 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                       <h4 className="text-2xl font-black uppercase leading-tight">{aAgent?.name}</h4>
                       <div className="text-7xl font-black text-primary">{sport.isNumeric ? cAwayScore : (cWinner === 'away' ? 'WIN' : '')}</div>
                     </div>
-                    {sport.isNumeric && <div className="absolute top-4 left-4 bg-primary/20 p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"><Plus className="text-primary" /></div>}
                   </div>
                 </div>
                 
                 <div className="p-4 bg-muted/20 text-center text-[10px] font-black uppercase opacity-50 border-t">
-                  Haz click en un jugador para sumar puntos o declararlo vencedor
+                  Haz click en un jugador para puntuar o declarar ganador
                 </div>
               </div>
             );
@@ -386,7 +462,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Match Details / Acta de Partido */}
+      {/* Match Details Acta */}
       <Dialog open={!!selectedMatchDetail} onOpenChange={(o) => !o && setSelectedMatchDetail(null)}>
         <DialogContent className="rounded-[2.5rem] max-w-3xl p-0 overflow-hidden border-none shadow-2xl">
           {selectedMatchDetail && (() => {
@@ -429,24 +505,19 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                         <Card className="bg-muted/20 border-none rounded-2xl p-4">
                           <div className="flex items-center gap-4 mb-4">
                             <div className="w-12 h-12 bg-primary text-white rounded-xl flex items-center justify-center font-black text-lg">#{hPlayer.jerseyNumber}</div>
-                            <div>
-                              <p className="font-black uppercase">{hPlayer.name}</p>
-                              <Badge variant="outline" className="text-[8px] h-4">{hPlayer.position}</Badge>
-                            </div>
+                            <div><p className="font-black uppercase">{hPlayer.name}</p><Badge variant="outline" className="text-[8px] h-4">{hPlayer.position}</Badge></div>
                           </div>
                           <div className="space-y-2">
                             {hPlayer.attributes.slice(0, 4).map(at => (
                               <div key={at.name} className="flex justify-between items-center text-[10px]">
                                 <span className="font-bold opacity-60 uppercase">{at.name}</span>
-                                <div className="flex-1 mx-3 h-1 bg-muted rounded-full overflow-hidden">
-                                  <div className="h-full bg-accent" style={{ width: `${at.value}%` }} />
-                                </div>
+                                <div className="flex-1 mx-3 h-1 bg-muted rounded-full overflow-hidden"><div className="h-full bg-accent" style={{ width: `${at.value}%` }} /></div>
                                 <span className="font-black">{at.value}</span>
                               </div>
                             ))}
                           </div>
                         </Card>
-                      ) : <p className="text-[10px] italic opacity-50">Sin datos de jugador registrados.</p>}
+                      ) : <p className="text-[10px] italic opacity-50">Sin datos de jugador.</p>}
                     </div>
 
                     <div className="space-y-4">
@@ -458,24 +529,19 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                         <Card className="bg-muted/20 border-none rounded-2xl p-4">
                           <div className="flex items-center gap-4 mb-4">
                             <div className="w-12 h-12 bg-primary text-white rounded-xl flex items-center justify-center font-black text-lg">#{aPlayer.jerseyNumber}</div>
-                            <div>
-                              <p className="font-black uppercase">{aPlayer.name}</p>
-                              <Badge variant="outline" className="text-[8px] h-4">{aPlayer.position}</Badge>
-                            </div>
+                            <div><p className="font-black uppercase">{aPlayer.name}</p><Badge variant="outline" className="text-[8px] h-4">{aPlayer.position}</Badge></div>
                           </div>
                           <div className="space-y-2">
                             {aPlayer.attributes.slice(0, 4).map(at => (
                               <div key={at.name} className="flex justify-between items-center text-[10px]">
                                 <span className="font-bold opacity-60 uppercase">{at.name}</span>
-                                <div className="flex-1 mx-3 h-1 bg-muted rounded-full overflow-hidden">
-                                  <div className="h-full bg-primary" style={{ width: `${at.value}%` }} />
-                                </div>
+                                <div className="flex-1 mx-3 h-1 bg-muted rounded-full overflow-hidden"><div className="h-full bg-primary" style={{ width: `${at.value}%` }} /></div>
                                 <span className="font-black">{at.value}</span>
                               </div>
                             ))}
                           </div>
                         </Card>
-                      ) : <p className="text-[10px] italic opacity-50">Sin datos de jugador registrados.</p>}
+                      ) : <p className="text-[10px] italic opacity-50">Sin datos de jugador.</p>}
                     </div>
                   </div>
                 </div>
@@ -491,7 +557,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
 
       <Dialog open={isEditing} onOpenChange={setIsEditing}>
         <DialogContent className="rounded-[2.5rem] max-w-2xl max-h-[90vh] overflow-y-auto border-none shadow-2xl">
-          <DialogHeader><DialogTitle className="text-2xl font-black uppercase">Ajustes del Universo</DialogTitle><DialogDescription>Modifica todas las leyes de tu competición en tiempo real.</DialogDescription></DialogHeader>
+          <DialogHeader><DialogTitle className="text-2xl font-black uppercase">Ajustes del Universo</DialogTitle></DialogHeader>
           <div className="space-y-8 py-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="space-y-2"><Label>Nombre del Torneo</Label><Input value={editName} onChange={e => setEditName(e.target.value)} className="rounded-xl h-12" /></div><div className="space-y-2"><Label>Deporte</Label><Input value={editSport} onChange={e => setEditSport(e.target.value)} className="rounded-xl h-12" /></div></div>
             <div className="space-y-4">
@@ -506,7 +572,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
               <div className="grid grid-cols-2 gap-6"><div className="space-y-2"><Label>Plazas Playoff (Verde)</Label><Input type="number" value={editPlayoffSpots} onChange={e => setEditPlayoffSpots(Number(e.target.value))} className="rounded-xl h-12" /></div><div className="space-y-2"><Label>Plazas Descenso (Rojo)</Label><Input type="number" value={editRelegationSpots} onChange={e => setEditRelegationSpots(Number(e.target.value))} className="rounded-xl h-12" /></div></div>
             )}
           </div>
-          <DialogFooter className="gap-2"><Button variant="ghost" onClick={() => setIsEditing(false)} className="rounded-xl font-black">CANCELAR</Button><Button onClick={() => { if (!tournament) return; updateTournament({ ...tournament, name: editName, sport: editSport, scoringRuleType: editScoringType, scoringValue: editScoringValue, playoffSpots: editPlayoffSpots, relegationSpots: editRelegationSpots }); setIsEditing(false); toast({ title: "Ajustes Guardados" }); }} className="font-black rounded-xl px-8 bg-primary">GUARDAR LEYES</Button></DialogFooter>
+          <DialogFooter className="gap-2"><Button variant="ghost" onClick={() => setIsEditing(false)} className="rounded-xl font-black">CANCELAR</Button><Button onClick={() => { if (!tournament) return; updateTournament({ ...tournament, name: editName, sport: editSport, playoffSpots: editPlayoffSpots, relegationSpots: editRelegationSpots }); setIsEditing(false); toast({ title: "Ajustes Guardados" }); }} className="font-black rounded-xl px-8 bg-primary">GUARDAR</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
