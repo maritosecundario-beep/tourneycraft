@@ -88,8 +88,8 @@ export function Navbar() {
 
         <div className="px-4 mt-auto">
           <div className="p-4 bg-muted/30 rounded-2xl border border-border/50 text-center">
-            <p className="text-[10px] font-black uppercase text-muted-foreground">Versión Local 1.5</p>
-            <p className="text-[9px] text-accent uppercase font-bold mt-1">L'Horta Simulator</p>
+            <p className="text-[10px] font-black uppercase text-muted-foreground">Versión 1.6 - Producción</p>
+            <p className="text-[9px] text-accent uppercase font-bold mt-1">TourneyCraft Web</p>
           </div>
         </div>
       </nav>
