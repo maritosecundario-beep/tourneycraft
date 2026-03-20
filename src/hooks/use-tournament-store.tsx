@@ -207,7 +207,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     }));
   }, [generateScoreByRules, getBestPlayerId]);
 
-  const simulateMatchday = useCallback((tournamentId: string, matchdayNumber: number) => {
+  const simulateMatchday = useCallback((tournamentId: string, matchdayNumber?: number) => {
     setTournaments(prev => prev.map(t => {
       if (t.id !== tournamentId) return t;
       let nextT = { ...t };
@@ -313,7 +313,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         if (t.id !== tId) return t;
         const inc = t.incidents.find(i => i.id === incidentId);
         if (!inc || inc.status !== 'pending') return t;
-        return { ...t, incidents: t.incidents.map(i => i.id === incId ? { ...i, status: accept ? 'accepted' : 'rejected' } : i) };
+        return { ...t, incidents: t.incidents.map(i => i.id === incidentId ? { ...i, status: accept ? 'accepted' : 'rejected' } : i) };
       }));
     }
   }), [teams, players, tournaments, settings, generateSchedule, resetSchedule, resetMatchday, resolveMatch, simulateMatchday, createScheduleInternal]);

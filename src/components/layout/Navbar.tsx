@@ -4,8 +4,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Trophy, Users, UserPlus, Settings, LayoutDashboard, Database, MoreHorizontal, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { LoginButton } from '@/components/auth/LoginButton';
 
 export function Navbar() {
   const pathname = usePathname();
@@ -26,13 +26,17 @@ export function Navbar() {
   return (
     <>
       <nav className="hidden md:flex fixed left-0 top-0 h-full w-64 bg-card border-r border-border flex-col py-8 z-50">
-        <div className="px-6 mb-12 flex items-center gap-3">
+        <div className="px-6 mb-8 flex items-center gap-3">
           <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
             <Trophy className="text-primary-foreground w-6 h-6" />
           </div>
           <span className="text-xl font-bold tracking-tight">
             Tourney<span className="text-accent">Craft</span>
           </span>
+        </div>
+
+        <div className="px-6 mb-8">
+          <LoginButton />
         </div>
 
         <div className="flex-1 px-4 space-y-1.5">

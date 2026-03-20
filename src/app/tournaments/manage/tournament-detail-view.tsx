@@ -61,23 +61,38 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
     }
   }, [tournaments, id]);
 
-  const triggerAlert = useCallback(() => {
+  const triggerAlert = useCallback((type: 'beep' | 'period-end' | 'break-end' = 'beep') => {
     if (typeof navigator !== 'undefined' && navigator.vibrate) {
-      navigator.vibrate([300, 100, 300]);
+      if (type === 'beep') navigator.vibrate(100);
+      else navigator.vibrate([300, 100, 300, 100, 300]);
     }
     try {
       const AudioContext = (window as any).AudioContext || (window as any).webkitAudioContext;
       if (AudioContext) {
         const context = new AudioContext();
-        const oscillator = context.createOscillator();
-        const gain = context.createGain();
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(880, context.currentTime); 
-        gain.gain.setValueAtTime(0.1, context.currentTime);
-        oscillator.connect(gain);
-        gain.connect(context.destination);
-        oscillator.start();
-        oscillator.stop(context.currentTime + 0.5);
+        const playTone = (freq: number, dur: number, vol: number) => {
+          const osc = context.createOscillator();
+          const g = context.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, context.currentTime);
+          g.gain.setValueAtTime(0, context.currentTime);
+          g.gain.linearRampToValueAtTime(vol, context.currentTime + 0.05);
+          g.gain.linearRampToValueAtTime(0, context.currentTime + dur);
+          osc.connect(g);
+          g.connect(context.destination);
+          osc.start();
+          osc.stop(context.currentTime + dur);
+        };
+
+        if (type === 'beep') {
+          playTone(880, 0.2, 0.1);
+        } else if (type === 'period-end') {
+          playTone(440, 0.4, 0.2);
+          setTimeout(() => playTone(880, 0.6, 0.3), 200);
+        } else if (type === 'break-end') {
+          playTone(880, 0.4, 0.2);
+          setTimeout(() => playTone(440, 0.6, 0.3), 200);
+        }
       }
     } catch (e) {
       console.warn('Alerta sonora bloqueada');
@@ -85,12 +100,26 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
   }, []);
 
   useEffect(() => {
+    if (challengeMatch) {
+      setCHomeScore(0);
+      setCAwayScore(0);
+      setCWinner(null);
+      setCStatus('waiting');
+      setCPeriod(1);
+      setCTime(challengeMatch.sport.periodDuration || 0);
+    }
+  }, [challengeMatch]);
+
+  useEffect(() => {
     let timer: NodeJS.Timeout;
-    if (cStatus === 'playing' || cStatus === 'rest') {
+    if ((cStatus === 'playing' || cStatus === 'rest') && challengeMatch?.sport.hasPeriods) {
       timer = setInterval(() => {
         setCTime(prev => {
+          if (prev <= 4 && prev > 1) {
+            triggerAlert('beep');
+          }
           if (prev <= 1) {
-            triggerAlert();
+            triggerAlert(cStatus === 'playing' ? 'period-end' : 'break-end');
             return 0;
           }
           return prev - 1;
@@ -98,10 +127,10 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
       }, 1000);
     }
     return () => clearInterval(timer);
-  }, [cStatus, triggerAlert]);
+  }, [cStatus, triggerAlert, challengeMatch]);
 
   useEffect(() => {
-    if (cTime === 0 && (cStatus === 'playing' || cStatus === 'rest')) {
+    if (cTime === 0 && (cStatus === 'playing' || cStatus === 'rest') && challengeMatch?.sport.hasPeriods) {
       if (cStatus === 'playing') {
         const num = challengeMatch?.sport.numPeriods || 1;
         if (cPeriod < num) {
@@ -378,6 +407,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
       {/* Manual Match Arcade Center */}
       <Dialog open={!!manualMatch} onOpenChange={(o) => !o && setManualMatch(null)}>
         <DialogContent className="max-w-3xl rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden">
+          <DialogTitle className="sr-only">Centro de Tácticas</DialogTitle>
           {manualMatch && (() => {
             const home = teams.find(t => t.id === manualMatch.homeId) || players.find(p => p.id === manualMatch.homeId);
             const away = teams.find(t => t.id === manualMatch.awayId) || players.find(p => p.id === manualMatch.awayId);
@@ -445,6 +475,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
       {/* Challenge Match Interface */}
       <Dialog open={!!challengeMatch} onOpenChange={(o) => !o && setChallengeMatch(null)}>
         <DialogContent className="max-w-4xl rounded-[3rem] border-none shadow-2xl p-0 overflow-hidden bg-background">
+          <DialogTitle className="sr-only">Duelo Challenge</DialogTitle>
           {challengeMatch && (() => {
             const hAgent = players.find(p => p.id === challengeMatch.match.homeId);
             const aAgent = players.find(p => p.id === challengeMatch.match.awayId);
@@ -478,11 +509,17 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
 
                   <div className="w-48 bg-muted/10 flex flex-col items-center justify-center gap-8 border-x border-dashed">
                     {sport.hasPeriods && (
-                      <div className="text-center">
-                        <div className={cn("text-5xl font-black font-mono tracking-tighter", cTime < 10 && "text-destructive animate-pulse")}>
+                      <div className="text-center w-full px-6">
+                        <div className={cn("text-5xl font-black font-mono tracking-tighter mb-2", cTime < 10 && "text-destructive animate-pulse")}>
                           {Math.floor(cTime / 60)}:{(cTime % 60).toString().padStart(2, '0')}
                         </div>
-                        <p className="text-[10px] font-black uppercase text-muted-foreground mt-1">{cStatus === 'rest' ? 'BREAK' : 'REMAINING'}</p>
+                        <div className="h-2 w-full bg-muted/20 rounded-full overflow-hidden mb-1">
+                          <div 
+                            className={cn("h-full transition-all duration-1000", cTime < 10 ? "bg-destructive" : "bg-primary")} 
+                            style={{ width: `${(cTime / (cStatus === 'rest' ? (sport.restDuration || 1) : (sport.periodDuration || 1))) * 100}%` }} 
+                          />
+                        </div>
+                        <p className="text-[10px] font-black uppercase text-muted-foreground">{cStatus === 'rest' ? 'BREAK' : 'REMAINING'}</p>
                       </div>
                     )}
                     
@@ -532,6 +569,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
       {/* Match Details Acta */}
       <Dialog open={!!selectedMatchDetail} onOpenChange={(o) => !o && setSelectedMatchDetail(null)}>
         <DialogContent className="rounded-[2.5rem] max-w-3xl p-0 overflow-hidden border-none shadow-2xl">
+          <DialogTitle className="sr-only">Acta de Partido</DialogTitle>
           {selectedMatchDetail && (() => {
             const m = selectedMatchDetail;
             const home = teams.find(t => t.id === m.homeId) || players.find(p => p.id === m.homeId);

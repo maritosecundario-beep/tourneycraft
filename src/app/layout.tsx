@@ -9,6 +9,8 @@ export const metadata: Metadata = {
   description: 'Design, simulate, and manage highly customizable tournaments with AI-powered features.',
 };
 
+import { FirebaseClientProvider } from '@/firebase/client-provider';
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -22,15 +24,17 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased bg-background text-foreground min-h-screen">
-        <TournamentProvider>
-          <div className="flex flex-col md:flex-row min-h-screen">
-            <Navbar />
-            <main className="flex-1 w-full md:ml-64 p-4 md:p-8 pb-24 md:pb-8 min-h-screen">
-              {children}
-            </main>
-          </div>
-          <Toaster />
-        </TournamentProvider>
+        <FirebaseClientProvider>
+          <TournamentProvider>
+            <div className="flex flex-col md:flex-row min-h-screen">
+              <Navbar />
+              <main className="flex-1 w-full md:ml-64 p-4 md:p-8 pb-24 md:pb-8 min-h-screen">
+                {children}
+              </main>
+            </div>
+            <Toaster />
+          </TournamentProvider>
+        </FirebaseClientProvider>
       </body>
     </html>
   );

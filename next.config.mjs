@@ -4,6 +4,7 @@ import { withPlausibleProxy } from 'next-plausible';
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: false,
+  output: process.env.IS_CAPACITOR === 'true' ? 'export' : undefined,
   // Your existing configuration
   experimental: {
     // Your existing experimental features
