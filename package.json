@@ -74,6 +74,8 @@
   "overrides": {
     "react-day-picker": {
       "react": "19.2.1"
-    }
+    },
+    "react": "19.2.1",
+    "react-dom": "19.2.1"
   }
 }

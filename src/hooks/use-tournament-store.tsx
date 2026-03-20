@@ -89,8 +89,10 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     const hRating = (hTeam?.rating || 50) + 5; 
     const aRating = (aTeam?.rating || 50);
     const chaos = (t.variability || 15) / 100;
-    const winProb = Math.max(0.05, Math.min(0.95, (hRating / (hRating + aRating)) + (Math.random() * chaos - chaos/2)));
+    const baseWinProb = (hRating / (hRating + aRating)) + (Math.random() * chaos - chaos/2);
+    const winProb = Math.max(0.05, Math.min(0.95, baseWinProb));
 
+    // Simulation Point by Point (Binomial)
     for (let i = 0; i < val; i++) {
       if (Math.random() < winProb) hScore++;
       else aScore++;
@@ -98,7 +100,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     return { hScore, aScore };
   }, [teams]);
 
-  const createSchedule = useCallback((t: Tournament): Tournament => {
+  const createScheduleInternal = useCallback((t: Tournament): Tournament => {
     const schedule: Match[] = [];
     const dualSchedule: Match[] = [];
     let matchIdCounter = 1;
@@ -126,8 +128,8 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       const rounds = numParticipants - 1;
       const matchesPerRound = numParticipants / 2;
 
-      for (let round = 0; round < rounds; round++) {
-        const matchday = round + 1;
+      for (let roundIdx = 0; roundIdx < rounds; roundIdx++) {
+        const matchday = roundIdx + 1;
         for (let i = 0; i < matchesPerRound; i++) {
           const home = tempParticipants[i];
           const away = tempParticipants[numParticipants - 1 - i];
@@ -154,9 +156,9 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   const generateSchedule = useCallback((tournamentId: string) => {
     setTournaments(prev => prev.map(t => {
       if (t.id !== tournamentId) return t;
-      return createSchedule(t);
+      return createScheduleInternal(t);
     }));
-  }, [createSchedule]);
+  }, [createScheduleInternal]);
 
   const resetSchedule = useCallback((tournamentId: string) => {
     setTournaments(prev => prev.map(t => {
@@ -271,7 +273,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     addPlayer: (player: Player) => setPlayers(p => [...p, player]),
     updatePlayer: (player: Player) => setPlayers(p => p.map(p2 => p2.id === player.id ? player : p2)),
     deletePlayer: (id: string) => setPlayers(p => p.filter(p2 => p2.id !== id)),
-    addTournament: (t: Tournament) => setTournaments(p => [...p, createSchedule(t)]),
+    addTournament: (t: Tournament) => setTournaments(p => [...p, createScheduleInternal(t)]),
     updateTournament: (t: Tournament) => setTournaments(p => p.map(t2 => t2.id === t.id ? t : t2)),
     deleteTournament: (id: string) => setTournaments(p => p.filter(t => t.id !== id)),
     updateSettings: (s: Partial<GlobalSettings>) => setSettings(p => ({ ...p, ...s })),
@@ -309,12 +311,12 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     processIncidentDecision: (tId: string, incidentId: string, accept: boolean) => {
       setTournaments(prev => prev.map(t => {
         if (t.id !== tId) return t;
-        const inc = t.incidents.find(i => i.id === incId);
+        const inc = t.incidents.find(i => i.id === incidentId);
         if (!inc || inc.status !== 'pending') return t;
         return { ...t, incidents: t.incidents.map(i => i.id === incId ? { ...i, status: accept ? 'accepted' : 'rejected' } : i) };
       }));
     }
-  }), [teams, players, tournaments, settings, generateSchedule, resetSchedule, resetMatchday, resolveMatch, simulateMatchday, createSchedule]);
+  }), [teams, players, tournaments, settings, generateSchedule, resetSchedule, resetMatchday, resolveMatch, simulateMatchday, createScheduleInternal]);
 
   return <TournamentContext.Provider value={value}>{children}</TournamentContext.Provider>;
 }
