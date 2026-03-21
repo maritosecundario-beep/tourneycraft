@@ -49,6 +49,12 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
   const [editSport, setEditSport] = useState('');
   const [editPlayoffSpots, setEditPlayoffSpots] = useState(0);
   const [editRelegationSpots, setEditRelegationSpots] = useState(0);
+  const [editChallengeSports, setEditChallengeSports] = useState<ChallengeSport[]>([]);
+
+  // Match edit state
+  const [isEditingResult, setIsEditingResult] = useState(false);
+  const [editedHomeScore, setEditedHomeScore] = useState(0);
+  const [editedAwayScore, setEditedAwayScore] = useState(0);
 
   useEffect(() => {
     const found = tournaments.find(t => t.id === id);
@@ -58,6 +64,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
       setEditSport(found.sport);
       setEditPlayoffSpots(found.playoffSpots || 0);
       setEditRelegationSpots(found.relegationSpots || 0);
+      setEditChallengeSports(found.challengeSports ? [...found.challengeSports] : []);
     }
   }, [tournaments, id]);
 
@@ -495,15 +502,20 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                   <div 
                     className="flex-1 group cursor-pointer relative overflow-hidden transition-all hover:bg-primary/5 border-r border-dashed"
                     onClick={() => {
-                      if (cStatus !== 'playing') return;
+                      if (cStatus === 'waiting' || cStatus === 'rest') return;
                       if (sport.isNumeric) setCHomeScore(s => s + 1);
-                      else { setCWinner('home'); setCStatus('finished'); }
+                      else if (cStatus === 'playing') { setCWinner('home'); setCStatus('finished'); }
                     }}
                   >
                     <div className="absolute inset-0 flex flex-col items-center justify-center p-10 text-center gap-6">
                       <div className="w-32 h-32 rounded-[2.5rem] bg-primary/10 flex items-center justify-center text-5xl font-black group-hover:scale-110 transition-transform">#{hAgent?.jerseyNumber}</div>
                       <h4 className="text-2xl font-black uppercase leading-tight">{hAgent?.name}</h4>
-                      <div className="text-7xl font-black text-primary">{sport.isNumeric ? cHomeScore : (cWinner === 'home' ? 'WIN' : '')}</div>
+                      <div className="flex flex-col items-center">
+                        <div className="text-7xl font-black text-primary">{sport.isNumeric ? cHomeScore : (cWinner === 'home' ? 'WIN' : '')}</div>
+                        {sport.isNumeric && cStatus === 'finished' && (
+                          <Button variant="secondary" size="sm" className="mt-4 rounded-full w-12 h-12 p-0 text-xl font-black" onClick={(e) => { e.stopPropagation(); setCHomeScore(Math.max(0, cHomeScore - 1)); }}>-1</Button>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -544,15 +556,20 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                   <div 
                     className="flex-1 group cursor-pointer relative overflow-hidden transition-all hover:bg-primary/5"
                     onClick={() => {
-                      if (cStatus !== 'playing') return;
+                      if (cStatus === 'waiting' || cStatus === 'rest') return;
                       if (sport.isNumeric) setCAwayScore(s => s + 1);
-                      else { setCWinner('away'); setCStatus('finished'); }
+                      else if (cStatus === 'playing') { setCWinner('away'); setCStatus('finished'); }
                     }}
                   >
                     <div className="absolute inset-0 flex flex-col items-center justify-center p-10 text-center gap-6">
                       <div className="w-32 h-32 rounded-[2.5rem] bg-primary/10 flex items-center justify-center text-5xl font-black group-hover:scale-110 transition-transform">#{aAgent?.jerseyNumber}</div>
                       <h4 className="text-2xl font-black uppercase leading-tight">{aAgent?.name}</h4>
-                      <div className="text-7xl font-black text-primary">{sport.isNumeric ? cAwayScore : (cWinner === 'away' ? 'WIN' : '')}</div>
+                      <div className="flex flex-col items-center">
+                        <div className="text-7xl font-black text-primary">{sport.isNumeric ? cAwayScore : (cWinner === 'away' ? 'WIN' : '')}</div>
+                        {sport.isNumeric && cStatus === 'finished' && (
+                          <Button variant="secondary" size="sm" className="mt-4 rounded-full w-12 h-12 p-0 text-xl font-black" onClick={(e) => { e.stopPropagation(); setCAwayScore(Math.max(0, cAwayScore - 1)); }}>-1</Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -567,7 +584,9 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
       </Dialog>
 
       {/* Match Details Acta */}
-      <Dialog open={!!selectedMatchDetail} onOpenChange={(o) => !o && setSelectedMatchDetail(null)}>
+      <Dialog open={!!selectedMatchDetail} onOpenChange={(o) => {
+        if (!o) { setSelectedMatchDetail(null); setIsEditingResult(false); }
+      }}>
         <DialogContent className="rounded-[2.5rem] max-w-3xl p-0 overflow-hidden border-none shadow-2xl">
           <DialogTitle className="sr-only">Acta de Partido</DialogTitle>
           {selectedMatchDetail && (() => {
@@ -588,12 +607,25 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-8 space-y-10">
-                  <div className="flex items-center justify-center gap-12 py-6 border-b border-dashed">
+                  <div className="flex items-center justify-center gap-12 py-6 border-b border-dashed relative">
+                    {!isEditingResult && (
+                      <Button variant="ghost" size="icon" className="absolute top-2 right-2 rounded-full hidden md:flex" onClick={() => { setIsEditingResult(true); setEditedHomeScore(m.homeScore || 0); setEditedAwayScore(m.awayScore || 0); }}>
+                        <Settings2 className="w-4 h-4 opacity-50" />
+                      </Button>
+                    )}
                     <div className="text-center space-y-3">
                       {home && 'abbreviation' in home ? <CrestIcon shape={(home as any).emblemShape} pattern={(home as any).emblemPattern} c1={(home as any).crestPrimary} c2={(home as any).crestSecondary} c3={(home as any).crestTertiary || (home as any).crestPrimary} size="w-16 h-16" /> : <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center text-3xl font-black">#{(home as any)?.jerseyNumber}</div>}
                       <p className="font-black text-sm uppercase">{home?.name}</p>
                     </div>
-                    <div className="text-6xl font-black">{m.homeScore} - {m.awayScore}</div>
+                    {isEditingResult ? (
+                      <div className="flex items-center gap-4">
+                        <Input type="number" className="w-20 text-center text-4xl font-black h-16 rounded-2xl" value={editedHomeScore} onChange={e => setEditedHomeScore(Number(e.target.value))} />
+                        <span className="text-4xl font-black">-</span>
+                        <Input type="number" className="w-20 text-center text-4xl font-black h-16 rounded-2xl" value={editedAwayScore} onChange={e => setEditedAwayScore(Number(e.target.value))} />
+                      </div>
+                    ) : (
+                      <div className="text-6xl font-black">{m.homeScore} - {m.awayScore}</div>
+                    )}
                     <div className="text-center space-y-3">
                       {away && 'abbreviation' in away ? <CrestIcon shape={(away as any).emblemShape} pattern={(away as any).emblemPattern} c1={(away as any).crestPrimary} c2={(away as any).crestSecondary} c3={(away as any).crestTertiary || (away as any).crestPrimary} size="w-16 h-16" /> : <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center text-3xl font-black">#{(away as any)?.jerseyNumber}</div>}
                       <p className="font-black text-sm uppercase">{away?.name}</p>
@@ -651,8 +683,21 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                   </div>
                 </div>
 
-                <div className="p-4 bg-muted/30 border-t flex justify-end">
-                  <Button onClick={() => setSelectedMatchDetail(null)} className="rounded-xl font-black px-8">CERRAR INFORME</Button>
+                <div className="p-4 bg-muted/30 border-t flex items-center justify-between">
+                  <div>
+                    {!isEditingResult ? (
+                      <Button variant="outline" onClick={() => { setIsEditingResult(true); setEditedHomeScore(m.homeScore || 0); setEditedAwayScore(m.awayScore || 0); }} className="rounded-xl font-black text-xs h-10 hidden max-md:flex">EDITAR RESULTADO</Button>
+                    ) : (
+                      <Button onClick={() => {
+                        const isDual = tournament.dualLeagueMatches?.some(dm => dm.id === m.id) || false;
+                        resolveMatch(tournament.id, m.id, editedHomeScore, editedAwayScore, isDual, m.homePlayerId, m.awayPlayerId, false);
+                        setSelectedMatchDetail({ ...m, homeScore: editedHomeScore, awayScore: editedAwayScore });
+                        setIsEditingResult(false);
+                        toast({ title: "Resultado actualizado" });
+                      }} className="rounded-xl font-black bg-primary h-10 px-6">GUARDAR REVISIÓN</Button>
+                    )}
+                  </div>
+                  <Button onClick={() => { setSelectedMatchDetail(null); setIsEditingResult(false); }} className="rounded-xl font-black px-8 h-10">CERRAR INFORME</Button>
                 </div>
               </div>
             );
@@ -676,8 +721,39 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
             {tournament.mode !== 'challenge' && (
               <div className="grid grid-cols-2 gap-6"><div className="space-y-2"><Label>Plazas Playoff (Verde)</Label><Input type="number" value={editPlayoffSpots} onChange={e => setEditPlayoffSpots(Number(e.target.value))} className="rounded-xl h-12" /></div><div className="space-y-2"><Label>Plazas Descenso (Rojo)</Label><Input type="number" value={editRelegationSpots} onChange={e => setEditRelegationSpots(Number(e.target.value))} className="rounded-xl h-12" /></div></div>
             )}
+            
+            {tournament.mode === 'challenge' && (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center border-b pb-2">
+                  <h4 className="text-[10px] font-black uppercase text-primary tracking-widest">Deportes Activos</h4>
+                  <Button variant="outline" size="sm" onClick={() => {
+                    const newId = `sport-${Date.now()}`;
+                    setEditChallengeSports([...editChallengeSports, { id: newId, name: 'Nuevo Deporte', isNumeric: true, hasPeriods: false }]);
+                  }} className="h-6 text-[10px] font-black"><Plus className="w-3 h-3 mr-1" /> AÑADIR</Button>
+                </div>
+                <div className="space-y-3">
+                  {editChallengeSports.map((sp, idx) => (
+                    <div key={sp.id} className="p-3 bg-muted/20 rounded-xl space-y-3 relative group">
+                      <Button variant="ghost" size="icon" onClick={() => setEditChallengeSports(editChallengeSports.filter(s => s.id !== sp.id))} className="absolute top-2 right-2 w-6 h-6 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-3 h-3" /></Button>
+                      <div className="grid grid-cols-[1fr_80px_80px] gap-2 mr-6">
+                        <div className="space-y-1"><Label className="text-[10px] uppercase">Nombre</Label><Input value={sp.name} onChange={e => setEditChallengeSports(editChallengeSports.map(s => s.id === sp.id ? { ...s, name: e.target.value } : s))} className="h-8 text-xs font-bold" /></div>
+                        <div className="flex items-center space-x-2 pt-5"><input type="checkbox" id={`isNumeric-${sp.id}`} checked={sp.isNumeric} onChange={e => setEditChallengeSports(editChallengeSports.map(s => s.id === sp.id ? { ...s, isNumeric: e.target.checked } : s))} className="rounded border-gray-300 text-primary" /><label htmlFor={`isNumeric-${sp.id}`} className="text-[10px] uppercase font-bold">Puntos</label></div>
+                        <div className="flex items-center space-x-2 pt-5"><input type="checkbox" id={`hasPeriods-${sp.id}`} checked={sp.hasPeriods} onChange={e => setEditChallengeSports(editChallengeSports.map(s => s.id === sp.id ? { ...s, hasPeriods: e.target.checked } : s))} className="rounded border-gray-300 text-primary" /><label htmlFor={`hasPeriods-${sp.id}`} className="text-[10px] uppercase font-bold">Tiempos</label></div>
+                      </div>
+                      {sp.hasPeriods && (
+                        <div className="grid grid-cols-3 gap-2 border-t pt-2">
+                          <div className="space-y-1"><Label className="text-[10px] uppercase">Periodos</Label><Input type="number" value={sp.numPeriods || 2} onChange={e => setEditChallengeSports(editChallengeSports.map(s => s.id === sp.id ? { ...s, numPeriods: Number(e.target.value) } : s))} className="h-8 text-xs font-bold" /></div>
+                          <div className="space-y-1"><Label className="text-[10px] uppercase">Dur. (s)</Label><Input type="number" value={sp.periodDuration || 300} onChange={e => setEditChallengeSports(editChallengeSports.map(s => s.id === sp.id ? { ...s, periodDuration: Number(e.target.value) } : s))} className="h-8 text-xs font-bold" /></div>
+                          <div className="space-y-1"><Label className="text-[10px] uppercase">Desc. (s)</Label><Input type="number" value={sp.restDuration || 60} onChange={e => setEditChallengeSports(editChallengeSports.map(s => s.id === sp.id ? { ...s, restDuration: Number(e.target.value) } : s))} className="h-8 text-xs font-bold" /></div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-          <DialogFooter className="gap-2"><Button variant="ghost" onClick={() => setIsEditing(false)} className="rounded-xl font-black">CANCELAR</Button><Button onClick={() => { if (!tournament) return; updateTournament({ ...tournament, name: editName, sport: editSport, playoffSpots: editPlayoffSpots, relegationSpots: editRelegationSpots }); setIsEditing(false); toast({ title: "Ajustes Guardados" }); }} className="font-black rounded-xl px-8 bg-primary">GUARDAR</Button></DialogFooter>
+          <DialogFooter className="gap-2"><Button variant="ghost" onClick={() => setIsEditing(false)} className="rounded-xl font-black">CANCELAR</Button><Button onClick={() => { if (!tournament) return; updateTournament({ ...tournament, name: editName, sport: editSport, playoffSpots: editPlayoffSpots, relegationSpots: editRelegationSpots, challengeSports: editChallengeSports }); setIsEditing(false); toast({ title: "Ajustes Guardados" }); }} className="font-black rounded-xl px-8 bg-primary">GUARDAR</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

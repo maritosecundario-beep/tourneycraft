@@ -2,12 +2,12 @@
 
 import { useTournamentStore } from '@/hooks/use-tournament-store';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Trophy, Plus, Calendar, Play, Users, Settings2 } from 'lucide-react';
+import { Trophy, Plus, Calendar, Play, Users, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 
 export default function TournamentsPage() {
-  const { tournaments } = useTournamentStore();
+  const { tournaments, deleteTournament } = useTournamentStore();
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
@@ -76,8 +76,17 @@ export default function TournamentsPage() {
                       <Play className="w-4 h-4 mr-2 fill-current" /> GESTIONAR
                     </Link>
                   </Button>
-                  <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl border-muted">
-                    <Settings2 className="w-5 h-5" />
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    className="h-12 w-12 rounded-xl border-destructive/20 text-destructive hover:bg-destructive/10"
+                    onClick={() => {
+                      if (confirm('¿Estás seguro de que deseas eliminar este torneo de forma permanente?')) {
+                        deleteTournament(tournament.id);
+                      }
+                    }}
+                  >
+                    <Trash2 className="w-5 h-5" />
                   </Button>
                 </div>
               </CardContent>
