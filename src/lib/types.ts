@@ -154,6 +154,10 @@ export type Tournament = {
   // Challenge Exclusive
   challengeSports?: ChallengeSport[];
   challengeRounds?: number;
+  // Arcade Specific
+  arcadeMaxBrokeMatchdays?: number;
+  arcadeSanctionPoints?: number;
+  teamBrokeMatchdays?: Record<string, number>;
 };
 
 export type GlobalSettings = {

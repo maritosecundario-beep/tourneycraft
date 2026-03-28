@@ -72,22 +72,29 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     }
   }, [teams, players, tournaments, settings, isLoaded]);
 
-  const getBestPlayerId = useCallback((teamId: string) => {
-    const teamPlayers = players.filter(p => p.teamId === teamId && p.suspensionMatchdays === 0);
+  const getBestPlayerId = useCallback((teamId: string, excludePlayerId?: string) => {
+    const teamPlayers = players.filter(p => p.teamId === teamId && p.suspensionMatchdays === 0 && p.id !== excludePlayerId);
     if (teamPlayers.length === 0) return undefined;
     const sorted = [...teamPlayers].sort((a, b) => b.monetaryValue - a.monetaryValue);
-    return Math.random() < 0.7 ? sorted[0].id : sorted[Math.floor(Math.random() * sorted.length)].id;
+    const rand = Math.random();
+    if (rand < 0.7) return sorted[0].id;
+    if (rand < 0.9 && sorted.length > 1) return sorted[1].id;
+    if (sorted.length > 2) {
+      const remainingIndex = 2 + Math.floor(Math.random() * (sorted.length - 2));
+      return sorted[remainingIndex].id;
+    }
+    return sorted[Math.floor(Math.random() * sorted.length)].id;
   }, [players]);
 
-  const generateScoreByRules = useCallback((t: Tournament, hId: string, aId: string) => {
+  const generateScoreByRules = useCallback((t: Tournament, hPlayerId?: string, aPlayerId?: string) => {
     let hScore = 0;
     let aScore = 0;
     const val = t.scoringValue || 9;
     
-    const hTeam = teams.find(team => team.id === hId);
-    const aTeam = teams.find(team => team.id === aId);
-    const hRating = (hTeam?.rating || 50) + 5; 
-    const aRating = (aTeam?.rating || 50);
+    const hPlayer = players.find(p => p.id === hPlayerId);
+    const aPlayer = players.find(p => p.id === aPlayerId);
+    const hRating = (hPlayer?.monetaryValue || 50) + 5; 
+    const aRating = (aPlayer?.monetaryValue || 50);
     const chaos = (t.variability || 15) / 100;
     const baseWinProb = (hRating / (hRating + aRating)) + (Math.random() * chaos - chaos/2);
     const winProb = Math.max(0.05, Math.min(0.95, baseWinProb));
@@ -98,7 +105,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       else aScore++;
     }
     return { hScore, aScore };
-  }, [teams]);
+  }, [players]);
 
   const createScheduleInternal = useCallback((t: Tournament): Tournament => {
     const schedule: Match[] = [];
@@ -171,21 +178,68 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   const resolveMatch = useCallback((tournamentId: string, matchId: string, hScoreInput: number, aScoreInput: number, isDual: boolean, homePlayerId?: string, awayPlayerId?: string, autoSim?: boolean) => {
     setTournaments(prev => prev.map(t => {
       if (t.id !== tournamentId) return t;
+      
+      let nextT = { ...t };
       const matchSource = isDual ? (t.dualLeagueMatches || []) : (t.matches || []);
       const targetMatch = matchSource.find(m => m.id === matchId);
       if (!targetMatch) return t;
 
-      let hScore = hScoreInput;
-      let aScore = aScoreInput;
-      if (autoSim) {
-        const res = generateScoreByRules(t, targetMatch.homeId, targetMatch.awayId);
-        hScore = res.hScore; aScore = res.aScore;
-      }
-
       const hPlayerId = homePlayerId || (t.mode === 'challenge' ? targetMatch.homeId : getBestPlayerId(targetMatch.homeId));
       const aPlayerId = awayPlayerId || (t.mode === 'challenge' ? targetMatch.awayId : getBestPlayerId(targetMatch.awayId));
 
+      let hScore = hScoreInput;
+      let aScore = aScoreInput;
+      
+      let hScoreOffset = 0;
+      let aScoreOffset = 0;
+      if (t.mode === 'arcade' && t.arcadeMaxBrokeMatchdays !== undefined && t.arcadeSanctionPoints !== undefined) {
+         if ((t.teamBrokeMatchdays?.[targetMatch.homeId] || 0) >= t.arcadeMaxBrokeMatchdays) aScoreOffset += t.arcadeSanctionPoints;
+         if ((t.teamBrokeMatchdays?.[targetMatch.awayId] || 0) >= t.arcadeMaxBrokeMatchdays) hScoreOffset += t.arcadeSanctionPoints;
+      }
+
+      if (autoSim) {
+        const res = generateScoreByRules(t, hPlayerId, aPlayerId);
+        hScore = res.hScore; aScore = res.aScore;
+      }
+      
+      hScore += hScoreOffset;
+      aScore += aScoreOffset;
+
       const updateMatchList = (mList: Match[]) => mList.map(m => m.id === matchId ? { ...m, homeScore: hScore, awayScore: aScore, isSimulated: true, homePlayerId: hPlayerId, awayPlayerId: aPlayerId } : m);
+      
+      if (isDual) {
+        nextT.dualLeagueMatches = updateMatchList(t.dualLeagueMatches || []);
+      } else {
+        nextT.matches = updateMatchList(t.matches);
+      }
+
+      if (t.mode === 'arcade' && t.dualLeagueEnabled && !isDual) {
+        const dualM = (nextT.dualLeagueMatches || []).find(dm => dm.matchday === targetMatch.matchday && ((dm.homeId === targetMatch.homeId && dm.awayId === targetMatch.awayId) || (dm.homeId === targetMatch.awayId && dm.awayId === targetMatch.homeId)));
+        if (dualM && !dualM.isSimulated) {
+           const dualHPlayer = getBestPlayerId(dualM.homeId, dualM.homeId === targetMatch.homeId ? hPlayerId : aPlayerId);
+           const dualAPlayer = getBestPlayerId(dualM.awayId, dualM.awayId === targetMatch.awayId ? aPlayerId : hPlayerId);
+           const dualRes = generateScoreByRules(t, dualHPlayer, dualAPlayer);
+           
+           let dHScoreOffset = 0;
+           let dAScoreOffset = 0;
+           if (t.arcadeMaxBrokeMatchdays !== undefined && t.arcadeSanctionPoints !== undefined) {
+             if ((t.teamBrokeMatchdays?.[dualM.homeId] || 0) >= t.arcadeMaxBrokeMatchdays) dAScoreOffset += t.arcadeSanctionPoints;
+             if ((t.teamBrokeMatchdays?.[dualM.awayId] || 0) >= t.arcadeMaxBrokeMatchdays) dHScoreOffset += t.arcadeSanctionPoints;
+           }
+           const dHScore = dualRes.hScore + dHScoreOffset;
+           const dAScore = dualRes.aScore + dAScoreOffset;
+           
+           nextT.dualLeagueMatches = nextT.dualLeagueMatches.map(nm => nm.id === dualM.id ? { ...nm, homeScore: dHScore, awayScore: dAScore, isSimulated: true, homePlayerId: dualHPlayer, awayPlayerId: dualAPlayer } : nm);
+           
+           setTimeout(() => {
+             setPlayers(pPrev => pPrev.map(pl => {
+               if (pl.id === dualHPlayer) return { ...pl, monetaryValue: Math.max(1, Math.min(100, pl.monetaryValue + (dHScore > dAScore ? 1 : dAScore > dHScore ? -1 : 0))) };
+               if (pl.id === dualAPlayer) return { ...pl, monetaryValue: Math.max(1, Math.min(100, pl.monetaryValue + (dAScore > dHScore ? 1 : dHScore > dAScore ? -1 : 0))) };
+               return pl;
+             }));
+           }, 0);
+        }
+      }
 
       if (t.mode !== 'challenge' && !isDual) {
         const isHomeWin = hScore > aScore;
@@ -193,51 +247,183 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         const hChange = isHomeWin ? t.winReward : isAwayWin ? -t.lossPenalty : t.drawReward;
         const aChange = isAwayWin ? t.winReward : isHomeWin ? -t.lossPenalty : t.drawReward;
         
+        let ntBroke = { ...(t.teamBrokeMatchdays || {}) };
+        
         setTimeout(() => {
           setTeams(tPrev => tPrev.map(team => {
             if (team.id === targetMatch.homeId) return { ...team, budget: Math.max(0, team.budget + hChange) };
             if (team.id === targetMatch.awayId) return { ...team, budget: Math.max(0, team.budget + aChange) };
             return team;
           }));
+          setPlayers(pPrev => pPrev.map(pl => {
+             if (pl.id === hPlayerId) return { ...pl, monetaryValue: Math.max(1, Math.min(100, pl.monetaryValue + (isHomeWin ? 1 : isAwayWin ? -1 : 0))) };
+             if (pl.id === aPlayerId) return { ...pl, monetaryValue: Math.max(1, Math.min(100, pl.monetaryValue + (isAwayWin ? 1 : isHomeWin ? -1 : 0))) };
+             return pl;
+          }));
         }, 0);
+
+        const curHTeam = teams.find(tm => tm.id === targetMatch.homeId);
+        const curATeam = teams.find(tm => tm.id === targetMatch.awayId);
+        if (curHTeam && curHTeam.budget + hChange <= 0) ntBroke[targetMatch.homeId] = (ntBroke[targetMatch.homeId] || 0) + 1;
+        else ntBroke[targetMatch.homeId] = 0;
+        
+        if (curATeam && curATeam.budget + aChange <= 0) ntBroke[targetMatch.awayId] = (ntBroke[targetMatch.awayId] || 0) + 1;
+        else ntBroke[targetMatch.awayId] = 0;
+        
+        nextT.teamBrokeMatchdays = ntBroke;
       }
 
-      if (isDual) return { ...t, dualLeagueMatches: updateMatchList(t.dualLeagueMatches || []) };
-      return { ...t, matches: updateMatchList(t.matches) };
+      return nextT;
     }));
-  }, [generateScoreByRules, getBestPlayerId]);
+  }, [generateScoreByRules, getBestPlayerId, teams]);
 
   const simulateMatchday = useCallback((tournamentId: string, matchdayNumber?: number) => {
     setTournaments(prev => prev.map(t => {
       if (t.id !== tournamentId) return t;
       let nextT = { ...t };
       const dayMatches = t.matches.filter(m => m.matchday === matchdayNumber && !m.isSimulated);
+      let ntBroke = { ...(t.teamBrokeMatchdays || {}) };
+      let newIncidents: TournamentIncident[] = [];
+      
       dayMatches.forEach(m => {
         const isUserMatch = (t.mode === 'arcade' && (m.homeId === t.managedParticipantId || m.awayId === t.managedParticipantId)) || (t.mode === 'challenge');
         if (!isUserMatch) {
-          const { hScore, aScore } = generateScoreByRules(t, m.homeId, m.awayId);
           const hPlayerId = getBestPlayerId(m.homeId);
           const aPlayerId = getBestPlayerId(m.awayId);
+          
+          let hScoreOffset = 0;
+          let aScoreOffset = 0;
+          if (t.mode === 'arcade' && t.arcadeMaxBrokeMatchdays !== undefined && t.arcadeSanctionPoints !== undefined) {
+             if ((ntBroke[m.homeId] || 0) >= t.arcadeMaxBrokeMatchdays) aScoreOffset += t.arcadeSanctionPoints;
+             if ((ntBroke[m.awayId] || 0) >= t.arcadeMaxBrokeMatchdays) hScoreOffset += t.arcadeSanctionPoints;
+          }
+
+          const { hScore: baseH, aScore: baseA } = generateScoreByRules(t, hPlayerId, aPlayerId);
+          const hScore = baseH + hScoreOffset;
+          const aScore = baseA + aScoreOffset;
+          
           nextT.matches = nextT.matches.map(nm => nm.id === m.id ? { ...nm, homeScore: hScore, awayScore: aScore, isSimulated: true, homePlayerId: hPlayerId, awayPlayerId: aPlayerId } : nm);
           
+          if (t.mode === 'arcade' && t.dualLeagueEnabled) {
+            const dualM = (nextT.dualLeagueMatches || []).find(dm => dm.matchday === m.matchday && ((dm.homeId === m.homeId && dm.awayId === m.awayId) || (dm.homeId === m.awayId && dm.awayId === m.homeId)));
+            if (dualM && !dualM.isSimulated) {
+               const dualHPlayer = getBestPlayerId(dualM.homeId, dualM.homeId === m.homeId ? hPlayerId : aPlayerId);
+               const dualAPlayer = getBestPlayerId(dualM.awayId, dualM.awayId === m.awayId ? aPlayerId : hPlayerId);
+               const dualRes = generateScoreByRules(t, dualHPlayer, dualAPlayer);
+               
+               let dHScoreOffset = 0;
+               let dAScoreOffset = 0;
+               if (t.arcadeMaxBrokeMatchdays !== undefined && t.arcadeSanctionPoints !== undefined) {
+                 if ((ntBroke[dualM.homeId] || 0) >= t.arcadeMaxBrokeMatchdays) dAScoreOffset += t.arcadeSanctionPoints;
+                 if ((ntBroke[dualM.awayId] || 0) >= t.arcadeMaxBrokeMatchdays) dHScoreOffset += t.arcadeSanctionPoints;
+               }
+               const dHScore = dualRes.hScore + dHScoreOffset;
+               const dAScore = dualRes.aScore + dAScoreOffset;
+               
+               nextT.dualLeagueMatches = (nextT.dualLeagueMatches || []).map(nm => nm.id === dualM.id ? { ...nm, homeScore: dHScore, awayScore: dAScore, isSimulated: true, homePlayerId: dualHPlayer, awayPlayerId: dualAPlayer } : nm);
+               
+               setTimeout(() => {
+                 setPlayers(pPrev => pPrev.map(pl => {
+                   if (pl.id === dualHPlayer) return { ...pl, monetaryValue: Math.max(1, Math.min(100, pl.monetaryValue + (dHScore > dAScore ? 1 : dAScore > dHScore ? -1 : 0))) };
+                   if (pl.id === dualAPlayer) return { ...pl, monetaryValue: Math.max(1, Math.min(100, pl.monetaryValue + (dAScore > dHScore ? 1 : dHScore > dAScore ? -1 : 0))) };
+                   return pl;
+                 }));
+               }, 0);
+            }
+          }
+
           if (t.mode !== 'challenge') {
             const isHomeWin = hScore > aScore;
             const isAwayWin = aScore > hScore;
             const hChange = isHomeWin ? t.winReward : isAwayWin ? -t.lossPenalty : t.drawReward;
             const aChange = isAwayWin ? t.winReward : isHomeWin ? -t.lossPenalty : t.drawReward;
+            
+            const curHTeam = teams.find(tm => tm.id === m.homeId);
+            const curATeam = teams.find(tm => tm.id === m.awayId);
+            if (curHTeam && curHTeam.budget + hChange <= 0) ntBroke[m.homeId] = (ntBroke[m.homeId] || 0) + 1;
+            else ntBroke[m.homeId] = 0;
+            
+            if (curATeam && curATeam.budget + aChange <= 0) ntBroke[m.awayId] = (ntBroke[m.awayId] || 0) + 1;
+            else ntBroke[m.awayId] = 0;
+
             setTimeout(() => {
               setTeams(tPrev => tPrev.map(team => {
                 if (team.id === m.homeId) return { ...team, budget: Math.max(0, team.budget + hChange) };
                 if (team.id === m.awayId) return { ...team, budget: Math.max(0, team.budget + aChange) };
                 return team;
               }));
+              setPlayers(pPrev => pPrev.map(pl => {
+                 if (pl.id === hPlayerId) return { ...pl, monetaryValue: Math.max(1, Math.min(100, pl.monetaryValue + (isHomeWin ? 1 : isAwayWin ? -1 : 0))) };
+                 if (pl.id === aPlayerId) return { ...pl, monetaryValue: Math.max(1, Math.min(100, pl.monetaryValue + (isAwayWin ? 1 : isHomeWin ? -1 : 0))) };
+                 return pl;
+              }));
             }, 0);
+          }
+          
+          if (t.mode === 'arcade' && Math.random() < 0.05) {
+             const sanctionTarget = Math.random() < 0.5 ? 'team' : 'player';
+             const isHome = Math.random() < 0.5;
+             const targetTeamId = isHome ? m.homeId : m.awayId;
+             const targetTeam = teams.find(tm => tm.id === targetTeamId);
+             if (sanctionTarget === 'team') {
+                const sanctionVal = Math.floor(Math.random() * 500) + 100;
+                newIncidents.push({
+                   id: `inc-sanc-${Date.now()}-${Math.random()}`,
+                   date: `Jornada ${matchdayNumber}`,
+                   message: `Sanción económica al equipo ${targetTeam?.name || 'Desconocido'} por ${sanctionVal} créditos.`,
+                   type: 'sanction',
+                   status: targetTeamId === t.managedParticipantId ? 'pending' : 'accepted',
+                   fromTeamId: targetTeamId,
+                   value: sanctionVal
+                });
+             } else {
+                const targetPlayerId = isHome ? hPlayerId : aPlayerId;
+                const targetPlayer = players.find(pl => pl.id === targetPlayerId);
+                newIncidents.push({
+                   id: `inc-susp-${Date.now()}-${Math.random()}`,
+                   date: `Jornada ${matchdayNumber}`,
+                   message: `El jugador ${targetPlayer?.name || 'Desconocido'} (${targetTeam?.name}) ha sido suspendido por incidentes.`,
+                   type: 'sanction',
+                   status: targetTeamId === t.managedParticipantId ? 'pending' : 'accepted',
+                   playerId: targetPlayerId,
+                   value: 1
+                });
+             }
+          }
+          
+          if (t.mode === 'arcade' && Math.random() < 0.20) {
+             const targetTeamId = Math.random() < 0.5 ? m.homeId : m.awayId;
+             if (targetTeamId !== t.managedParticipantId) {
+                const otherTeamIds = t.participants.filter(pid => pid !== targetTeamId);
+                const sourceTeamId = otherTeamIds[Math.floor(Math.random() * otherTeamIds.length)];
+                const sourceTeamPlayers = players.filter(pl => pl.teamId === sourceTeamId);
+                if (sourceTeamPlayers.length > 0) {
+                   const transferPlayer = sourceTeamPlayers[Math.floor(Math.random() * sourceTeamPlayers.length)];
+                   const transferVal = transferPlayer.monetaryValue * 10;
+                   const sourceTeam = teams.find(tm => tm.id === sourceTeamId);
+                   const targetTeam = teams.find(tm => tm.id === targetTeamId);
+                   
+                   newIncidents.push({
+                      id: `inc-trans-${Date.now()}-${Math.random()}`,
+                      date: `Jornada ${matchdayNumber}`,
+                      message: `El ${targetTeam?.name} ha lanzado una oferta por ${transferPlayer.name} del ${sourceTeam?.name} (${transferVal} CR).`,
+                      type: 'transfer',
+                      status: sourceTeamId === t.managedParticipantId ? 'pending' : 'accepted',
+                      playerId: transferPlayer.id,
+                      fromTeamId: sourceTeamId,
+                      toTeamId: targetTeamId,
+                      value: transferVal
+                   });
+                }
+             }
           }
         }
       });
+      nextT.teamBrokeMatchdays = ntBroke;
+      nextT.incidents = [...(nextT.incidents || []), ...newIncidents];
       return nextT;
     }));
-  }, [generateScoreByRules, getBestPlayerId]);
+  }, [generateScoreByRules, getBestPlayerId, teams, players]);
 
   const resetMatchday = useCallback((tournamentId: string, matchdayNumber: number) => {
     setTournaments(prev => prev.map(t => {
@@ -309,12 +495,33 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       else setPlayers(p => p.map(pl => pl.id === targetId ? { ...pl, suspensionMatchdays: val } : pl));
     },
     processIncidentDecision: (tId: string, incidentId: string, accept: boolean) => {
+      let incObj: TournamentIncident | undefined;
       setTournaments(prev => prev.map(t => {
         if (t.id !== tId) return t;
         const inc = t.incidents.find(i => i.id === incidentId);
         if (!inc || inc.status !== 'pending') return t;
+        incObj = inc;
         return { ...t, incidents: t.incidents.map(i => i.id === incidentId ? { ...i, status: accept ? 'accepted' : 'rejected' } : i) };
       }));
+      
+      setTimeout(() => {
+        if (accept && incObj) {
+           if (incObj.type === 'transfer' && incObj.playerId && incObj.toTeamId && incObj.fromTeamId && incObj.value) {
+              setPlayers(pPrev => pPrev.map(p => p.id === incObj!.playerId ? { ...p, teamId: incObj!.toTeamId } : p));
+              setTeams(tPrev => tPrev.map(t => {
+                 if (t.id === incObj!.toTeamId) return { ...t, budget: Math.max(0, t.budget - incObj!.value!) };
+                 if (t.id === incObj!.fromTeamId) return { ...t, budget: t.budget + incObj!.value! };
+                 return t;
+              }));
+           } else if (incObj.type === 'sanction' && incObj.value) {
+              if (incObj.playerId) {
+                 setPlayers(pPrev => pPrev.map(p => p.id === incObj!.playerId ? { ...p, suspensionMatchdays: (p.suspensionMatchdays || 0) + incObj!.value! } : p));
+              } else if (incObj.fromTeamId) {
+                 setTeams(tPrev => tPrev.map(t => t.id === incObj!.fromTeamId ? { ...t, budget: Math.max(0, t.budget - incObj!.value!) } : t));
+              }
+           }
+        }
+      }, 0);
     }
   }), [teams, players, tournaments, settings, generateSchedule, resetSchedule, resetMatchday, resolveMatch, simulateMatchday, createScheduleInternal]);
 
