@@ -538,6 +538,69 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
               })}
             </CardContent>
           </Card>
+          {tournament.mode === 'arcade' && tournament.managedParticipantId && (
+            <Card className="border-none shadow-xl rounded-[2rem]">
+              <CardHeader className="pb-3 px-6"><h3 className="font-black uppercase text-sm flex items-center gap-2"><Trophy className="text-primary w-4 h-4" /> Mis Partidos</h3></CardHeader>
+              <CardContent className="px-6 pb-6">
+                <ScrollArea className="h-[300px] w-full pr-4">
+                  <div className="space-y-3">
+                    {tournament.matches
+                      .filter(m => m.homeId === tournament.managedParticipantId || m.awayId === tournament.managedParticipantId)
+                      .sort((a,b) => a.matchday - b.matchday)
+                      .map(m => {
+                        const isHome = m.homeId === tournament.managedParticipantId;
+                        const rivalId = isHome ? m.awayId : m.homeId;
+                        const rival = teams.find(t => t.id === rivalId) || players.find(p => p.id === rivalId);
+                        const isNext = !m.isSimulated && (!tournament.matches.find(m2 => (m2.homeId === tournament.managedParticipantId || m2.awayId === tournament.managedParticipantId) && !m2.isSimulated && m2.matchday < m.matchday));
+
+                        return (
+                          <div 
+                            key={`my-m-${m.id}`} 
+                            className={cn(
+                              "p-3 rounded-2xl border transition-all flex items-center justify-between gap-3 cursor-pointer", 
+                              m.isSimulated ? "bg-muted/10 border-transparent opacity-60" : 
+                              isNext ? "bg-primary border-primary shadow-lg shadow-primary/20 text-white" : 
+                              "bg-card border-border hover:border-primary/50"
+                            )}
+                            onClick={() => {
+                               if (m.isSimulated) {
+                                  setSelectedMatchDetail(m);
+                               } else if (isNext) {
+                                  setManualMatch(m);
+                                  // Re-initializing manual match state is handled in the sim button logic generally, 
+                                  // but here we might need to trigger the same setup logic if we want it to work from here.
+                                  // For now, let's keep it simple as a shortcut.
+                               }
+                            }}
+                          >
+                            <div className="flex items-center gap-3 overflow-hidden">
+                              <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center font-black text-[10px]", isNext ? "bg-white text-primary" : "bg-primary/10 text-primary")}>
+                                {m.matchday}
+                              </div>
+                              <div className="overflow-hidden">
+                                <p className={cn("text-[10px] font-black uppercase truncate", isNext ? "text-white" : "text-foreground")}>{rival?.name}</p>
+                                <p className={cn("text-[8px] font-bold uppercase opacity-70", isNext ? "text-white/80" : "text-muted-foreground")}>
+                                  {isHome ? 'LOCAL' : 'VISITANTE'}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                               {m.isSimulated ? (
+                                 <span className="text-sm font-black italic">{m.homeScore} - {m.awayScore}</span>
+                               ) : (
+                                 <div className={cn("p-1 rounded-lg", isNext ? "bg-white/20" : "bg-muted/30")}>
+                                   <ChevronRight className={cn("w-3 h-3", isNext ? "text-white" : "text-muted-foreground")} />
+                                 </div>
+                               )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
 
