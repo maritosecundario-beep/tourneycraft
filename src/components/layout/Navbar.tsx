@@ -88,7 +88,7 @@ export function Navbar() {
 
         <div className="px-4 mt-auto">
           <div className="p-4 bg-muted/30 rounded-2xl border border-border/50 text-center">
-            <p className="text-[10px] font-black uppercase text-muted-foreground">Versión 1.7 - Producción</p>
+            <p className="text-[10px] font-black uppercase text-muted-foreground">Versión 1.8 - Producción</p>
             <p className="text-[9px] text-accent uppercase font-bold mt-1">TourneyCraft Web</p>
             <p className="text-[8px] opacity-50 uppercase font-black mt-2">hecho por Mario Ormeño Navarro</p>
           </div>
