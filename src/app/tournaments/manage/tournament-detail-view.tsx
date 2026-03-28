@@ -205,7 +205,6 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
       dualStandings: calculateStats(tournament.dualLeagueMatches || []) 
     };
   }, [tournament, teams, players]);
-
   const handleStartChallenge = (m: Match) => {
     const sport = tournament?.challengeSports?.find(s => s.id === m.challengeSportId);
     if (!sport) return;
@@ -213,6 +212,29 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
     setCHomeScore(0); setCAwayScore(0); setCWinner(null); setCPeriod(1);
     setCStatus('playing');
     setCTime(sport.periodDuration || 0);
+  };
+
+  const handleStartManualMatch = (m: Match) => {
+    if (!tournament) return;
+    setManualMatch(m);
+    setMHomeScore(0);
+    setMAwayScore(0);
+    
+    const userTeamId = m.homeId === tournament.managedParticipantId ? m.homeId : m.awayId;
+    const aiTeamId = m.homeId === tournament.managedParticipantId ? m.awayId : m.homeId;
+    
+    const userPlayers = players.filter(p => p.teamId === userTeamId && p.suspensionMatchdays === 0);
+    setMUserPlayerId(userPlayers[0]?.id || '');
+    
+    const aiPlayers = players.filter(p => p.teamId === aiTeamId && p.suspensionMatchdays === 0).sort((a,b) => b.monetaryValue - a.monetaryValue);
+    let aiChoice = aiPlayers[0]?.id || '';
+    if (aiPlayers.length > 0) {
+       const r = Math.random();
+       if (r < 0.7) aiChoice = aiPlayers[0].id;
+       else if (r < 0.9 && aiPlayers.length > 1) aiChoice = aiPlayers[1].id;
+       else if (aiPlayers.length > 2) aiChoice = aiPlayers[2 + Math.floor(Math.random() * (aiPlayers.length - 2))].id;
+    }
+    setMAiPlayerId(aiChoice);
   };
 
   const renderStandingsTable = (rows: any[]) => (
@@ -309,25 +331,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                             if (tournament?.mode === 'challenge') {
                               handleStartChallenge(m);
                             } else if (isUser) {
-                              setManualMatch(m);
-                              setMHomeScore(0);
-                              setMAwayScore(0);
-                              
-                              const userTeamId = m.homeId === tournament.managedParticipantId ? m.homeId : m.awayId;
-                              const aiTeamId = m.homeId === tournament.managedParticipantId ? m.awayId : m.homeId;
-                              
-                              const userPlayers = players.filter(p => p.teamId === userTeamId && p.suspensionMatchdays === 0);
-                              setMUserPlayerId(userPlayers[0]?.id || '');
-                              
-                              const aiPlayers = players.filter(p => p.teamId === aiTeamId && p.suspensionMatchdays === 0).sort((a,b) => b.monetaryValue - a.monetaryValue);
-                              let aiChoice = aiPlayers[0]?.id || '';
-                              if (aiPlayers.length > 0) {
-                                 const r = Math.random();
-                                 if (r < 0.7) aiChoice = aiPlayers[0].id;
-                                 else if (r < 0.9 && aiPlayers.length > 1) aiChoice = aiPlayers[1].id;
-                                 else if (aiPlayers.length > 2) aiChoice = aiPlayers[2 + Math.floor(Math.random() * (aiPlayers.length - 2))].id;
-                              }
-                              setMAiPlayerId(aiChoice);
+                              handleStartManualMatch(m);
                             } else {
                               resolveMatch(tournament!.id, m.id, 0, 0, false, undefined, undefined, true); 
                             }
@@ -566,11 +570,8 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                                if (m.isSimulated) {
                                   setSelectedMatchDetail(m);
                                } else if (isNext) {
-                                  setManualMatch(m);
-                                  // Re-initializing manual match state is handled in the sim button logic generally, 
-                                  // but here we might need to trigger the same setup logic if we want it to work from here.
-                                  // For now, let's keep it simple as a shortcut.
-                               }
+                                  handleStartManualMatch(m);
+                                }
                             }}
                           >
                             <div className="flex items-center gap-3 overflow-hidden">
