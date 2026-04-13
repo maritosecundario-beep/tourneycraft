@@ -3,6 +3,7 @@ import './globals.css';
 import { Navbar } from '@/components/layout/Navbar';
 import { TournamentProvider } from '@/hooks/use-tournament-store';
 import { Toaster } from '@/components/ui/toaster';
+import { Analytics } from '@vercel/analytics/next';
 
 export const metadata: Metadata = {
   title: 'TourneyCraft | Professional Tournament Management',
@@ -35,6 +36,7 @@ export default function RootLayout({
             <Toaster />
           </TournamentProvider>
         </FirebaseClientProvider>
+        <Analytics />
       </body>
     </html>
   );
