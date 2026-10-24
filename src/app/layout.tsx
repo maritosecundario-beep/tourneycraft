@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { Navbar } from '@/components/layout/Navbar';
 import { TournamentProvider } from '@/hooks/use-tournament-store';
@@ -9,6 +9,12 @@ export const metadata: Metadata = {
   description: 'Diseña, simula y gestiona torneos personalizables.',
 };
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+};
+
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 
 export default function RootLayout({
@@ -17,7 +23,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="es">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -28,7 +34,7 @@ export default function RootLayout({
           <TournamentProvider>
             <div className="flex flex-col md:flex-row min-h-screen">
               <Navbar />
-              <main className="flex-1 w-full md:ml-64 p-3 sm:p-4 md:p-8 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-8 min-h-screen">
+              <main className="min-h-screen w-full min-w-0 flex-1 overflow-x-clip px-3 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-[calc(4.25rem+env(safe-area-inset-top))] sm:px-4 md:ml-64 md:px-8 md:py-8 md:pb-8 md:pt-8">
                 {children}
               </main>
             </div>

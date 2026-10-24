@@ -102,6 +102,20 @@ export function Navbar() {
         </div>
       </nav>
 
+      <nav className="md:hidden fixed left-0 right-0 top-0 z-50 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center justify-between border-b border-border bg-card/95 px-4 pt-[env(safe-area-inset-top)] shadow-sm backdrop-blur">
+        <Link href="/" className="flex min-w-0 items-center gap-2.5" aria-label="TourneyCraft, inicio">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <Trophy className="h-4 w-4" />
+          </span>
+          <span className="truncate text-sm font-black tracking-tight">
+            Tourney<span className="text-accent">Craft</span>
+          </span>
+        </Link>
+        <div className="shrink-0">
+          <LoginButton compact />
+        </div>
+      </nav>
+
       <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[calc(4rem+env(safe-area-inset-bottom))] pb-[env(safe-area-inset-bottom)] bg-card border-t border-border flex items-center justify-around px-1 z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
         {mobileNavItems.map((item) => {
           const isActive = pathname === item.href;

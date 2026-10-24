@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 
-export function LoginButton() {
+export function LoginButton({ compact = false }: { compact?: boolean }) {
   const auth = useAuth();
   const user = useUser();
   const { toast } = useToast();
@@ -41,13 +41,20 @@ export function LoginButton() {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-            <Avatar className="h-10 w-10">
+          <Button
+            variant={compact ? 'outline' : 'ghost'}
+            aria-label={compact ? `Cuenta de ${user.displayName || user.email}` : 'Abrir menú de cuenta'}
+            className={compact
+              ? 'h-10 min-w-10 gap-2 rounded-full border-primary/30 px-2.5'
+              : 'relative h-10 w-10 rounded-full'}
+          >
+            <Avatar className="h-8 w-8">
               <AvatarImage src={user.photoURL || ''} alt={user.displayName || 'User'} />
               <AvatarFallback className="bg-primary/10 text-primary font-black uppercase">
                 {user.displayName?.charAt(0) || <User className="h-5 w-5" />}
               </AvatarFallback>
             </Avatar>
+            {compact && <span className="max-w-24 truncate text-xs font-bold">{user.displayName?.split(' ')[0] || 'Cuenta'}</span>}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-56" align="end" forceMount>
@@ -71,10 +78,13 @@ export function LoginButton() {
     <Button 
       variant="outline" 
       onClick={handleLogin} 
-      className="rounded-xl font-black uppercase text-[10px] h-10 border-primary text-primary hover:bg-primary"
+      aria-label="Iniciar sesión con Google"
+      className={compact
+        ? 'h-10 rounded-xl border-primary px-3 text-xs font-black text-primary'
+        : 'h-10 rounded-xl border-primary text-[10px] font-black uppercase text-primary hover:bg-primary'}
     >
-      <LogIn className="mr-2 h-4 w-4" />
-      ENTRAR CON GOOGLE
+      <LogIn className={compact ? 'mr-1.5 h-4 w-4' : 'mr-2 h-4 w-4'} />
+      {compact ? 'Entrar' : 'ENTRAR CON GOOGLE'}
     </Button>
   );
 }

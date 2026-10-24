@@ -78,6 +78,68 @@ function chooseDualLeaguePlayer(
   return substitutes[Math.floor(Math.random() * substitutes.length)].id;
 }
 
+function createArcadeMarketOffers(
+  tournament: Tournament,
+  matchday: number,
+  teams: Team[],
+  players: Player[],
+  existingIncidents: TournamentIncident[],
+): { incidents: TournamentIncident[]; completedTransfers: TournamentIncident[] } {
+  const date = `Jornada ${matchday}`;
+  const existingCount = existingIncidents.filter(
+    incident => incident.type === 'transfer' && incident.date === date,
+  ).length;
+  const remaining = Math.max(0, 2 - existingCount);
+  if (remaining === 0) return { incidents: [], completedTransfers: [] };
+
+  const participants = teams.filter(team => tournament.participants.includes(team.id));
+  const candidates = players
+    .filter(player => player.teamId && tournament.participants.includes(player.teamId) && player.suspensionMatchdays === 0)
+    .flatMap(player => participants
+      .filter(buyer => buyer.id !== player.teamId && buyer.budget > 0)
+      .map(buyer => ({ player, buyer })));
+
+  for (let index = candidates.length - 1; index > 0; index--) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [candidates[index], candidates[swapIndex]] = [candidates[swapIndex], candidates[index]];
+  }
+
+  const incidents: TournamentIncident[] = [];
+  const completedTransfers: TournamentIncident[] = [];
+  const usedPlayerIds = new Set<string>();
+  const usedTeamIds = new Set<string>();
+
+  for (const { player, buyer } of candidates) {
+    if (incidents.length >= remaining) break;
+    const seller = participants.find(team => team.id === player.teamId);
+    if (!seller || usedPlayerIds.has(player.id) ||
+        usedTeamIds.has(buyer.id) || usedTeamIds.has(seller.id)) continue;
+    const fairValue = Math.max(10, Math.round(player.monetaryValue * 10));
+    const proposedValue = Math.max(1, Math.round(fairValue * (0.8 + Math.random() * 0.4)));
+    const value = Math.min(proposedValue, Math.max(1, Math.floor(buyer.budget * 0.3)));
+    const involvesUser = buyer.id === tournament.managedParticipantId || seller.id === tournament.managedParticipantId;
+    const incident: TournamentIncident = {
+      id: `inc-trans-${Date.now()}-${Math.random()}`,
+      date,
+      message: `${buyer.name} ofrece ${value.toLocaleString()} CR por ${player.name} (${player.monetaryValue}/100) al ${seller.name}.`,
+      type: 'transfer',
+      status: involvesUser ? 'pending' : 'accepted',
+      opened: !involvesUser,
+      playerId: player.id,
+      fromTeamId: seller.id,
+      toTeamId: buyer.id,
+      value,
+    };
+    incidents.push(incident);
+    if (!involvesUser) completedTransfers.push(incident);
+    usedPlayerIds.add(player.id);
+    usedTeamIds.add(buyer.id);
+    usedTeamIds.add(seller.id);
+  }
+
+  return { incidents, completedTransfers };
+}
+
 export function TournamentProvider({ children }: { children: React.ReactNode }) {
   const firestore = useFirestore();
   const user = useUser();
@@ -529,6 +591,41 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         }, 0);
       }
 
+      if (!isDual && t.mode === 'arcade') {
+        const jornadaComplete = nextT.matches
+          .filter(match => match.matchday === targetMatch.matchday)
+          .every(match => match.isSimulated);
+        if (jornadaComplete) {
+          const offers = createArcadeMarketOffers(
+            t,
+            targetMatch.matchday,
+            teams,
+            players,
+            [...(t.incidents || []), ...(nextT.incidents || [])],
+          );
+          nextT.incidents = [...(nextT.incidents || []), ...offers.incidents];
+          if (offers.completedTransfers.length > 0) {
+            setTimeout(() => {
+              setPlayers(previous => previous.map(player => {
+                const transfer = offers.completedTransfers.find(incident => incident.playerId === player.id);
+                return transfer ? { ...player, teamId: transfer.toTeamId } : player;
+              }));
+              setTeams(previous => previous.map(team => {
+                const purchases = offers.completedTransfers
+                  .filter(incident => incident.toTeamId === team.id)
+                  .reduce((sum, incident) => sum + (incident.value || 0), 0);
+                const sales = offers.completedTransfers
+                  .filter(incident => incident.fromTeamId === team.id)
+                  .reduce((sum, incident) => sum + (incident.value || 0), 0);
+                return purchases || sales
+                  ? { ...team, budget: Math.max(0, team.budget - purchases + sales) }
+                  : team;
+              }));
+            }, 0);
+          }
+        }
+      }
+
       return nextT;
     }));
     return true;
@@ -684,35 +781,37 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
           }
         }
       });
-      const hasPendingOffer = [...(t.incidents || []), ...newIncidents].some(incident => incident.type === 'transfer' && incident.status === 'pending');
-      if (t.mode === 'arcade' && !hasPendingOffer && Math.random() < 0.3 && t.managedParticipantId) {
-        const aiTeamIds = t.participants.filter(participantId => participantId !== t.managedParticipantId && teams.some(team => team.id === participantId));
-        const userSells = Math.random() < 0.5;
-        const sourceTeamId = userSells
-          ? t.managedParticipantId
-          : aiTeamIds[Math.floor(Math.random() * aiTeamIds.length)];
-        const targetTeamId = userSells
-          ? aiTeamIds[Math.floor(Math.random() * aiTeamIds.length)]
-          : t.managedParticipantId;
-        const sourceTeamPlayers = players.filter(player => player.teamId === sourceTeamId && player.suspensionMatchdays === 0);
-        const buyer = teams.find(team => team.id === targetTeamId);
-        const sourceTeam = teams.find(team => team.id === sourceTeamId);
-        if (sourceTeamPlayers.length > 0 && buyer && sourceTeam && buyer.budget > 0) {
-          const player = sourceTeamPlayers[Math.floor(Math.random() * sourceTeamPlayers.length)];
-          const fairValue = Math.max(1, Math.round(player.monetaryValue * 10));
-          const offer = Math.min(fairValue, Math.max(1, Math.floor(buyer.budget * 0.35)));
-          newIncidents.push({
-            id: `inc-trans-${Date.now()}-${Math.random()}`,
-            date: `Jornada ${matchdayNumber}`,
-            message: `${buyer.name} ofrece ${offer.toLocaleString()} CR por ${player.name} (${player.monetaryValue}/100) al ${sourceTeam.name}.`,
-            type: 'transfer',
-            status: 'pending',
-            opened: false,
-            playerId: player.id,
-            fromTeamId: sourceTeamId,
-            toTeamId: targetTeamId,
-            value: offer,
-          });
+      const dayCompleted = matchdayNumber !== undefined &&
+        nextT.matches
+          .filter(match => match.matchday === matchdayNumber)
+          .every(match => match.isSimulated);
+      if (t.mode === 'arcade' && dayCompleted && matchdayNumber !== undefined) {
+        const offers = createArcadeMarketOffers(
+          t,
+          matchdayNumber,
+          teams,
+          players,
+          [...(t.incidents || []), ...newIncidents],
+        );
+        newIncidents.push(...offers.incidents);
+        if (offers.completedTransfers.length > 0) {
+          setTimeout(() => {
+            setPlayers(previous => previous.map(player => {
+              const transfer = offers.completedTransfers.find(incident => incident.playerId === player.id);
+              return transfer ? { ...player, teamId: transfer.toTeamId } : player;
+            }));
+            setTeams(previous => previous.map(team => {
+              const purchases = offers.completedTransfers
+                .filter(incident => incident.toTeamId === team.id)
+                .reduce((sum, incident) => sum + (incident.value || 0), 0);
+              const sales = offers.completedTransfers
+                .filter(incident => incident.fromTeamId === team.id)
+                .reduce((sum, incident) => sum + (incident.value || 0), 0);
+              return purchases || sales
+                ? { ...team, budget: Math.max(0, team.budget - purchases + sales) }
+                : team;
+            }));
+          }, 0);
         }
       }
       nextT.teamBrokeMatchdays = ntBroke;
