@@ -2,26 +2,34 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Trophy, Users, UserPlus, Settings, LayoutDashboard, Database, MoreHorizontal, Sparkles } from 'lucide-react';
+import { Trophy, Users, UserPlus, Settings, LayoutDashboard, Database, MoreHorizontal, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { LoginButton } from '@/components/auth/LoginButton';
+import { useTournamentStore } from '@/hooks/use-tournament-store';
 
 export function Navbar() {
   const pathname = usePathname();
+  const { tournaments } = useTournamentStore();
+  const pendingOffers = tournaments.reduce((count, tournament) => count + (tournament.mode === 'arcade'
+    ? (tournament.incidents || []).filter(incident => incident.type === 'transfer' && incident.status === 'pending' && !incident.opened).length
+    : 0), 0);
 
   const navItems = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-    { name: 'AI Studio', href: '/ai-studio', icon: Sparkles, highlight: true },
     { name: 'Clubs', href: '/teams', icon: Users },
     { name: 'Agentes', href: '/players', icon: UserPlus },
     { name: 'Torneos', href: '/tournaments', icon: Trophy },
+    { name: 'Comunidad', href: '/gallery', icon: Globe },
   ];
+  const communityItem = navItems[navItems.length - 1];
 
   const moreItems = [
     { name: 'Backup', href: '/backups', icon: Database },
     { name: 'Ajustes', href: '/settings', icon: Settings },
   ];
+  const mobileNavItems = navItems.filter(item => item.href !== '/gallery');
+  const mobileMoreItems = [communityItem, ...moreItems];
 
   return (
     <>
@@ -53,12 +61,11 @@ export function Navbar() {
                   isActive 
                     ? "bg-primary text-primary-foreground shadow-lg shadow-primary/10" 
                     : "hover:bg-muted text-muted-foreground hover:text-foreground",
-                  item.highlight && !isActive && "text-accent"
                 )}
               >
                 <Icon className={cn("w-5 h-5", isActive ? "" : "group-hover:text-accent")} />
                 <span className="font-bold text-sm">{item.name}</span>
-                {item.highlight && !isActive && <span className="absolute right-3 w-1.5 h-1.5 bg-accent rounded-full animate-pulse" />}
+                {item.href === '/tournaments' && pendingOffers > 0 && <span className="ml-auto min-w-5 h-5 px-1 rounded-full bg-destructive text-white flex items-center justify-center text-[10px] font-black">{pendingOffers}</span>}
               </Link>
             );
           })}
@@ -95,8 +102,8 @@ export function Navbar() {
         </div>
       </nav>
 
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-card border-t border-border flex items-center justify-around px-2 z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
-        {navItems.map((item) => {
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[calc(4rem+env(safe-area-inset-bottom))] pb-[env(safe-area-inset-bottom)] bg-card border-t border-border flex items-center justify-around px-1 z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
+        {mobileNavItems.map((item) => {
           const isActive = pathname === item.href;
           const Icon = item.icon;
           return (
@@ -104,12 +111,13 @@ export function Navbar() {
               key={item.href} 
               href={item.href} 
               className={cn(
-                "flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors relative",
+                "flex flex-col items-center justify-center flex-1 h-full min-w-0 gap-1 transition-colors relative",
                 isActive ? "text-primary" : "text-muted-foreground"
               )}
             >
               <Icon className="w-5 h-5" />
-              <span className="text-[9px] font-black uppercase tracking-tight">{item.name}</span>
+              <span className="text-[9px] font-black uppercase tracking-tight truncate max-w-full">{item.name}</span>
+              {item.href === '/tournaments' && pendingOffers > 0 && <span className="absolute top-1 right-1/4 min-w-4 h-4 px-1 rounded-full bg-destructive text-white flex items-center justify-center text-[9px] font-black">{pendingOffers}</span>}
               {isActive && <span className="absolute top-0 w-8 h-1 bg-primary rounded-b-full" />}
             </Link>
           );
@@ -117,7 +125,7 @@ export function Navbar() {
         
         <Sheet>
           <SheetTrigger asChild>
-            <button className="flex flex-col items-center justify-center flex-1 h-full gap-1 text-muted-foreground outline-none">
+            <button aria-label="Abrir más opciones" className="flex flex-col items-center justify-center flex-1 h-full min-w-0 gap-1 text-muted-foreground outline-none">
               <MoreHorizontal className="w-5 h-5" />
               <span className="text-[9px] font-black uppercase tracking-tight">Más</span>
             </button>
@@ -127,7 +135,7 @@ export function Navbar() {
               <SheetTitle className="text-left text-xl font-black uppercase tracking-tighter">Opciones</SheetTitle>
             </SheetHeader>
             <div className="grid grid-cols-2 gap-3">
-              {moreItems.map((item) => (
+              {mobileMoreItems.map((item) => (
                 <Link 
                   key={item.href} 
                   href={item.href}

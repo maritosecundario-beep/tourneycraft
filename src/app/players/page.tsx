@@ -448,6 +448,9 @@ export default function PlayersPage() {
               <p className="text-sm font-bold text-muted-foreground mb-4 flex items-center gap-2">
                 <LayoutGrid className="w-3 h-3" /> {player.monetaryValue.toLocaleString()} {settings.currency}
               </p>
+              <p className="text-[10px] font-bold text-primary -mt-3 mb-4">
+                Progreso de desarrollo: {Math.round((player.developmentProgress || 0) * 100)}%
+              </p>
               {player.description && (
                 <p className="text-[10px] text-muted-foreground line-clamp-2 mb-4 italic">
                   {player.description}

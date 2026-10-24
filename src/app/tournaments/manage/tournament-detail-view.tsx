@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Match, Tournament, ScoringRuleType, Player, ChallengeSport, Team } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { getScoreRuleError } from '@/lib/scoring';
 
 interface TournamentDetailViewProps {
   id: string;
@@ -62,6 +63,11 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
   const [editChallengeSports, setEditChallengeSports] = useState<ChallengeSport[]>([]);
   const [editArcadeMaxBrokeMatchdays, setEditArcadeMaxBrokeMatchdays] = useState(0);
   const [editArcadeSanctionPoints, setEditArcadeSanctionPoints] = useState(0);
+  const [editScoringType, setEditScoringType] = useState<ScoringRuleType>('bestOfN');
+  const [editScoringValue, setEditScoringValue] = useState(9);
+  const [editRangeMin, setEditRangeMin] = useState(0);
+  const [editRangeMax, setEditRangeMax] = useState(10);
+  const [activeTab, setActiveTab] = useState('matches');
 
   // Match edit state
   const [isEditingResult, setIsEditingResult] = useState(false);
@@ -79,6 +85,10 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
       setEditChallengeSports(found.challengeSports ? [...found.challengeSports] : []);
       setEditArcadeMaxBrokeMatchdays(found.arcadeMaxBrokeMatchdays || 2);
       setEditArcadeSanctionPoints(found.arcadeSanctionPoints || 3);
+      setEditScoringType(found.scoringRuleType || 'bestOfN');
+      setEditScoringValue(found.scoringValue || 9);
+      setEditRangeMin(found.nToNRangeMin ?? 0);
+      setEditRangeMax(found.nToNRangeMax ?? 10);
     }
   }, [tournaments, id]);
 
@@ -374,8 +384,30 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
-          <Tabs defaultValue="matches">
-            <TabsList className="bg-muted/20 p-1 rounded-2xl h-14 w-full flex overflow-x-auto scrollbar-hide">
+          {tournament.mode === 'arcade' && (tournament.incidents || []).some(incident => incident.type === 'transfer' && incident.status === 'pending' && !incident.opened) && (
+            <Card className="mb-4 border-accent/40 bg-accent/10 shadow-none">
+              <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+                <div>
+                  <p className="font-black uppercase text-sm text-accent">Tienes una oferta de traspaso pendiente</p>
+                  <p className="text-xs text-muted-foreground">La notificación seguirá aquí hasta que abras las noticias del torneo.</p>
+                </div>
+                <Button className="min-h-11 rounded-xl font-black" onClick={() => setActiveTab('news')}>VER OFERTA</Button>
+              </CardContent>
+            </Card>
+          )}
+          <Tabs value={activeTab} onValueChange={tab => {
+            setActiveTab(tab);
+            if (tab === 'news' && tournament.mode === 'arcade') {
+              const unopened = tournament.incidents.filter(incident => incident.type === 'transfer' && incident.status === 'pending' && !incident.opened);
+              if (unopened.length > 0) {
+                updateTournament({
+                  ...tournament,
+                  incidents: tournament.incidents.map(incident => unopened.some(item => item.id === incident.id) ? { ...incident, opened: true } : incident),
+                });
+              }
+            }
+          }}>
+            <TabsList className="bg-muted/20 p-1 rounded-2xl min-h-14 h-auto w-full flex overflow-x-auto scrollbar-hide">
               <TabsTrigger value="matches" className="flex-1 rounded-xl font-black uppercase text-xs">Calendario</TabsTrigger>
               <TabsTrigger value="standings" className="flex-1 rounded-xl font-black uppercase text-xs">Ranking</TabsTrigger>
               {tournament.mode !== 'challenge' && <TabsTrigger value="market" className="flex-1 rounded-xl font-black uppercase text-xs">Mercado / Disciplina</TabsTrigger>}
@@ -424,9 +456,18 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                       <div className="flex-1">
                         <p className="text-xs font-black uppercase opacity-50 mb-0.5">{inc.date}</p>
                         <p className="text-sm font-bold">{inc.message}</p>
+                        {inc.type === 'transfer' && inc.status === 'pending' && inc.toTeamId === tournament.managedParticipantId && (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Presupuesto actual: {teams.find(team => team.id === inc.toTeamId)?.budget.toLocaleString() || 0} CR
+                          </p>
+                        )}
                         {inc.status === 'pending' && ( 
                           <div className="flex gap-2 mt-3">
-                            <Button size="sm" className="bg-accent text-white font-black text-[10px]" onClick={() => processIncidentDecision(tournament.id, inc.id, true)}>ACEPTAR</Button>
+                            <Button size="sm" className="bg-accent text-white font-black text-[10px]" onClick={() => {
+                              if (!processIncidentDecision(tournament.id, inc.id, true)) {
+                                toast({ title: 'No se pudo aceptar la oferta', description: 'Comprueba que el jugador siga en el equipo vendedor y que el comprador tenga presupuesto suficiente.', variant: 'destructive' });
+                              }
+                            }}>ACEPTAR</Button>
                             <Button size="sm" variant="outline" className="text-[10px] font-black" onClick={() => processIncidentDecision(tournament.id, inc.id, false)}>RECHAZAR</Button>
                           </div> 
                         )}
@@ -461,7 +502,10 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                     </div>
                     <Button className="w-full rounded-xl bg-accent text-white font-black h-12" onClick={() => {
                         if (!transferPlayerId || !transferToTeamId) return;
-                        transferPlayer(transferPlayerId, transferToTeamId);
+                        if (!transferPlayer(transferPlayerId, transferToTeamId)) {
+                          toast({ title: 'Fichaje no disponible', description: 'El equipo no tiene presupuesto suficiente o el jugador ya pertenece a ese club.', variant: 'destructive' });
+                          return;
+                        }
                         toast({ title: "Fichaje Completado" });
                         setTransferPlayerId(''); setTransferToTeamId('');
                     }}>EJECUTAR FICHAJE</Button>
@@ -607,7 +651,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
 
       {/* Manual Match Arcade Center */}
       <Dialog open={!!manualMatch} onOpenChange={(o) => !o && setManualMatch(null)}>
-        <DialogContent className="max-w-3xl rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden">
+        <DialogContent className="w-[calc(100vw-1rem)] max-w-3xl max-h-[90dvh] overflow-y-auto rounded-2xl md:rounded-[2.5rem] border-none shadow-2xl p-0">
           <DialogTitle className="sr-only">Centro de Tácticas</DialogTitle>
           {manualMatch && (() => {
             const home = teams.find(t => t.id === manualMatch.homeId) || players.find(p => p.id === manualMatch.homeId);
@@ -637,39 +681,39 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                   </div>
                 </div>
 
-                <div className="p-10 space-y-10">
-                  <div className="bg-muted/30 p-4 rounded-3xl flex items-center justify-center gap-4">
+                <div className="p-4 sm:p-6 md:p-10 space-y-6 md:space-y-10">
+                  <div className="bg-muted/30 p-4 rounded-2xl md:rounded-3xl flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4">
                     <Label className="font-black uppercase text-xs">Jugador a alinear:</Label>
                     <Select value={mUserPlayerId} onValueChange={setMUserPlayerId}>
-                      <SelectTrigger className="w-[300px] font-black h-12 rounded-xl text-xs"><SelectValue placeholder="Selecciona..." /></SelectTrigger>
+                      <SelectTrigger className="w-full sm:w-[300px] min-h-12 font-black rounded-xl text-xs"><SelectValue placeholder="Selecciona..." /></SelectTrigger>
                       <SelectContent>
                         {userPlayers.map(p => <SelectItem key={p.id} value={p.id} className="font-bold text-xs">{p.name} ({p.monetaryValue} CR) #{p.jerseyNumber}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
 
-                  <div className="flex items-center justify-center gap-12">
-                    <div className="text-center space-y-4 w-48">
+                  <div className="flex items-center justify-center gap-3 sm:gap-8 md:gap-12">
+                    <div className="text-center space-y-3 md:space-y-4 flex-1 min-w-0 max-w-48">
                       {home && 'abbreviation' in home ? <CrestIcon shape={(home as any).emblemShape} pattern={(home as any).emblemPattern} c1={(home as any).crestPrimary} c2={(home as any).crestSecondary} c3={(home as any).crestTertiary || (home as any).crestPrimary} size="w-24 h-24 mx-auto" /> : <div className="w-24 h-24 mx-auto rounded-3xl bg-primary/10 flex items-center justify-center text-5xl font-black">#{(home as any)?.jerseyNumber}</div>}
                       <p className="font-black text-sm uppercase truncate">{home?.name}</p>
                       {homeAgent && <Badge variant="outline" className="text-[10px] uppercase truncate max-w-full block">#{homeAgent.jerseyNumber} {homeAgent.name}</Badge>}
                       <div className="flex items-center justify-center gap-2 pt-2">
-                        <Button size="icon" variant="outline" onClick={() => setMHomeScore(Math.max(0, mHomeScore - 1))} className="h-8 w-8 rounded-lg">-</Button>
-                        <span className="text-4xl font-black w-12">{mHomeScore}</span>
-                        <Button size="icon" variant="outline" onClick={() => setMHomeScore(mHomeScore + 1)} className="h-8 w-8 rounded-lg">+</Button>
+                        <Button size="icon" variant="outline" onClick={() => setMHomeScore(Math.max(0, mHomeScore - 1))} className="h-11 w-11 rounded-lg">-</Button>
+                        <span className="text-3xl md:text-4xl font-black w-10 md:w-12">{mHomeScore}</span>
+                        <Button size="icon" variant="outline" onClick={() => setMHomeScore(mHomeScore + 1)} className="h-11 w-11 rounded-lg">+</Button>
                       </div>
                     </div>
                     
-                    <div className="text-4xl font-black opacity-20">VS</div>
+                    <div className="text-2xl md:text-4xl font-black opacity-20">VS</div>
 
-                    <div className="text-center space-y-4 w-48">
+                    <div className="text-center space-y-3 md:space-y-4 flex-1 min-w-0 max-w-48">
                       {away && 'abbreviation' in away ? <CrestIcon shape={(away as any).emblemShape} pattern={(away as any).emblemPattern} c1={(away as any).crestPrimary} c2={(away as any).crestSecondary} c3={(away as any).crestTertiary || (away as any).crestPrimary} size="w-24 h-24 mx-auto" /> : <div className="w-24 h-24 mx-auto rounded-3xl bg-primary/10 flex items-center justify-center text-5xl font-black">#{(away as any)?.jerseyNumber}</div>}
                       <p className="font-black text-sm uppercase truncate">{away?.name}</p>
                       {awayAgent && <Badge variant="outline" className="text-[10px] uppercase truncate max-w-full block">#{awayAgent.jerseyNumber} {awayAgent.name}</Badge>}
                       <div className="flex items-center justify-center gap-2 pt-2">
-                        <Button size="icon" variant="outline" onClick={() => setMAwayScore(Math.max(0, mAwayScore - 1))} className="h-8 w-8 rounded-lg">-</Button>
-                        <span className="text-4xl font-black w-12">{mAwayScore}</span>
-                        <Button size="icon" variant="outline" onClick={() => setMAwayScore(mAwayScore + 1)} className="h-8 w-8 rounded-lg">+</Button>
+                        <Button size="icon" variant="outline" onClick={() => setMAwayScore(Math.max(0, mAwayScore - 1))} className="h-11 w-11 rounded-lg">-</Button>
+                        <span className="text-3xl md:text-4xl font-black w-10 md:w-12">{mAwayScore}</span>
+                        <Button size="icon" variant="outline" onClick={() => setMAwayScore(mAwayScore + 1)} className="h-11 w-11 rounded-lg">+</Button>
                       </div>
                     </div>
                   </div>
@@ -695,10 +739,28 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                     </Card>
                   )}
 
+                  <p className="text-center text-xs font-bold text-muted-foreground">
+                    {tournament?.scoringRuleType === 'nToNRange'
+                      ? `La suma debe quedar entre ${tournament.nToNRangeMin ?? 0} y ${tournament.nToNRangeMax ?? 10} puntos.`
+                      : tournament?.scoringRuleType === 'firstToN'
+                        ? `El ganador debe alcanzar ${tournament.scoringValue || 9} puntos.`
+                        : `La suma de ambos resultados debe ser ${tournament?.scoringValue || 9}.`}
+                  </p>
                   <Button 
                     className="w-full h-16 rounded-2xl font-black text-lg bg-primary shadow-xl shadow-primary/20"
                     onClick={() => {
-                      // Main logic already resolves Dual map inside update 
+                      const validationError = getScoreRuleError(
+                        tournament!.scoringRuleType,
+                        tournament!.scoringValue || 9,
+                        tournament!.nToNRangeMin ?? 0,
+                        tournament!.nToNRangeMax ?? 10,
+                        mHomeScore,
+                        mAwayScore,
+                      );
+                      if (validationError) {
+                        toast({ title: 'Resultado no válido', description: validationError, variant: 'destructive' });
+                        return;
+                      }
                       resolveMatch(tournament!.id, manualMatch.id, mHomeScore, mAwayScore, false, isHomeUser ? mUserPlayerId : mAiPlayerId, isHomeUser ? mAiPlayerId : mUserPlayerId, false);
                       setManualMatch(null);
                       toast({ title: "Resultado Confirmado" });
@@ -925,7 +987,12 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                     ) : (
                       <Button onClick={() => {
                         const isDual = tournament.dualLeagueMatches?.some(dm => dm.id === m.id) || false;
-                        resolveMatch(tournament.id, m.id, editedHomeScore, editedAwayScore, isDual, m.homePlayerId, m.awayPlayerId, false);
+                        const saved = resolveMatch(tournament.id, m.id, editedHomeScore, editedAwayScore, isDual, m.homePlayerId, m.awayPlayerId, false);
+                        if (!saved) {
+                          const validationError = getScoreRuleError(tournament.scoringRuleType, tournament.scoringValue || 9, tournament.nToNRangeMin ?? 0, tournament.nToNRangeMax ?? 10, editedHomeScore, editedAwayScore);
+                          toast({ title: 'Resultado no válido', description: validationError || 'No se pudo guardar el resultado.', variant: 'destructive' });
+                          return;
+                        }
                         setSelectedMatchDetail({ ...m, homeScore: editedHomeScore, awayScore: editedAwayScore });
                         setIsEditingResult(false);
                         toast({ title: "Resultado actualizado" });
@@ -955,6 +1022,25 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
             </div>
             {tournament.mode !== 'challenge' && (
               <>
+                <div className="space-y-4 rounded-2xl border bg-muted/10 p-4">
+                  <h4 className="text-[10px] font-black uppercase text-primary tracking-widest">Regla de puntuación de los resultados</h4>
+                  <Select value={editScoringType} onValueChange={(value: ScoringRuleType) => setEditScoringType(value)}>
+                    <SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="nToNRange">Suma entre mínimo y máximo</SelectItem>
+                      <SelectItem value="bestOfN">Suma total exacta N</SelectItem>
+                      <SelectItem value="firstToN">El ganador llega a N puntos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {editScoringType === 'nToNRange' ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-2"><Label>Mínimo de puntos sumados</Label><Input type="number" min="0" value={editRangeMin} onChange={event => setEditRangeMin(Number(event.target.value))} className="h-11" /></div>
+                      <div className="space-y-2"><Label>Máximo de puntos sumados</Label><Input type="number" min="0" value={editRangeMax} onChange={event => setEditRangeMax(Number(event.target.value))} className="h-11" /></div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2"><Label>{editScoringType === 'bestOfN' ? 'Suma exacta de ambos resultados' : 'Puntos para ganar'}</Label><Input type="number" min="1" value={editScoringValue} onChange={event => setEditScoringValue(Number(event.target.value))} className="h-11" /></div>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 gap-6"><div className="space-y-2"><Label>Plazas Playoff (Verde)</Label><Input type="number" value={editPlayoffSpots} onChange={e => setEditPlayoffSpots(Number(e.target.value))} className="rounded-xl h-12" /></div><div className="space-y-2"><Label>Plazas Descenso (Rojo)</Label><Input type="number" value={editRelegationSpots} onChange={e => setEditRelegationSpots(Number(e.target.value))} className="rounded-xl h-12" /></div></div>
                 {tournament.mode === 'arcade' && (
                   <div className="space-y-4 pt-4 border-t">
@@ -996,7 +1082,33 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
               </div>
             )}
           </div>
-          <DialogFooter className="gap-2"><Button variant="ghost" onClick={() => setIsEditing(false)} className="rounded-xl font-black">CANCELAR</Button><Button onClick={() => { if (!tournament) return; updateTournament({ ...tournament, name: editName, sport: editSport, playoffSpots: editPlayoffSpots, relegationSpots: editRelegationSpots, challengeSports: editChallengeSports, arcadeMaxBrokeMatchdays: editArcadeMaxBrokeMatchdays, arcadeSanctionPoints: editArcadeSanctionPoints }); setIsEditing(false); toast({ title: "Ajustes Guardados" }); }} className="font-black rounded-xl px-8 bg-primary">GUARDAR</Button></DialogFooter>
+          <DialogFooter className="gap-2"><Button variant="ghost" onClick={() => setIsEditing(false)} className="rounded-xl font-black">CANCELAR</Button><Button onClick={() => {
+            if (!tournament) return;
+            if (editScoringType === 'nToNRange' && (editRangeMin < 0 || editRangeMax < editRangeMin)) {
+              toast({ title: 'Rango de puntuación inválido', description: 'El mínimo debe ser positivo y no puede superar al máximo.', variant: 'destructive' });
+              return;
+            }
+            if (editScoringType !== 'nToNRange' && (!Number.isInteger(editScoringValue) || editScoringValue < 1)) {
+              toast({ title: 'Puntuación inválida', description: 'El objetivo debe ser un número entero mayor que cero.', variant: 'destructive' });
+              return;
+            }
+            updateTournament({
+              ...tournament,
+              name: editName,
+              sport: editSport,
+              playoffSpots: editPlayoffSpots,
+              relegationSpots: editRelegationSpots,
+              challengeSports: editChallengeSports,
+              arcadeMaxBrokeMatchdays: editArcadeMaxBrokeMatchdays,
+              arcadeSanctionPoints: editArcadeSanctionPoints,
+              scoringRuleType: editScoringType,
+              scoringValue: editScoringValue,
+              nToNRangeMin: editRangeMin,
+              nToNRangeMax: editRangeMax,
+            });
+            setIsEditing(false);
+            toast({ title: 'Ajustes Guardados' });
+          }} className="font-black rounded-xl px-8 bg-primary">GUARDAR</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

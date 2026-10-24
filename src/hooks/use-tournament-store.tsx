@@ -1,14 +1,34 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Team, Player, Tournament, GlobalSettings, Match, TournamentIncident, ChallengeSport } from '@/lib/types';
 import hortaData from '@/data/horta-league.json';
+import { useFirestore, useUser } from '@/firebase/provider';
+import { deleteDoc, doc, getDoc, setDoc } from 'firebase/firestore';
+import { generateScore, getScoreRuleError } from '@/lib/scoring';
+import { useToast } from '@/hooks/use-toast';
+import { applyPlayerMatchDevelopment } from '@/lib/player-development';
+
+type ProfileData = {
+  teams: Team[];
+  players: Player[];
+  tournaments: Tournament[];
+  settings: GlobalSettings;
+};
+
+type Profile = { id: string; name: string; data: ProfileData };
 
 interface TournamentContextType {
   teams: Team[];
   players: Player[];
   tournaments: Tournament[];
   settings: GlobalSettings;
+  profiles: { id: string; name: string }[];
+  activeProfileId: string;
+  createProfile: (name: string) => void;
+  renameProfile: (id: string, name: string) => void;
+  deleteProfile: (id: string) => void;
+  setActiveProfile: (id: string) => void;
   addTeam: (team: Team) => void;
   updateTeam: (team: Team) => void;
   deleteTeam: (id: string) => void;
@@ -19,15 +39,15 @@ interface TournamentContextType {
   updateTournament: (tournament: Tournament) => void;
   deleteTournament: (id: string) => void;
   updateSettings: (settings: Partial<GlobalSettings>) => void;
-  transferPlayer: (playerId: string, toTeamId: string | undefined) => void;
+  transferPlayer: (playerId: string, toTeamId: string | undefined) => boolean;
   importData: (data: any, merge: boolean) => void;
   generateSchedule: (tournamentId: string) => void;
   resetSchedule: (tournamentId: string) => void;
   resetMatchday: (tournamentId: string, matchdayNumber: number) => void;
-  resolveMatch: (tournamentId: string, matchId: string, homeScore: number, awayScore: number, isDual: boolean, homePlayerId?: string, awayPlayerId?: string, autoSim?: boolean) => void;
+  resolveMatch: (tournamentId: string, matchId: string, homeScore: number, awayScore: number, isDual: boolean, homePlayerId?: string, awayPlayerId?: string, autoSim?: boolean) => boolean;
   simulateMatchday: (tournamentId: string, matchdayNumber?: number) => void;
   applySanction: (tournamentId: string, type: 'team' | 'player', targetId: string, value: number) => void;
-  processIncidentDecision: (tournamentId: string, incidentId: string, accept: boolean) => void;
+  processIncidentDecision: (tournamentId: string, incidentId: string, accept: boolean) => boolean;
 }
 
 const defaultSettings: GlobalSettings = {
@@ -35,42 +55,181 @@ const defaultSettings: GlobalSettings = {
   theme: 'retro'
 };
 
+const emptyProfileData: ProfileData = {
+  teams: [],
+  players: [],
+  tournaments: [],
+  settings: defaultSettings
+};
+
 const TournamentContext = createContext<TournamentContextType | undefined>(undefined);
 
 export function TournamentProvider({ children }: { children: React.ReactNode }) {
+  const firestore = useFirestore();
+  const user = useUser();
+  const { toast } = useToast();
   const [teams, setTeams] = useState<Team[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [settings, setSettings] = useState<GlobalSettings>(defaultSettings);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [activeProfileId, setActiveProfileId] = useState('default');
   const [isLoaded, setIsLoaded] = useState(false);
+  const processedIncidents = useRef(new Set<string>());
+  const loadedWorkspaceOwner = useRef<string | null>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem('tourneycraft-store');
-    if (saved) {
+    let cancelled = false;
+    const loadWorkspace = async () => {
+      setIsLoaded(false);
+      loadedWorkspaceOwner.current = user?.uid || 'guest';
+      const localKey = `tourneycraft-profiles-v2:${user?.uid || 'guest'}`;
+      let localProfiles: Profile[] = [];
+      let localActiveId = 'default';
       try {
-        const parsed = JSON.parse(saved);
-        setTeams(parsed.teams || hortaData.teams);
-        setPlayers(parsed.players || hortaData.players);
-        setTournaments(parsed.tournaments || hortaData.tournaments);
-        setSettings(parsed.settings || defaultSettings);
-      } catch (e) {
-        console.error("Store Corrupto:", e);
+        const saved = localStorage.getItem(localKey);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          localProfiles = parsed.profiles || [];
+          localActiveId = parsed.activeProfileId || localProfiles[0]?.id || 'default';
+        } else if (!user) {
+          const legacy = localStorage.getItem('tourneycraft-store');
+          if (legacy) {
+            const parsed = JSON.parse(legacy);
+            localProfiles = [{
+              id: 'default',
+              name: 'Mi perfil',
+              data: {
+                teams: parsed.teams || hortaData.teams,
+                players: parsed.players || hortaData.players,
+                tournaments: parsed.tournaments || hortaData.tournaments,
+                settings: parsed.settings || defaultSettings,
+              }
+            }];
+          }
+        }
+      } catch (error) {
+        console.error('No se pudieron cargar los perfiles locales:', error);
       }
-    } else {
-      setTeams(hortaData.teams as any[]);
-      setPlayers(hortaData.players as any[]);
-      setTournaments(hortaData.tournaments as any[]); 
-      setSettings(defaultSettings);
-    }
-    setIsLoaded(true);
-  }, []);
+      if (user && localProfiles.length === 0) {
+        try {
+          const guestWorkspace = localStorage.getItem('tourneycraft-profiles-v2:guest');
+          if (guestWorkspace) {
+            const parsed = JSON.parse(guestWorkspace);
+            localProfiles = parsed.profiles || [];
+            localActiveId = parsed.activeProfileId || localProfiles[0]?.id || 'default';
+          } else {
+            const legacy = localStorage.getItem('tourneycraft-store');
+            if (legacy) {
+              const parsed = JSON.parse(legacy);
+              localProfiles = [{
+                id: 'default',
+                name: 'Mi perfil',
+                data: {
+                  teams: parsed.teams || hortaData.teams,
+                  players: parsed.players || hortaData.players,
+                  tournaments: parsed.tournaments || hortaData.tournaments,
+                  settings: parsed.settings || defaultSettings,
+                }
+              }];
+            }
+          }
+        } catch (error) {
+          console.error('No se pudieron importar los datos locales a la cuenta:', error);
+        }
+      }
+      if (localProfiles.length === 0) {
+        localProfiles = [{
+          id: 'default',
+          name: 'Mi perfil',
+          data: user ? emptyProfileData : {
+            teams: hortaData.teams as Team[],
+            players: hortaData.players as Player[],
+            tournaments: hortaData.tournaments as Tournament[],
+            settings: defaultSettings,
+          }
+        }];
+        localActiveId = 'default';
+      }
+
+      let loadedProfiles = localProfiles;
+      let loadedActiveId = localActiveId;
+      if (user && firestore) {
+        try {
+          const indexReference = doc(firestore, 'users', user.uid, 'workspace', 'profiles');
+          const cloudIndex = await getDoc(indexReference);
+          const indexData = cloudIndex.data();
+          if (cloudIndex.exists() && Array.isArray(indexData?.profileIds) && indexData.profileIds.length > 0) {
+            const cloudProfiles = await Promise.all(indexData.profileIds.map(async (profileId: string) => {
+              const snapshot = await getDoc(doc(firestore, 'users', user.uid, 'profiles', profileId));
+              return snapshot.exists() ? snapshot.data() as Profile : null;
+            }));
+            loadedProfiles = cloudProfiles.filter((profile): profile is Profile => profile !== null);
+            loadedActiveId = indexData.activeProfileId || loadedProfiles[0]?.id || 'default';
+          } else if (cloudIndex.exists() && Array.isArray(indexData?.profiles) && indexData.profiles.length > 0) {
+            loadedProfiles = indexData.profiles as Profile[];
+            loadedActiveId = indexData.activeProfileId || loadedProfiles[0].id;
+          }
+        } catch (error) {
+          console.error('No se pudieron sincronizar los perfiles de la cuenta:', error);
+          toast({ title: 'Error al sincronizar la cuenta', description: 'Tus datos locales se mantienen en este dispositivo.', variant: 'destructive' });
+        }
+      }
+      if (cancelled) return;
+      const activeProfile = loadedProfiles.find(profile => profile.id === loadedActiveId) || loadedProfiles[0];
+      setProfiles(loadedProfiles);
+      setActiveProfileId(activeProfile.id);
+      setTeams(activeProfile.data.teams || []);
+      setPlayers(activeProfile.data.players || []);
+      setTournaments(activeProfile.data.tournaments || []);
+      setSettings(activeProfile.data.settings || defaultSettings);
+      setIsLoaded(true);
+    };
+    void loadWorkspace();
+    return () => { cancelled = true; };
+  }, [user, firestore, toast]);
 
   useEffect(() => {
-    if (isLoaded) {
+    if (isLoaded && loadedWorkspaceOwner.current === (user?.uid || 'guest')) {
       document.body.className = settings.theme;
-      localStorage.setItem('tourneycraft-store', JSON.stringify({ teams, players, tournaments, settings }));
+      const activeData = { teams, players, tournaments, settings };
+      const savedProfiles = profiles.map(profile => profile.id === activeProfileId
+        ? { ...profile, data: activeData }
+        : profile);
+      const currentProfile = profiles.find(profile => profile.id === activeProfileId);
+      const profileDataChanged = !currentProfile || JSON.stringify(currentProfile.data) !== JSON.stringify(activeData);
+      const persistedProfiles = profileDataChanged
+        ? savedProfiles
+        : profiles;
+      if (!currentProfile) {
+        persistedProfiles.push({ id: activeProfileId, name: 'Mi perfil', data: activeData });
+      }
+      if (profileDataChanged) setProfiles(persistedProfiles);
+      const localKey = `tourneycraft-profiles-v2:${user?.uid || 'guest'}`;
+      try {
+        localStorage.setItem(localKey, JSON.stringify({ profiles: persistedProfiles, activeProfileId }));
+      } catch (error) {
+        console.error('No se pudieron guardar los perfiles localmente:', error);
+        toast({ title: 'Error al guardar localmente', description: 'Puede que el almacenamiento del navegador esté lleno.', variant: 'destructive' });
+      }
+      if (user && firestore) {
+        const saveTimeout = window.setTimeout(() => {
+          void Promise.all(persistedProfiles.map(profile => setDoc(
+            doc(firestore, 'users', user.uid, 'profiles', profile.id),
+            profile,
+          ))).then(() => setDoc(doc(firestore, 'users', user.uid, 'workspace', 'profiles'), {
+            profileIds: persistedProfiles.map(profile => profile.id),
+            activeProfileId,
+            updatedAt: new Date().toISOString(),
+          })).catch(error => {
+            console.error('No se pudieron guardar los perfiles en la cuenta:', error);
+            toast({ title: 'Error al guardar en la cuenta', description: 'Los datos siguen guardados localmente; inténtalo de nuevo.', variant: 'destructive' });
+          });
+        }, 400);
+        return () => window.clearTimeout(saveTimeout);
+      }
     }
-  }, [teams, players, tournaments, settings, isLoaded]);
+  }, [teams, players, tournaments, settings, profiles, activeProfileId, isLoaded, user, firestore, toast]);
 
   const getBestPlayerId = useCallback((teamId: string, excludePlayerId?: string) => {
     const teamPlayers = players.filter(p => p.teamId === teamId && p.suspensionMatchdays === 0 && p.id !== excludePlayerId);
@@ -87,25 +246,36 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   }, [players]);
 
   const generateScoreByRules = useCallback((t: Tournament, hPlayerId?: string, aPlayerId?: string) => {
-    let hScore = 0;
-    let aScore = 0;
-    const val = t.scoringValue || 9;
-    
     const hPlayer = players.find(p => p.id === hPlayerId);
     const aPlayer = players.find(p => p.id === aPlayerId);
     const hRating = (hPlayer?.monetaryValue || 50) + 5; 
     const aRating = (aPlayer?.monetaryValue || 50);
     const chaos = (t.variability || 15) / 100;
-    const baseWinProb = (hRating / (hRating + aRating)) + (Math.random() * chaos - chaos/2);
-    const winProb = Math.max(0.05, Math.min(0.95, baseWinProb));
-
-    // Simulation Point by Point (Binomial)
-    for (let i = 0; i < val; i++) {
-      if (Math.random() < winProb) hScore++;
-      else aScore++;
-    }
-    return { hScore, aScore };
+    const winProb = (hRating / (hRating + aRating)) + (Math.random() * chaos - chaos / 2);
+    return generateScore(t, Math.max(0.05, Math.min(0.95, winProb)));
   }, [players]);
+
+  const applyFinancialPressure = useCallback((t: Tournament, homeId: string, awayId: string, score: { homeScore: number; awayScore: number }) => {
+    if (t.mode !== 'arcade' || t.arcadeMaxBrokeMatchdays === undefined || !t.arcadeSanctionPoints) return score;
+    const homeBroke = (t.teamBrokeMatchdays?.[homeId] || 0) >= t.arcadeMaxBrokeMatchdays;
+    const awayBroke = (t.teamBrokeMatchdays?.[awayId] || 0) >= t.arcadeMaxBrokeMatchdays;
+    if (homeBroke === awayBroke) return score;
+
+    if (t.scoringRuleType === 'firstToN') {
+      const brokeTeamWon = homeBroke
+        ? score.homeScore > score.awayScore
+        : score.awayScore > score.homeScore;
+      return brokeTeamWon ? { homeScore: score.awayScore, awayScore: score.homeScore } : score;
+    }
+
+    const penalty = Math.max(0, Math.floor(t.arcadeSanctionPoints));
+    if (homeBroke) {
+      const shifted = Math.min(penalty, score.homeScore);
+      return { homeScore: score.homeScore - shifted, awayScore: score.awayScore + shifted };
+    }
+    const shifted = Math.min(penalty, score.awayScore);
+    return { homeScore: score.homeScore + shifted, awayScore: score.awayScore - shifted };
+  }, []);
 
   const createScheduleInternal = useCallback((t: Tournament): Tournament => {
     const schedule: Match[] = [];
@@ -176,6 +346,20 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const resolveMatch = useCallback((tournamentId: string, matchId: string, hScoreInput: number, aScoreInput: number, isDual: boolean, homePlayerId?: string, awayPlayerId?: string, autoSim?: boolean) => {
+    const currentTournament = tournaments.find(item => item.id === tournamentId);
+    const currentMatch = currentTournament && (isDual
+      ? currentTournament.dualLeagueMatches || []
+      : currentTournament.matches).find(match => match.id === matchId);
+    if (!currentTournament || !currentMatch) return false;
+    if (!autoSim && currentTournament.mode !== 'challenge' && getScoreRuleError(
+      currentTournament.scoringRuleType,
+      currentTournament.scoringValue || 9,
+      currentTournament.nToNRangeMin ?? 0,
+      currentTournament.nToNRangeMax ?? 10,
+      hScoreInput,
+      aScoreInput,
+    )) return false;
+
     setTournaments(prev => prev.map(t => {
       if (t.id !== tournamentId) return t;
       
@@ -189,21 +373,15 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
 
       let hScore = hScoreInput;
       let aScore = aScoreInput;
-      
-      let hScoreOffset = 0;
-      let aScoreOffset = 0;
-      if (t.mode === 'arcade' && t.arcadeMaxBrokeMatchdays !== undefined && t.arcadeSanctionPoints !== undefined) {
-         if ((t.teamBrokeMatchdays?.[targetMatch.homeId] || 0) >= t.arcadeMaxBrokeMatchdays) aScoreOffset += t.arcadeSanctionPoints;
-         if ((t.teamBrokeMatchdays?.[targetMatch.awayId] || 0) >= t.arcadeMaxBrokeMatchdays) hScoreOffset += t.arcadeSanctionPoints;
-      }
 
       if (autoSim) {
-        const res = generateScoreByRules(t, hPlayerId, aPlayerId);
-        hScore = res.hScore; aScore = res.aScore;
+        const baseScore = generateScoreByRules(t, hPlayerId, aPlayerId);
+        const res = applyFinancialPressure(t, targetMatch.homeId, targetMatch.awayId, baseScore);
+        hScore = res.homeScore; aScore = res.awayScore;
+      } else {
+        const res = applyFinancialPressure(t, targetMatch.homeId, targetMatch.awayId, { homeScore: hScore, awayScore: aScore });
+        hScore = res.homeScore; aScore = res.awayScore;
       }
-      
-      hScore += hScoreOffset;
-      aScore += aScoreOffset;
 
       const updateMatchList = (mList: Match[]) => mList.map(m => m.id === matchId ? { ...m, homeScore: hScore, awayScore: aScore, isSimulated: true, homePlayerId: hPlayerId, awayPlayerId: aPlayerId } : m);
       
@@ -218,23 +396,17 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         if (dualM && !dualM.isSimulated) {
            const dualHPlayer = getBestPlayerId(dualM.homeId, dualM.homeId === targetMatch.homeId ? hPlayerId : aPlayerId);
            const dualAPlayer = getBestPlayerId(dualM.awayId, dualM.awayId === targetMatch.awayId ? aPlayerId : hPlayerId);
-           const dualRes = generateScoreByRules(t, dualHPlayer, dualAPlayer);
-           
-           let dHScoreOffset = 0;
-           let dAScoreOffset = 0;
-           if (t.arcadeMaxBrokeMatchdays !== undefined && t.arcadeSanctionPoints !== undefined) {
-             if ((t.teamBrokeMatchdays?.[dualM.homeId] || 0) >= t.arcadeMaxBrokeMatchdays) dAScoreOffset += t.arcadeSanctionPoints;
-             if ((t.teamBrokeMatchdays?.[dualM.awayId] || 0) >= t.arcadeMaxBrokeMatchdays) dHScoreOffset += t.arcadeSanctionPoints;
-           }
-           const dHScore = dualRes.hScore + dHScoreOffset;
-           const dAScore = dualRes.aScore + dAScoreOffset;
+           const dualBaseScore = generateScoreByRules(t, dualHPlayer, dualAPlayer);
+           const dualRes = applyFinancialPressure(t, dualM.homeId, dualM.awayId, dualBaseScore);
+           const dHScore = dualRes.homeScore;
+           const dAScore = dualRes.awayScore;
            
            nextT.dualLeagueMatches = nextT.dualLeagueMatches.map(nm => nm.id === dualM.id ? { ...nm, homeScore: dHScore, awayScore: dAScore, isSimulated: true, homePlayerId: dualHPlayer, awayPlayerId: dualAPlayer } : nm);
            
            setTimeout(() => {
              setPlayers(pPrev => pPrev.map(pl => {
-               if (pl.id === dualHPlayer) return { ...pl, monetaryValue: Math.max(1, Math.min(100, pl.monetaryValue + (dHScore > dAScore ? 1 : dAScore > dHScore ? -1 : 0))) };
-               if (pl.id === dualAPlayer) return { ...pl, monetaryValue: Math.max(1, Math.min(100, pl.monetaryValue + (dAScore > dHScore ? 1 : dHScore > dAScore ? -1 : 0))) };
+               if (pl.id === dualHPlayer) return applyPlayerMatchDevelopment(pl, dHScore, dAScore);
+               if (pl.id === dualAPlayer) return applyPlayerMatchDevelopment(pl, dAScore, dHScore);
                return pl;
              }));
            }, 0);
@@ -256,8 +428,8 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
             return team;
           }));
           setPlayers(pPrev => pPrev.map(pl => {
-             if (pl.id === hPlayerId) return { ...pl, monetaryValue: Math.max(1, Math.min(100, pl.monetaryValue + (isHomeWin ? 1 : isAwayWin ? -1 : 0))) };
-             if (pl.id === aPlayerId) return { ...pl, monetaryValue: Math.max(1, Math.min(100, pl.monetaryValue + (isAwayWin ? 1 : isHomeWin ? -1 : 0))) };
+             if (pl.id === hPlayerId) return applyPlayerMatchDevelopment(pl, hScore, aScore);
+             if (pl.id === aPlayerId) return applyPlayerMatchDevelopment(pl, aScore, hScore);
              return pl;
           }));
         }, 0);
@@ -273,9 +445,20 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         nextT.teamBrokeMatchdays = ntBroke;
       }
 
+      if (t.mode === 'challenge' && !isDual) {
+        setTimeout(() => {
+          setPlayers(previous => previous.map(player => {
+            if (player.id === hPlayerId) return applyPlayerMatchDevelopment(player, hScore, aScore);
+            if (player.id === aPlayerId) return applyPlayerMatchDevelopment(player, aScore, hScore);
+            return player;
+          }));
+        }, 0);
+      }
+
       return nextT;
     }));
-  }, [generateScoreByRules, getBestPlayerId, teams]);
+    return true;
+  }, [generateScoreByRules, applyFinancialPressure, getBestPlayerId, teams, tournaments]);
 
   const simulateMatchday = useCallback((tournamentId: string, matchdayNumber?: number) => {
     setTournaments(prev => prev.map(t => {
@@ -291,16 +474,8 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
           const hPlayerId = getBestPlayerId(m.homeId);
           const aPlayerId = getBestPlayerId(m.awayId);
           
-          let hScoreOffset = 0;
-          let aScoreOffset = 0;
-          if (t.mode === 'arcade' && t.arcadeMaxBrokeMatchdays !== undefined && t.arcadeSanctionPoints !== undefined) {
-             if ((ntBroke[m.homeId] || 0) >= t.arcadeMaxBrokeMatchdays) aScoreOffset += t.arcadeSanctionPoints;
-             if ((ntBroke[m.awayId] || 0) >= t.arcadeMaxBrokeMatchdays) hScoreOffset += t.arcadeSanctionPoints;
-          }
-
-          const { hScore: baseH, aScore: baseA } = generateScoreByRules(t, hPlayerId, aPlayerId);
-          const hScore = baseH + hScoreOffset;
-          const aScore = baseA + aScoreOffset;
+          const baseScore = generateScoreByRules(t, hPlayerId, aPlayerId);
+          const { homeScore: hScore, awayScore: aScore } = applyFinancialPressure(t, m.homeId, m.awayId, baseScore);
           
           nextT.matches = nextT.matches.map(nm => nm.id === m.id ? { ...nm, homeScore: hScore, awayScore: aScore, isSimulated: true, homePlayerId: hPlayerId, awayPlayerId: aPlayerId } : nm);
           
@@ -309,23 +484,17 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
             if (dualM && !dualM.isSimulated) {
                const dualHPlayer = getBestPlayerId(dualM.homeId, dualM.homeId === m.homeId ? hPlayerId : aPlayerId);
                const dualAPlayer = getBestPlayerId(dualM.awayId, dualM.awayId === m.awayId ? aPlayerId : hPlayerId);
-               const dualRes = generateScoreByRules(t, dualHPlayer, dualAPlayer);
-               
-               let dHScoreOffset = 0;
-               let dAScoreOffset = 0;
-               if (t.arcadeMaxBrokeMatchdays !== undefined && t.arcadeSanctionPoints !== undefined) {
-                 if ((ntBroke[dualM.homeId] || 0) >= t.arcadeMaxBrokeMatchdays) dAScoreOffset += t.arcadeSanctionPoints;
-                 if ((ntBroke[dualM.awayId] || 0) >= t.arcadeMaxBrokeMatchdays) dHScoreOffset += t.arcadeSanctionPoints;
-               }
-               const dHScore = dualRes.hScore + dHScoreOffset;
-               const dAScore = dualRes.aScore + dAScoreOffset;
+               const dualBaseScore = generateScoreByRules(t, dualHPlayer, dualAPlayer);
+               const dualRes = applyFinancialPressure(t, dualM.homeId, dualM.awayId, dualBaseScore);
+               const dHScore = dualRes.homeScore;
+               const dAScore = dualRes.awayScore;
                
                nextT.dualLeagueMatches = (nextT.dualLeagueMatches || []).map(nm => nm.id === dualM.id ? { ...nm, homeScore: dHScore, awayScore: dAScore, isSimulated: true, homePlayerId: dualHPlayer, awayPlayerId: dualAPlayer } : nm);
                
                setTimeout(() => {
                  setPlayers(pPrev => pPrev.map(pl => {
-                   if (pl.id === dualHPlayer) return { ...pl, monetaryValue: Math.max(1, Math.min(100, pl.monetaryValue + (dHScore > dAScore ? 1 : dAScore > dHScore ? -1 : 0))) };
-                   if (pl.id === dualAPlayer) return { ...pl, monetaryValue: Math.max(1, Math.min(100, pl.monetaryValue + (dAScore > dHScore ? 1 : dHScore > dAScore ? -1 : 0))) };
+                   if (pl.id === dualHPlayer) return applyPlayerMatchDevelopment(pl, dHScore, dAScore);
+                   if (pl.id === dualAPlayer) return applyPlayerMatchDevelopment(pl, dAScore, dHScore);
                    return pl;
                  }));
                }, 0);
@@ -353,8 +522,8 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
                 return team;
               }));
               setPlayers(pPrev => pPrev.map(pl => {
-                 if (pl.id === hPlayerId) return { ...pl, monetaryValue: Math.max(1, Math.min(100, pl.monetaryValue + (isHomeWin ? 1 : isAwayWin ? -1 : 0))) };
-                 if (pl.id === aPlayerId) return { ...pl, monetaryValue: Math.max(1, Math.min(100, pl.monetaryValue + (isAwayWin ? 1 : isHomeWin ? -1 : 0))) };
+                 if (pl.id === hPlayerId) return applyPlayerMatchDevelopment(pl, hScore, aScore);
+                 if (pl.id === aPlayerId) return applyPlayerMatchDevelopment(pl, aScore, hScore);
                  return pl;
               }));
             }, 0);
@@ -366,64 +535,84 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
              const targetTeamId = isHome ? m.homeId : m.awayId;
              const targetTeam = teams.find(tm => tm.id === targetTeamId);
              if (sanctionTarget === 'team') {
-                const sanctionVal = Math.floor(Math.random() * 500) + 100;
+                const sanctionVal = Math.min(
+                  Math.max(1, Math.round((targetTeam?.budget || 0) * (0.03 + Math.random() * 0.05))),
+                  250,
+                  targetTeam?.budget || 0,
+                );
+                if (sanctionVal <= 0) return;
                 newIncidents.push({
                    id: `inc-sanc-${Date.now()}-${Math.random()}`,
                    date: `Jornada ${matchdayNumber}`,
-                   message: `Sanción económica al equipo ${targetTeam?.name || 'Desconocido'} por ${sanctionVal} créditos.`,
+                   message: `La liga multa a ${targetTeam?.name || 'el equipo'} con ${sanctionVal} CR por incumplir las normas financieras.`,
                    type: 'sanction',
                    status: targetTeamId === t.managedParticipantId ? 'pending' : 'accepted',
                    fromTeamId: targetTeamId,
                    value: sanctionVal
                 });
+                if (targetTeamId !== t.managedParticipantId) {
+                  setTimeout(() => setTeams(previous => previous.map(team => team.id === targetTeamId
+                    ? { ...team, budget: Math.max(0, team.budget - sanctionVal) }
+                    : team)), 0);
+                }
              } else {
                 const targetPlayerId = isHome ? hPlayerId : aPlayerId;
                 const targetPlayer = players.find(pl => pl.id === targetPlayerId);
+                if (!targetPlayer) return;
                 newIncidents.push({
                    id: `inc-susp-${Date.now()}-${Math.random()}`,
                    date: `Jornada ${matchdayNumber}`,
-                   message: `El jugador ${targetPlayer?.name || 'Desconocido'} (${targetTeam?.name}) ha sido suspendido por incidentes.`,
+                   message: `${targetPlayer.name} (${targetTeam?.name || 'su equipo'}) queda suspendido un partido tras una revisión disciplinaria.`,
                    type: 'sanction',
                    status: targetTeamId === t.managedParticipantId ? 'pending' : 'accepted',
                    playerId: targetPlayerId,
                    value: 1
                 });
-             }
-          }
-          
-          if (t.mode === 'arcade' && Math.random() < 0.20) {
-             const targetTeamId = Math.random() < 0.5 ? m.homeId : m.awayId;
-             if (targetTeamId !== t.managedParticipantId) {
-                const otherTeamIds = t.participants.filter(pid => pid !== targetTeamId);
-                const sourceTeamId = otherTeamIds[Math.floor(Math.random() * otherTeamIds.length)];
-                const sourceTeamPlayers = players.filter(pl => pl.teamId === sourceTeamId);
-                if (sourceTeamPlayers.length > 0) {
-                   const transferPlayer = sourceTeamPlayers[Math.floor(Math.random() * sourceTeamPlayers.length)];
-                   const transferVal = transferPlayer.monetaryValue * 10;
-                   const sourceTeam = teams.find(tm => tm.id === sourceTeamId);
-                   const targetTeam = teams.find(tm => tm.id === targetTeamId);
-                   
-                   newIncidents.push({
-                      id: `inc-trans-${Date.now()}-${Math.random()}`,
-                      date: `Jornada ${matchdayNumber}`,
-                      message: `El ${targetTeam?.name} ha lanzado una oferta por ${transferPlayer.name} del ${sourceTeam?.name} (${transferVal} CR).`,
-                      type: 'transfer',
-                      status: sourceTeamId === t.managedParticipantId ? 'pending' : 'accepted',
-                      playerId: transferPlayer.id,
-                      fromTeamId: sourceTeamId,
-                      toTeamId: targetTeamId,
-                      value: transferVal
-                   });
+                if (targetTeamId !== t.managedParticipantId) {
+                  setTimeout(() => setPlayers(previous => previous.map(player => player.id === targetPlayerId
+                    ? { ...player, suspensionMatchdays: player.suspensionMatchdays + 1 }
+                    : player)), 0);
                 }
              }
           }
         }
       });
+      const hasPendingOffer = [...(t.incidents || []), ...newIncidents].some(incident => incident.type === 'transfer' && incident.status === 'pending');
+      if (t.mode === 'arcade' && !hasPendingOffer && Math.random() < 0.3 && t.managedParticipantId) {
+        const aiTeamIds = t.participants.filter(participantId => participantId !== t.managedParticipantId && teams.some(team => team.id === participantId));
+        const userSells = Math.random() < 0.5;
+        const sourceTeamId = userSells
+          ? t.managedParticipantId
+          : aiTeamIds[Math.floor(Math.random() * aiTeamIds.length)];
+        const targetTeamId = userSells
+          ? aiTeamIds[Math.floor(Math.random() * aiTeamIds.length)]
+          : t.managedParticipantId;
+        const sourceTeamPlayers = players.filter(player => player.teamId === sourceTeamId && player.suspensionMatchdays === 0);
+        const buyer = teams.find(team => team.id === targetTeamId);
+        const sourceTeam = teams.find(team => team.id === sourceTeamId);
+        if (sourceTeamPlayers.length > 0 && buyer && sourceTeam && buyer.budget > 0) {
+          const player = sourceTeamPlayers[Math.floor(Math.random() * sourceTeamPlayers.length)];
+          const fairValue = Math.max(1, Math.round(player.monetaryValue * 10));
+          const offer = Math.min(fairValue, Math.max(1, Math.floor(buyer.budget * 0.35)));
+          newIncidents.push({
+            id: `inc-trans-${Date.now()}-${Math.random()}`,
+            date: `Jornada ${matchdayNumber}`,
+            message: `${buyer.name} ofrece ${offer.toLocaleString()} CR por ${player.name} (${player.monetaryValue}/100) al ${sourceTeam.name}.`,
+            type: 'transfer',
+            status: 'pending',
+            opened: false,
+            playerId: player.id,
+            fromTeamId: sourceTeamId,
+            toTeamId: targetTeamId,
+            value: offer,
+          });
+        }
+      }
       nextT.teamBrokeMatchdays = ntBroke;
       nextT.incidents = [...(nextT.incidents || []), ...newIncidents];
       return nextT;
     }));
-  }, [generateScoreByRules, getBestPlayerId, teams, players]);
+  }, [generateScoreByRules, applyFinancialPressure, getBestPlayerId, teams, players]);
 
   const resetMatchday = useCallback((tournamentId: string, matchdayNumber: number) => {
     setTournaments(prev => prev.map(t => {
@@ -453,6 +642,58 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
 
   const value = useMemo(() => ({
     teams, players, tournaments, settings, 
+    profiles: profiles.map(({ id, name }) => ({ id, name })),
+    activeProfileId,
+    createProfile: (name: string) => {
+      const id = `profile-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const data: ProfileData = {
+        ...emptyProfileData,
+        settings: {
+          ...defaultSettings,
+          positions: [...defaultSettings.positions],
+          positionColors: { ...defaultSettings.positionColors },
+          attributeNames: [...defaultSettings.attributeNames],
+        },
+      };
+      setProfiles(previous => [...previous, { id, name: name.trim() || 'Nuevo perfil', data }]);
+      setActiveProfileId(id);
+      setTeams(data.teams);
+      setPlayers(data.players);
+      setTournaments(data.tournaments);
+      setSettings(data.settings);
+    },
+    renameProfile: (id: string, name: string) => {
+      const normalizedName = name.trim();
+      if (normalizedName) setProfiles(previous => previous.map(profile => profile.id === id ? { ...profile, name: normalizedName } : profile));
+    },
+    deleteProfile: (id: string) => {
+      if (profiles.length <= 1) return;
+      const remaining = profiles.filter(profile => profile.id !== id);
+      setProfiles(remaining);
+      if (user && firestore) {
+        void deleteDoc(doc(firestore, 'users', user.uid, 'profiles', id)).catch(error => {
+          console.error('No se pudo eliminar el perfil de la cuenta:', error);
+          toast({ title: 'No se pudo eliminar de la cuenta', description: 'El perfil se ha quitado de este dispositivo, pero no de la nube.', variant: 'destructive' });
+        });
+      }
+      if (id === activeProfileId) {
+        const next = remaining[0];
+        setActiveProfileId(next.id);
+        setTeams(next.data.teams);
+        setPlayers(next.data.players);
+        setTournaments(next.data.tournaments);
+        setSettings(next.data.settings);
+      }
+    },
+    setActiveProfile: (id: string) => {
+      const profile = profiles.find(item => item.id === id);
+      if (!profile || profile.id === activeProfileId) return;
+      setActiveProfileId(profile.id);
+      setTeams(profile.data.teams);
+      setPlayers(profile.data.players);
+      setTournaments(profile.data.tournaments);
+      setSettings(profile.data.settings);
+    },
     addTeam: (team: Team) => setTeams(p => [...p, team]),
     updateTeam: (team: Team) => setTeams(p => p.map(t => t.id === team.id ? team : t)),
     deleteTeam: (id: string) => setTeams(p => p.filter(t => t.id !== id)),
@@ -464,19 +705,17 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     deleteTournament: (id: string) => setTournaments(p => p.filter(t => t.id !== id)),
     updateSettings: (s: Partial<GlobalSettings>) => setSettings(p => ({ ...p, ...s })),
     transferPlayer: (pId: string, tId: string | undefined) => {
-      setPlayers(prev => prev.map(p => {
-        if (p.id === pId) {
-          const oldT = p.teamId;
-          const val = p.monetaryValue;
-          setTeams(tPrev => tPrev.map(t => {
-            if (t.id === tId) return { ...t, budget: Math.max(0, t.budget - val) };
-            if (t.id === oldT) return { ...t, budget: t.budget + val };
-            return t;
-          }));
-          return { ...p, teamId: tId };
-        }
-        return p;
+      const player = players.find(item => item.id === pId);
+      if (!player || player.teamId === tId) return false;
+      const buyer = tId ? teams.find(team => team.id === tId) : undefined;
+      if (tId && (!buyer || buyer.budget < player.monetaryValue)) return false;
+      setPlayers(previous => previous.map(item => item.id === pId ? { ...item, teamId: tId } : item));
+      setTeams(previous => previous.map(team => {
+        if (team.id === tId) return { ...team, budget: team.budget - player.monetaryValue };
+        if (team.id === player.teamId) return { ...team, budget: team.budget + player.monetaryValue };
+        return team;
       }));
+      return true;
     },
     importData: (data: any, merge: boolean) => {
       if (merge) {
@@ -495,35 +734,45 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       else setPlayers(p => p.map(pl => pl.id === targetId ? { ...pl, suspensionMatchdays: val } : pl));
     },
     processIncidentDecision: (tId: string, incidentId: string, accept: boolean) => {
-      let incObj: TournamentIncident | undefined;
+      const incidentKey = `${tId}:${incidentId}`;
+      if (processedIncidents.current.has(incidentKey)) return false;
+      const currentIncident = tournaments.find(tournament => tournament.id === tId)?.incidents.find(incident => incident.id === incidentId);
+      if (!currentIncident || currentIncident.status !== 'pending') return false;
+      if (accept && currentIncident.type === 'transfer') {
+        const buyer = teams.find(team => team.id === currentIncident.toTeamId);
+        const player = players.find(item => item.id === currentIncident.playerId);
+        if (!buyer || !player || player.teamId !== currentIncident.fromTeamId || !currentIncident.value || buyer.budget < currentIncident.value) return false;
+      }
+      processedIncidents.current.add(incidentKey);
+      const incObj: TournamentIncident | undefined = currentIncident;
       setTournaments(prev => prev.map(t => {
         if (t.id !== tId) return t;
         const inc = t.incidents.find(i => i.id === incidentId);
         if (!inc || inc.status !== 'pending') return t;
-        incObj = inc;
         return { ...t, incidents: t.incidents.map(i => i.id === incidentId ? { ...i, status: accept ? 'accepted' : 'rejected' } : i) };
       }));
       
       setTimeout(() => {
         if (accept && incObj) {
            if (incObj.type === 'transfer' && incObj.playerId && incObj.toTeamId && incObj.fromTeamId && incObj.value) {
-              setPlayers(pPrev => pPrev.map(p => p.id === incObj!.playerId ? { ...p, teamId: incObj!.toTeamId } : p));
+              setPlayers(pPrev => pPrev.map(p => p.id === incObj.playerId ? { ...p, teamId: incObj.toTeamId } : p));
               setTeams(tPrev => tPrev.map(t => {
-                 if (t.id === incObj!.toTeamId) return { ...t, budget: Math.max(0, t.budget - incObj!.value!) };
-                 if (t.id === incObj!.fromTeamId) return { ...t, budget: t.budget + incObj!.value! };
+                 if (t.id === incObj.toTeamId) return { ...t, budget: t.budget - incObj.value! };
+                 if (t.id === incObj.fromTeamId) return { ...t, budget: t.budget + incObj.value! };
                  return t;
               }));
            } else if (incObj.type === 'sanction' && incObj.value) {
               if (incObj.playerId) {
-                 setPlayers(pPrev => pPrev.map(p => p.id === incObj!.playerId ? { ...p, suspensionMatchdays: (p.suspensionMatchdays || 0) + incObj!.value! } : p));
+                 setPlayers(pPrev => pPrev.map(p => p.id === incObj.playerId ? { ...p, suspensionMatchdays: (p.suspensionMatchdays || 0) + incObj.value! } : p));
               } else if (incObj.fromTeamId) {
-                 setTeams(tPrev => tPrev.map(t => t.id === incObj!.fromTeamId ? { ...t, budget: Math.max(0, t.budget - incObj!.value!) } : t));
+                 setTeams(tPrev => tPrev.map(t => t.id === incObj.fromTeamId ? { ...t, budget: Math.max(0, t.budget - incObj.value!) } : t));
               }
            }
         }
       }, 0);
+      return true;
     }
-  }), [teams, players, tournaments, settings, generateSchedule, resetSchedule, resetMatchday, resolveMatch, simulateMatchday, createScheduleInternal]);
+  }), [teams, players, tournaments, settings, profiles, activeProfileId, user, firestore, toast, generateSchedule, resetSchedule, resetMatchday, resolveMatch, simulateMatchday, createScheduleInternal]);
 
   return <TournamentContext.Provider value={value}>{children}</TournamentContext.Provider>;
 }

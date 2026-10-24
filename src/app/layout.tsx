@@ -6,7 +6,7 @@ import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
   title: 'TourneyCraft | Professional Tournament Management',
-  description: 'Design, simulate, and manage highly customizable tournaments with AI-powered features.',
+  description: 'Diseña, simula y gestiona torneos personalizables.',
 };
 
 import { FirebaseClientProvider } from '@/firebase/client-provider';
@@ -28,7 +28,7 @@ export default function RootLayout({
           <TournamentProvider>
             <div className="flex flex-col md:flex-row min-h-screen">
               <Navbar />
-              <main className="flex-1 w-full md:ml-64 p-4 md:p-8 pb-24 md:pb-8 min-h-screen">
+              <main className="flex-1 w-full md:ml-64 p-3 sm:p-4 md:p-8 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-8 min-h-screen">
                 {children}
               </main>
             </div>

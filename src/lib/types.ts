@@ -8,6 +8,7 @@ export type Player = {
   name: string;
   description?: string;
   monetaryValue: number;
+  developmentProgress?: number;
   jerseyNumber: number;
   position: string;
   attributes: PlayerAttribute[];
@@ -111,6 +112,7 @@ export type TournamentIncident = {
   message: string;
   type: 'transfer' | 'sanction' | 'info';
   status?: 'pending' | 'accepted' | 'rejected';
+  opened?: boolean;
   playerId?: string;
   fromTeamId?: string;
   toTeamId?: string;

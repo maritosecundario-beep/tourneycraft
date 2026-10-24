@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Settings, MapPin, ListPlus, Palette, CheckCircle2, Plus, Trash2 } from 'lucide-react';
+import { Settings, MapPin, ListPlus, Palette, CheckCircle2, Plus, Trash2, UsersRound } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -16,7 +16,7 @@ import { PREDEFINED_COLORS } from '@/lib/colors';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 export default function SettingsPage() {
-  const { settings, updateSettings } = useTournamentStore();
+  const { settings, updateSettings, profiles, activeProfileId, createProfile, renameProfile, deleteProfile, setActiveProfile } = useTournamentStore();
   const { toast } = useToast();
   
   const [currency, setCurrency] = useState(settings.currency);
@@ -24,6 +24,7 @@ export default function SettingsPage() {
   const [positions, setPositions] = useState<string[]>(settings.positions);
   const [posColors, setPosColors] = useState<Record<string, string>>(settings.positionColors || {});
   const [attributes, setAttributes] = useState(settings.attributeNames.join('\n'));
+  const [newProfileName, setNewProfileName] = useState('');
 
   useEffect(() => {
     setCurrency(settings.currency);
@@ -89,6 +90,79 @@ export default function SettingsPage() {
       </header>
 
       <div className="grid gap-6 md:gap-8">
+        <Card className="border-none bg-card shadow-xl rounded-[1.5rem] md:rounded-[2.5rem]">
+          <CardHeader className="p-4 md:p-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <UsersRound className="text-primary w-5 h-5" />
+              </div>
+              <div>
+                <CardTitle className="text-base md:text-xl font-black uppercase">Perfiles</CardTitle>
+                <CardDescription>Los datos, ajustes y copias de seguridad pertenecen al perfil activo.</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 md:p-6 space-y-4">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Select value={activeProfileId} onValueChange={setActiveProfile}>
+                <SelectTrigger className="h-12 rounded-xl flex-1">
+                  <SelectValue placeholder="Perfil activo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {profiles.map(profile => <SelectItem key={profile.id} value={profile.id}>{profile.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Input
+                value={newProfileName}
+                onChange={event => setNewProfileName(event.target.value)}
+                placeholder="Nombre del nuevo perfil"
+                className="h-12 rounded-xl flex-1"
+                aria-label="Nombre del nuevo perfil"
+              />
+              <Button
+                className="h-12 rounded-xl font-black"
+                onClick={() => {
+                  if (!newProfileName.trim()) return;
+                  createProfile(newProfileName);
+                  setNewProfileName('');
+                  toast({ title: 'Perfil creado', description: 'Se ha abierto un perfil limpio con los ajustes predeterminados.' });
+                }}
+              >
+                <Plus className="w-4 h-4 mr-2" /> CREAR
+              </Button>
+            </div>
+            <div className="space-y-2">
+              {profiles.map(profile => (
+                <div key={profile.id} className="flex items-center gap-2 p-2 sm:p-3 bg-muted/20 rounded-xl">
+                  <Input
+                    key={`${profile.id}-${profile.name}`}
+                    defaultValue={profile.name}
+                    aria-label={`Nombre del perfil ${profile.name}`}
+                    className="h-10 rounded-lg"
+                    onBlur={event => renameProfile(profile.id, event.target.value)}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-10 w-10 shrink-0 text-destructive"
+                    aria-label={`Eliminar perfil ${profile.name}`}
+                    disabled={profiles.length <= 1}
+                    onClick={() => {
+                      if (confirm(`¿Eliminar el perfil "${profile.name}" y todos sus datos?`)) {
+                        deleteProfile(profile.id);
+                        toast({ title: 'Perfil eliminado' });
+                      }
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* TEMAS Y ESTÉTICA */}
         <Card className="border-none bg-card shadow-xl overflow-hidden rounded-[1.5rem] md:rounded-[2.5rem]">
           <div className="h-2 w-full bg-gradient-to-r from-primary via-accent to-yellow-500" />

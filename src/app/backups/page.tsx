@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { cn } from '@/lib/utils';
 
 export default function BackupsPage() {
-  const { teams, players, tournaments, settings, importData } = useTournamentStore();
+  const { teams, players, tournaments, settings, importData, profiles, activeProfileId } = useTournamentStore();
+  const activeProfileName = profiles.find(profile => profile.id === activeProfileId)?.name || 'Mi perfil';
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -117,7 +118,7 @@ export default function BackupsPage() {
         <h1 className="text-3xl font-black flex items-center gap-3">
           <Database className="text-primary" /> Persistencia de Datos
         </h1>
-        <p className="text-muted-foreground">Gestiona la exportación, importación y seguridad de tu universo deportivo local.</p>
+        <p className="text-muted-foreground">Gestiona los datos del perfil <strong className="text-foreground">{activeProfileName}</strong>. Importar y exportar solo afecta a este perfil.</p>
       </header>
 
       <div className="grid gap-6">

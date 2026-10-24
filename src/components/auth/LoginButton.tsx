@@ -6,24 +6,35 @@ import { Button } from '@/components/ui/button';
 import { LogIn, LogOut, User } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { useToast } from '@/hooks/use-toast';
 
 export function LoginButton() {
   const auth = useAuth();
   const user = useUser();
+  const { toast } = useToast();
 
   const handleLogin = async () => {
-    if (!auth) return;
+    if (!auth) {
+      toast({ title: 'Autenticación no disponible', description: 'No se ha podido conectar con Firebase.', variant: 'destructive' });
+      return;
+    }
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
     } catch (error) {
       console.error("Login failed:", error);
+      toast({ title: 'No se pudo iniciar sesión', description: 'Comprueba la configuración de Firebase y vuelve a intentarlo.', variant: 'destructive' });
     }
   };
 
   const handleLogout = async () => {
     if (!auth) return;
-    await signOut(auth);
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error('Logout failed:', error);
+      toast({ title: 'No se pudo cerrar sesión', description: 'Inténtalo de nuevo.', variant: 'destructive' });
+    }
   };
 
   if (user) {

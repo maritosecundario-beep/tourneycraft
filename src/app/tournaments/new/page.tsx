@@ -9,16 +9,14 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Trophy, Users, Coins, Target, Sparkles, Group, Plus, X, AlertCircle, Settings2, CheckCircle2, RefreshCw, Wand2, Loader2, UserPlus, Activity, Clock, Timer, ShieldCheck } from 'lucide-react';
+import { Trophy, Users, Coins, Plus, X, Settings2, CheckCircle2, UserPlus, Activity, ShieldCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { TournamentMode, TournamentFormat, TournamentEntryType, LeagueType, TournamentGroup, ScoringRuleType, ChallengeSport } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CrestIcon } from '@/components/ui/crest-icon';
 import { Badge } from '@/components/ui/badge';
-import { aiGroupDistributor } from '@/ai/flows/ai-group-distributor';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
 
 export default function NewTournamentPage() {
   const router = useRouter();
@@ -85,6 +83,14 @@ export default function NewTournamentPage() {
         toast({ title: "Challenge Inválido", description: "Solo puedes elegir exactamente 2 jugadores.", variant: "destructive" });
         return;
       }
+      if (scoringType === 'nToNRange' && (rangeMin < 0 || rangeMax < rangeMin)) {
+        toast({ title: 'Rango de puntuación inválido', description: 'El mínimo debe ser positivo y no puede superar al máximo.', variant: 'destructive' });
+        return;
+      }
+      if (scoringType !== 'nToNRange' && (!Number.isInteger(scoringValue) || scoringValue < 1)) {
+        toast({ title: 'Puntuación inválida', description: 'El objetivo debe ser un número entero mayor que cero.', variant: 'destructive' });
+        return;
+      }
       if (challengeSports.length === 0) {
         toast({ title: "Sin Deportes", description: "Añade al menos un deporte al Challenge.", variant: "destructive" });
         return;
@@ -112,11 +118,13 @@ export default function NewTournamentPage() {
       relegationSpots: mode === 'challenge' ? 0 : relegationSpots, 
       currentSeason: 1, currentMatchday: 1,
       settingsLocked: false, variability: 15,
+      incidents: [],
+      teamBrokeMatchdays: {},
       challengeSports: mode === 'challenge' ? challengeSports : undefined,
       challengeRounds: mode === 'challenge' ? challengeRounds : undefined
     };
 
-    addTournament(newTourney as any);
+    addTournament(newTourney);
     toast({ title: "Universo Iniciado", description: "Torneo creado con éxito." });
     router.push(`/tournaments`);
   };
@@ -151,7 +159,7 @@ export default function NewTournamentPage() {
           <CardHeader className="bg-muted/20 border-b p-6">
             <CardTitle className="text-lg font-black uppercase">Estructura Base</CardTitle>
           </CardHeader>
-          <CardContent className="p-6 space-y-6">
+          <CardContent className="p-4 md:p-6 space-y-6">
             <div className="space-y-2"><Label>Nombre del Torneo</Label><Input value={name} onChange={e => setName(e.target.value)} className="h-12 rounded-xl" placeholder="Ej: Challenge l'Horta 2024" /></div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -258,11 +266,39 @@ export default function NewTournamentPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6 space-y-6">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-center block">VICTORIA</Label><Input type="number" value={winPoints} onChange={e => setWinPoints(Number(e.target.value))} className="h-12 text-center rounded-xl font-black text-xl" /></div>
               <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-center block">EMPATE</Label><Input type="number" value={drawPoints} onChange={e => setDrawPoints(Number(e.target.value))} className="h-12 text-center rounded-xl font-black text-xl" /></div>
               <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-center block">DERROTA</Label><Input type="number" value={lossPoints} onChange={e => setLossPoints(Number(e.target.value))} className="h-12 text-center rounded-xl font-black text-xl" /></div>
             </div>
+
+            {mode !== 'challenge' && (
+              <div className="p-4 md:p-6 bg-muted/20 rounded-[1.5rem] md:rounded-[2rem] border space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-primary">Regla para los resultados</Label>
+                  <Select value={scoringType} onValueChange={(value: ScoringRuleType) => setScoringType(value)}>
+                    <SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="nToNRange">La suma debe quedar entre un mínimo y un máximo</SelectItem>
+                      <SelectItem value="bestOfN">La suma debe ser exactamente N</SelectItem>
+                      <SelectItem value="firstToN">El ganador debe alcanzar exactamente N</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {scoringType === 'nToNRange' ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label>Mínimo de puntos sumados</Label><Input type="number" min="0" value={rangeMin} onChange={event => setRangeMin(Number(event.target.value))} className="h-12 rounded-xl" /></div>
+                    <div className="space-y-2"><Label>Máximo de puntos sumados</Label><Input type="number" min="0" value={rangeMax} onChange={event => setRangeMax(Number(event.target.value))} className="h-12 rounded-xl" /></div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label>{scoringType === 'bestOfN' ? 'Total exacto de puntos por partido' : 'Puntos necesarios para ganar'}</Label>
+                    <Input type="number" min="1" value={scoringValue} onChange={event => setScoringValue(Number(event.target.value))} className="h-12 rounded-xl" />
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">La regla se aplica a resultados simulados y a los que se introduzcan manualmente. Puedes cambiarla más adelante desde los ajustes del torneo.</p>
+              </div>
+            )}
 
             {mode !== 'challenge' && (
               <div className="p-6 bg-accent/5 rounded-[2rem] border space-y-4">
