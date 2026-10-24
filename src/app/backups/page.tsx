@@ -8,14 +8,41 @@ import { useToast } from '@/hooks/use-toast';
 import { useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { buildTournamentPackage } from '@/app/gallery/community-data';
+
+const PROFILE_EXPORT_FORMAT = 'tourneycraft-profile';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isDataPackage(value: unknown): value is {
+  teams: unknown[];
+  players: unknown[];
+  tournaments: unknown[];
+  settings?: Record<string, unknown>;
+} {
+  return isRecord(value) &&
+    Array.isArray(value.teams) &&
+    Array.isArray(value.players) &&
+    Array.isArray(value.tournaments) &&
+    (value.settings === undefined || isRecord(value.settings));
+}
 
 export default function BackupsPage() {
   const { teams, players, tournaments, settings, importData, profiles, activeProfileId } = useTournamentStore();
   const activeProfileName = profiles.find(profile => profile.id === activeProfileId)?.name || 'Mi perfil';
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const profileInputRef = useRef<HTMLInputElement>(null);
   
-  const [pendingData, setPendingData] = useState<any>(null);
+  const [pendingData, setPendingData] = useState<{
+    teams: unknown[];
+    players: unknown[];
+    tournaments: unknown[];
+    settings?: Record<string, unknown>;
+  } | null>(null);
+  const [isProfileTransferImport, setIsProfileTransferImport] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
@@ -23,11 +50,32 @@ export default function BackupsPage() {
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
 
   const getExportData = (filter: boolean = false) => {
-    if (!filter) return { teams, players, tournaments, settings, exportDate: new Date().toISOString(), version: "1.5" };
-    
+    if (!filter) return {
+      teams,
+      players,
+      tournaments,
+      settings,
+      exportDate: new Date().toISOString(),
+      version: "1.5",
+      format: PROFILE_EXPORT_FORMAT,
+      profileName: activeProfileName,
+      profileVersion: 1,
+    };
+    const selectedTournamentPackages = tournaments
+      .filter(tournament => selectedTournaments.includes(tournament.id))
+      .map(tournament => buildTournamentPackage(tournament, teams, players));
+    const relatedTeamIds = new Set(selectedTournamentPackages.flatMap(item => item.teams.map(team => team.id)));
+    const relatedPlayerIds = new Set(selectedTournamentPackages.flatMap(item => item.players.map(player => player.id)));
+    const includedTeams = new Set([...selectedTeams, ...relatedTeamIds]);
+    const includedPlayers = new Set([...selectedPlayers, ...relatedPlayerIds]);
+
     return {
-      teams: teams.filter(t => selectedTeams.includes(t.id)),
-      players: players.filter(p => selectedPlayers.includes(p.id) || (p.teamId && selectedTeams.includes(p.teamId))),
+      teams: teams.filter(team => includedTeams.has(team.id)),
+      players: players.filter(player =>
+        includedPlayers.has(player.id) ||
+        (player.teamId && includedTeams.has(player.teamId)) ||
+        teams.some(team => includedTeams.has(team.id) && team.players.includes(player.id)),
+      ),
       tournaments: tournaments.filter(t => selectedTournaments.includes(t.id)),
       settings,
       exportDate: new Date().toISOString(),
@@ -49,6 +97,20 @@ export default function BackupsPage() {
     toast({ title: filter ? "Exportación Selectiva Lista" : "Backup Exportado", description: "Tu archivo JSON está listo." });
   };
 
+  const handleExportProfile = () => {
+    const data = getExportData();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `tourneycraft-perfil-${activeProfileName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast({ title: 'Perfil exportado', description: `La copia completa de «${activeProfileName}» está lista para trasladarla a otro dispositivo.` });
+  };
+
   const handleExportClipboard = (filter: boolean = false) => {
     const data = getExportData(filter);
     navigator.clipboard.writeText(JSON.stringify(data));
@@ -58,12 +120,13 @@ export default function BackupsPage() {
   const handleImportClipboard = async () => {
     try {
       const text = await navigator.clipboard.readText();
-      const data = JSON.parse(text);
-      if (!data.teams && !data.players && !data.tournaments) throw new Error();
+      const data: unknown = JSON.parse(text);
+      if (!isDataPackage(data)) throw new Error('El código no contiene un paquete de datos válido.');
       setPendingData(data);
+      setIsProfileTransferImport(false);
       setIsImportModalOpen(true);
-    } catch (e) {
-      toast({ title: "Error al Importar", description: "El contenido del portapapeles no es válido.", variant: "destructive" });
+    } catch (error) {
+      toast({ title: "Error al Importar", description: error instanceof Error ? error.message : "El contenido del portapapeles no es válido.", variant: "destructive" });
     }
   };
 
@@ -75,16 +138,43 @@ export default function BackupsPage() {
     reader.onload = (e) => {
       try {
         const content = e.target?.result as string;
-        const data = JSON.parse(content);
-        if (!data.teams && !data.players && !data.tournaments) throw new Error();
+        const data: unknown = JSON.parse(content);
+        if (!isDataPackage(data)) throw new Error('El archivo no contiene equipos, jugadores y torneos válidos.');
         setPendingData(data);
+        setIsProfileTransferImport(false);
         setIsImportModalOpen(true);
       } catch (err) {
-        toast({ title: "Error al importar", description: "El archivo no es un backup válido.", variant: "destructive" });
+        toast({ title: "Error al importar", description: err instanceof Error ? err.message : "El archivo no es un backup válido.", variant: "destructive" });
       }
     };
     reader.readAsText(file);
     event.target.value = ''; 
+  };
+
+  const handleProfileFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (loadEvent) => {
+      try {
+        const data: unknown = JSON.parse(loadEvent.target?.result as string);
+        if (!isRecord(data) || data.format !== PROFILE_EXPORT_FORMAT || data.profileVersion !== 1 ||
+            !isDataPackage(data)) {
+          throw new Error('Este archivo no es una exportación de perfil compatible.');
+        }
+        setPendingData(data);
+        setIsProfileTransferImport(true);
+        setIsImportModalOpen(true);
+      } catch (error) {
+        toast({
+          title: 'No se pudo importar el perfil',
+          description: error instanceof Error ? error.message : 'El archivo no es válido.',
+          variant: 'destructive',
+        });
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
   };
 
   const executeImport = (merge: boolean) => {
@@ -166,6 +256,30 @@ export default function BackupsPage() {
             </CardContent>
           </Card>
         </div>
+
+        <Card className="border-primary/30 bg-primary/5 shadow-xl rounded-[2.5rem]">
+          <CardHeader>
+            <CardTitle className="text-lg uppercase font-black">Transferir perfil a otro dispositivo</CardTitle>
+            <CardDescription>
+              Exporta todos los datos del perfil activo y cárgalos en otro dispositivo. La importación reemplaza solo los datos de este perfil, sin modificar tus otros perfiles.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3 sm:grid-cols-2">
+            <Button onClick={handleExportProfile} className="h-12 rounded-xl font-black">
+              <Download className="mr-2 h-4 w-4" /> EXPORTAR PERFIL COMPLETO
+            </Button>
+            <input
+              type="file"
+              ref={profileInputRef}
+              onChange={handleProfileFileChange}
+              className="hidden"
+              accept=".json,application/json"
+            />
+            <Button onClick={() => profileInputRef.current?.click()} variant="outline" className="h-12 rounded-xl font-black">
+              <Upload className="mr-2 h-4 w-4" /> IMPORTAR EN ESTE PERFIL
+            </Button>
+          </CardContent>
+        </Card>
 
         <Card className="border-none bg-card shadow-xl rounded-[2.5rem] overflow-hidden">
           <CardHeader className="bg-primary/5 border-b border-dashed">
@@ -259,23 +373,42 @@ export default function BackupsPage() {
         </Card>
       </div>
 
-      <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
+      <Dialog open={isImportModalOpen} onOpenChange={(open) => {
+        setIsImportModalOpen(open);
+        if (!open) {
+          setPendingData(null);
+          setIsProfileTransferImport(false);
+        }
+      }}>
         <DialogContent className="rounded-[2.5rem] border-none shadow-2xl">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-black uppercase">¿Cómo deseas importar?</DialogTitle>
+            <DialogTitle className="text-2xl font-black uppercase">
+              {isProfileTransferImport ? 'Cargar perfil en este dispositivo' : '¿Cómo deseas importar?'}
+            </DialogTitle>
             <DialogDescription>
-              Detectados {pendingData?.teams?.length || 0} clubs y {pendingData?.players?.length || 0} agentes.
+              {isProfileTransferImport
+                ? `Se reemplazarán los datos de «${activeProfileName}» por los del archivo. Los demás perfiles no cambiarán.`
+                : `Detectados ${pendingData?.teams.length || 0} clubs y ${pendingData?.players.length || 0} agentes.`}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <Button onClick={() => executeImport(true)} className="h-16 rounded-2xl flex flex-col items-start px-6 gap-0 bg-accent">
-              <div className="flex items-center gap-2"><PlusCircle className="w-4 h-4" /> <span className="font-black uppercase">Unir (Merge)</span></div>
-              <span className="text-[10px] opacity-80 normal-case font-medium">Añade los nuevos elementos a tu trabajo actual.</span>
-            </Button>
-            <Button variant="outline" onClick={() => executeImport(false)} className="h-16 rounded-2xl flex flex-col items-start px-6 gap-0 border-destructive/50 text-destructive">
-              <div className="flex items-center gap-2"><RefreshCw className="w-4 h-4" /> <span className="font-black uppercase">Reemplazar Todo</span></div>
-              <span className="text-[10px] opacity-80 normal-case font-medium">Borra tu contenido actual y usa el del backup.</span>
-            </Button>
+            {isProfileTransferImport ? (
+              <Button variant="outline" onClick={() => executeImport(false)} className="h-16 rounded-2xl flex flex-col items-start px-6 gap-0 border-destructive/50 text-destructive">
+                <div className="flex items-center gap-2"><RefreshCw className="w-4 h-4" /> <span className="font-black uppercase">Cargar este perfil</span></div>
+                <span className="text-[10px] opacity-80 normal-case font-medium">Reemplaza únicamente los datos del perfil activo.</span>
+              </Button>
+            ) : (
+              <>
+                <Button onClick={() => executeImport(true)} className="h-16 rounded-2xl flex flex-col items-start px-6 gap-0 bg-accent">
+                  <div className="flex items-center gap-2"><PlusCircle className="w-4 h-4" /> <span className="font-black uppercase">Unir (Merge)</span></div>
+                  <span className="text-[10px] opacity-80 normal-case font-medium">Añade los nuevos elementos a tu trabajo actual.</span>
+                </Button>
+                <Button variant="outline" onClick={() => executeImport(false)} className="h-16 rounded-2xl flex flex-col items-start px-6 gap-0 border-destructive/50 text-destructive">
+                  <div className="flex items-center gap-2"><RefreshCw className="w-4 h-4" /> <span className="font-black uppercase">Reemplazar Todo</span></div>
+                  <span className="text-[10px] opacity-80 normal-case font-medium">Borra tu contenido actual y usa el del backup.</span>
+                </Button>
+              </>
+            )}
           </div>
           <DialogFooter><Button variant="ghost" onClick={() => setIsImportModalOpen(false)}>Cancelar</Button></DialogFooter>
         </DialogContent>

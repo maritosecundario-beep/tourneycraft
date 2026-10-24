@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   addDoc,
   collection,
@@ -37,6 +37,7 @@ import {
   communityPackageCounts,
   isCommunityItem,
   isCommunityKind,
+  inferCommunityKind,
   parseCommunityPackage,
   type CommunityItem,
   type CommunityKind,
@@ -48,6 +49,10 @@ const kindLabels: Record<CommunityKind, string> = {
   player: 'Jugador',
   tournament: 'Torneo',
 };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
 function readableError(error: unknown): string {
   return error instanceof Error ? error.message : 'Ocurrió un error inesperado.';
@@ -66,6 +71,7 @@ export default function GalleryPage() {
   const [selectedId, setSelectedId] = useState('');
   const [isSharing, setIsSharing] = useState(false);
   const [workingItemId, setWorkingItemId] = useState<string | null>(null);
+  const communityFileInputRef = useRef<HTMLInputElement>(null);
 
   const options = useMemo(() => {
     if (kind === 'team') return teams.map((item) => ({ id: item.id, name: item.name }));
@@ -110,7 +116,11 @@ export default function GalleryPage() {
     );
   }, [db]);
 
-  const shareItem = async (shareKind: CommunityKind, id?: string) => {
+  const publishPackage = async (
+    shareKind: CommunityKind,
+    payload: ReturnType<typeof buildCommunityPackage>,
+    itemTitle: string,
+  ) => {
     if (!db) {
       toast({ title: 'Servicio no disponible', description: 'No se pudo conectar con la base de datos.', variant: 'destructive' });
       return;
@@ -121,24 +131,18 @@ export default function GalleryPage() {
     }
     setIsSharing(true);
     try {
-      const payload = buildCommunityPackage(shareKind, id, teams, players, tournaments, settings);
       const payloadJson = JSON.stringify(payload);
       const payloadBytes = new TextEncoder().encode(payloadJson).length;
       if (payloadBytes > COMMUNITY_PAYLOAD_MAX_BYTES) {
         throw new Error('El paquete supera el límite de 850 KB. Comparte elementos individuales o reduce su contenido.');
       }
       parseCommunityPackage(payloadJson);
-      const title = shareKind === 'profile'
-        ? `${user.displayName || 'Perfil'} — perfil completo`
-        : options.find((option) => option.id === id)?.name ||
-          [...teams, ...players, ...tournaments].find((entry) => entry.id === id)?.name ||
-          kindLabels[shareKind];
       const now = new Date().toISOString();
       const item = {
         ownerId: user.uid,
         authorName: (user.displayName || 'Jugador').slice(0, 80),
         type: shareKind,
-        title: title.slice(0, 100),
+        title: itemTitle.slice(0, 100),
         payloadJson,
         createdAt: now,
         updatedAt: now,
@@ -153,6 +157,45 @@ export default function GalleryPage() {
       toast({ title: 'No se pudo publicar', description: readableError(error), variant: 'destructive' });
     } finally {
       setIsSharing(false);
+    }
+  };
+
+  const shareItem = async (shareKind: CommunityKind, id?: string) => {
+    try {
+      const payload = buildCommunityPackage(shareKind, id, teams, players, tournaments, settings);
+      const title = shareKind === 'profile'
+        ? `${user?.displayName || 'Perfil'} — perfil completo`
+        : options.find((option) => option.id === id)?.name ||
+          [...teams, ...players, ...tournaments].find((entry) => entry.id === id)?.name ||
+          kindLabels[shareKind];
+      await publishPackage(shareKind, payload, title);
+    } catch (error) {
+      toast({ title: 'No se pudo preparar el contenido', description: readableError(error), variant: 'destructive' });
+    }
+  };
+
+  const handleCommunityFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const fileContents = await file.text();
+      const fileData: unknown = JSON.parse(fileContents);
+      const payload = parseCommunityPackage(fileContents);
+      const fileKind = isRecord(fileData) && fileData.format === 'tourneycraft-profile'
+        ? 'profile'
+        : inferCommunityKind(payload);
+      const itemName = fileKind === 'profile'
+        ? `${user?.displayName || 'Perfil'} — ${file.name.replace(/\.json$/i, '')}`
+        : fileKind === 'team'
+          ? payload.teams[0].name
+          : fileKind === 'player'
+            ? payload.players[0].name
+            : payload.tournaments[0].name;
+      await publishPackage(fileKind, payload, itemName);
+    } catch (error) {
+      toast({ title: 'No se pudo compartir el archivo', description: readableError(error), variant: 'destructive' });
+    } finally {
+      event.target.value = '';
     }
   };
 
@@ -207,6 +250,13 @@ export default function GalleryPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <input
+            type="file"
+            ref={communityFileInputRef}
+            onChange={handleCommunityFileChange}
+            className="hidden"
+            accept=".json,application/json"
+          />
           {!isGoogleUser && (
             <div className="flex flex-col items-start justify-between gap-3 rounded-xl border bg-muted/20 p-4 sm:flex-row sm:items-center">
               <p className="text-sm text-muted-foreground">Inicia sesión con Google para publicar tu contenido.</p>
@@ -252,6 +302,20 @@ export default function GalleryPage() {
           >
             <Users className="h-4 w-4" /> Compartir perfil y paquete completo
           </Button>
+          <div className="rounded-xl border border-dashed p-4">
+            <p className="mb-3 text-sm text-muted-foreground">
+              También puedes publicar directamente un archivo JSON exportado desde TourneyCraft: perfil, torneo, equipo o jugador.
+            </p>
+            <Button
+              variant="secondary"
+              onClick={() => communityFileInputRef.current?.click()}
+              disabled={!isGoogleUser || isSharing}
+              className="w-full sm:w-auto"
+            >
+              {isSharing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
+              Publicar archivo JSON
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

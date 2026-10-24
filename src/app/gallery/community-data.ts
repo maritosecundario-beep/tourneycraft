@@ -103,6 +103,16 @@ export function isCommunityKind(value: unknown): value is CommunityKind {
   return value === 'profile' || value === 'team' || value === 'player' || value === 'tournament';
 }
 
+export function inferCommunityKind(payload: CommunityPackage): CommunityKind {
+  if (payload.tournaments.length === 1) return 'tournament';
+  if (payload.teams.length === 1 && payload.tournaments.length === 0) return 'team';
+  if (payload.players.length === 1 && payload.teams.length === 0 && payload.tournaments.length === 0) {
+    return 'player';
+  }
+  if (payload.teams.length || payload.players.length || payload.tournaments.length) return 'profile';
+  throw new Error('El archivo no contiene equipos, jugadores ni torneos para compartir.');
+}
+
 export function parseCommunityPackage(payloadJson: string): CommunityPackage {
   if (new TextEncoder().encode(payloadJson).length > COMMUNITY_PAYLOAD_MAX_BYTES) {
     throw new Error('Este contenido compartido supera el tamaño permitido.');
@@ -168,16 +178,34 @@ export function buildCommunityPackage(
     return packageForItem([], [selectedPlayer], []);
   }
   if (kind === 'tournament' && selectedTournament) {
-    const participants = new Set(selectedTournament.participants);
-    const tournamentTeams = selectedTournament.entryType === 'teams'
-      ? teams.filter((team) => participants.has(team.id))
-      : [];
-    const tournamentPlayers = selectedTournament.entryType === 'players'
-      ? players.filter((player) => participants.has(player.id))
-      : [];
-    return packageForItem(tournamentTeams, tournamentPlayers, [selectedTournament]);
+    return buildTournamentPackage(selectedTournament, teams, players);
   }
   throw new Error('No se encontró el elemento seleccionado para compartir.');
+}
+
+export function buildTournamentPackage(
+  tournament: Tournament,
+  teams: Team[],
+  players: Player[],
+): CommunityPackage {
+  const participantIds = new Set(tournament.participants);
+  const participantTeams = teams.filter((team) => participantIds.has(team.id));
+  const selectedPlayers = players.filter((player) =>
+    participantIds.has(player.id) ||
+    participantTeams.some((team) => team.id === player.teamId || team.players.includes(player.id)),
+  );
+  const relatedTeamIds = new Set(selectedPlayers.map((player) => player.teamId).filter(
+    (teamId): teamId is string => !!teamId,
+  ));
+  const tournamentTeams = teams.filter((team) =>
+    participantIds.has(team.id) || relatedTeamIds.has(team.id),
+  );
+  const tournamentPlayerIds = new Set(selectedPlayers.map((player) => player.id));
+  for (const team of tournamentTeams) {
+    for (const playerId of team.players) tournamentPlayerIds.add(playerId);
+  }
+  const tournamentPlayers = players.filter((player) => tournamentPlayerIds.has(player.id));
+  return packageForItem(tournamentTeams, tournamentPlayers, [tournament]);
 }
 
 function packageForItem(
