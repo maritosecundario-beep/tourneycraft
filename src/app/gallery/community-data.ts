@@ -123,6 +123,19 @@ export function parseCommunityPackage(payloadJson: string): CommunityPackage {
   } catch {
     throw new Error('El contenido compartido no contiene un paquete JSON válido.');
   }
+  if (isRecord(parsed) && Array.isArray(parsed.tournaments)) {
+    parsed = {
+      ...parsed,
+      tournaments: parsed.tournaments.map((tournament) => {
+        if (!isRecord(tournament) || 'scoringRuleType' in tournament) return tournament;
+        return {
+          ...tournament,
+          scoringRuleType: 'bestOfN',
+          scoringValue: isFiniteNumber(tournament.scoringValue) ? tournament.scoringValue : 9,
+        };
+      }),
+    };
+  }
   if (!isCommunityPackage(parsed)) {
     throw new Error('El contenido compartido no tiene un formato de exportación válido.');
   }
