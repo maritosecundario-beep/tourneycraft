@@ -37,8 +37,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
   const [mAwayScore, setMAwayScore] = useState(0);
   const [mUserPlayerId, setMUserPlayerId] = useState<string>('');
   const [mAiPlayerId, setMAiPlayerId] = useState<string>('');
-  const [showDualStandings, setShowDualStandings] = useState(false);
-  const [showDualCalendar, setShowDualCalendar] = useState(false);
+  const [dualView, setDualView] = useState<'matches' | 'standings'>('matches');
 
   // Market & Sanction State
   const [transferPlayerId, setTransferPlayerId] = useState('');
@@ -313,7 +312,15 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
 
   const renderMatchdayList = (matchList: Match[], isDual = false) => {
     const grouped: Record<number, Match[]> = {};
-    matchList.forEach(m => { if (!grouped[m.matchday]) grouped[m.matchday] = []; grouped[m.matchday].push(m); });
+    const displayMatches = isDual
+      ? matchList.map(match => {
+          const principalMatch = tournament?.matches.find(item =>
+            item.homeId === match.awayId && item.awayId === match.homeId,
+          );
+          return principalMatch ? { ...match, matchday: principalMatch.matchday } : match;
+        })
+      : matchList;
+    displayMatches.forEach(m => { if (!grouped[m.matchday]) grouped[m.matchday] = []; grouped[m.matchday].push(m); });
     const entries = Object.entries(grouped).sort(([a], [b]) => Number(a) - Number(b));
     if (entries.length === 0) return <div className="text-center py-20 bg-muted/10 rounded-[2rem] border-2 border-dashed font-bold text-muted-foreground uppercase text-xs">Sin partidos programados.</div>;
     return (
@@ -322,9 +329,9 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
           <div key={`mday-m-${day}`} className="space-y-4">
             <div className="flex flex-wrap items-center gap-3">
               <Badge variant="secondary" className="bg-primary text-white font-black uppercase">JORNADA {day}</Badge>
-              {tournament?.mode !== 'challenge' && (
+              {tournament?.mode !== 'challenge' && !isDual && (
                 <>
-                  <Button size="sm" variant="outline" className="h-8 px-3 text-[10px] font-black uppercase rounded-lg border-primary/30 text-primary hover:bg-primary" onClick={() => simulateMatchday(tournament!.id, Number(day), isDual)}>
+                  <Button size="sm" variant="outline" className="h-8 px-3 text-[10px] font-black uppercase rounded-lg border-primary/30 text-primary hover:bg-primary" onClick={() => simulateMatchday(tournament!.id, Number(day))}>
                     <Play className="w-3 h-3 mr-1 fill-current" /> SIMULAR JORNADA
                   </Button>
                   <Button size="sm" variant="outline" className="h-8 px-3 text-[10px] font-black uppercase rounded-lg border-destructive/30 text-destructive hover:bg-destructive" onClick={() => resetMatchday(tournament!.id, Number(day))}>
@@ -332,19 +339,25 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                   </Button>
                 </>
               )}
+              {isDual && <span className="text-[10px] font-bold uppercase text-muted-foreground">Se simula automáticamente después de cada partido principal</span>}
             </div>
             <div className="grid gap-3">
               {dayMatches.map((m) => {
                 const home = teams.find(t => t.id === m.homeId) || players.find(p => p.id === m.homeId);
                 const away = teams.find(t => t.id === m.awayId) || players.find(p => p.id === m.awayId);
                 if (!home || !away) return null;
+                const homePlayer = players.find(player => player.id === m.homePlayerId);
+                const awayPlayer = players.find(player => player.id === m.awayPlayerId);
                 const sport = tournament?.challengeSports?.find(s => s.id === m.challengeSportId);
                 const isDualMatch = tournament?.dualLeagueMatches?.some(dualMatch => dualMatch.id === m.id) || false;
                 return (
                   <Card key={`m-card-${m.id}`} onClick={() => m.isSimulated && setSelectedMatchDetail(m)} className={cn("border-none shadow-md transition-all rounded-2xl overflow-hidden cursor-pointer", m.isSimulated && "hover:border-primary/30 border-2 border-transparent")}>
                     <CardContent className="p-4 flex items-center justify-between gap-4 bg-card">
                       <div className="flex-1 flex items-center justify-end gap-2 text-right overflow-hidden">
-                        <span className={cn("font-black text-[10px] md:text-xs truncate uppercase", m.homeId === tournament?.managedParticipantId && "text-primary")}>{home.name}</span>
+                        <div className="min-w-0">
+                          <span className={cn("block truncate font-black text-[10px] uppercase md:text-xs", m.homeId === tournament?.managedParticipantId && "text-primary")}>{home.name}</span>
+                          {homePlayer && <span className="block truncate text-[9px] font-medium text-muted-foreground">{homePlayer.name}</span>}
+                        </div>
                         {'abbreviation' in home ? <CrestIcon shape={(home as any).emblemShape} pattern={(home as any).emblemPattern} c1={(home as any).crestPrimary} c2={(home as any).crestSecondary} c3={(home as any).crestTertiary || (home as any).crestPrimary} size="w-8 h-8" /> : <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center font-black text-[10px]">#{(home as any).jerseyNumber}</div>}
                       </div>
                       <div className="w-32 text-center shrink-0">
@@ -352,6 +365,10 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                           <div className="text-lg font-black bg-muted/30 py-1 rounded-xl">
                             {sport && !sport.isNumeric ? (m.homeScore! > m.awayScore! ? 'WIN' : m.homeScore! < m.awayScore! ? 'LOSS' : 'DRAW') : `${m.homeScore} - ${m.awayScore}`}
                           </div> 
+                        ) : isDual ? (
+                          <Button size="sm" disabled className="w-full h-10 rounded-xl font-black">
+                            TRAS PARTIDO PRINCIPAL
+                          </Button>
                         ) : (
                           <Button size="sm" onClick={(e) => { 
                             e.stopPropagation(); 
@@ -371,7 +388,10 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                       </div>
                       <div className="flex-1 flex items-center justify-start gap-2 text-left overflow-hidden">
                         {'abbreviation' in away ? <CrestIcon shape={(away as any).emblemShape} pattern={(away as any).emblemPattern} c1={(away as any).crestPrimary} c2={(away as any).crestSecondary} c3={(away as any).crestTertiary || (away as any).crestPrimary} size="w-8 h-8" /> : <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center font-black text-[10px]">#{(away as any).jerseyNumber}</div>}
-                        <span className={cn("font-black text-[10px] md:text-xs truncate uppercase", m.awayId === tournament?.managedParticipantId && "text-primary")}>{away.name}</span>
+                        <div className="min-w-0">
+                          <span className={cn("block truncate font-black text-[10px] uppercase md:text-xs", m.awayId === tournament?.managedParticipantId && "text-primary")}>{away.name}</span>
+                          {awayPlayer && <span className="block truncate text-[9px] font-medium text-muted-foreground">{awayPlayer.name}</span>}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -431,45 +451,20 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
             <TabsList className="bg-muted/20 p-1 rounded-2xl min-h-14 h-auto w-full flex overflow-x-auto scrollbar-hide">
               <TabsTrigger value="matches" className="flex-1 rounded-xl font-black uppercase text-xs">Calendario</TabsTrigger>
               <TabsTrigger value="standings" className="flex-1 rounded-xl font-black uppercase text-xs">Ranking</TabsTrigger>
+              {tournament.dualLeagueEnabled && (
+                <TabsTrigger value="dual-league" className="flex-1 rounded-xl font-black uppercase text-xs">Liga dual</TabsTrigger>
+              )}
               {tournament.mode !== 'challenge' && <TabsTrigger value="market" className="flex-1 rounded-xl font-black uppercase text-xs">Mercado / Disciplina</TabsTrigger>}
               {tournament.mode !== 'challenge' && <TabsTrigger value="news" className="flex-1 rounded-xl font-black uppercase text-xs">Noticias</TabsTrigger>}
             </TabsList>
 
             <TabsContent value="matches" className="mt-6">
-              {tournament.dualLeagueEnabled && (
-                <div className="mb-5 flex w-full gap-2 rounded-2xl bg-muted/20 p-2 sm:w-max">
-                  <Button
-                    variant={!showDualCalendar ? 'default' : 'ghost'}
-                    onClick={() => setShowDualCalendar(false)}
-                    className="min-h-10 flex-1 rounded-xl text-xs font-black uppercase sm:flex-none"
-                  >
-                    Ida
-                  </Button>
-                  <Button
-                    variant={showDualCalendar ? 'default' : 'ghost'}
-                    onClick={() => setShowDualCalendar(true)}
-                    className="min-h-10 flex-1 rounded-xl text-xs font-black uppercase sm:flex-none"
-                  >
-                    Vuelta · suplentes
-                  </Button>
-                </div>
-              )}
-              {renderMatchdayList(
-                showDualCalendar && tournament.dualLeagueEnabled ? tournament.dualLeagueMatches || [] : tournament.matches,
-                showDualCalendar && tournament.dualLeagueEnabled,
-              )}
+              {renderMatchdayList(tournament.matches)}
             </TabsContent>
 
             <TabsContent value="standings" className="mt-6 space-y-6">
-              {tournament.dualLeagueEnabled && (
-                <div className="flex justify-end mb-4 bg-muted/20 p-2 rounded-2xl w-max ml-auto shadow-inner">
-                    <Button variant={!showDualStandings ? 'default' : 'ghost'} onClick={() => setShowDualStandings(false)} className="rounded-xl h-8 text-[10px] font-black uppercase">Liga Principal</Button>
-                    <Button variant={showDualStandings ? 'default' : 'ghost'} onClick={() => setShowDualStandings(true)} className="rounded-xl h-8 text-[10px] font-black uppercase">Liga Secundaria</Button>
-                </div>
-              )}
-              
               {(() => {
-                const activeStandings = showDualStandings ? dualStandings : mainStandings;
+                const activeStandings = mainStandings;
                 if (tournament.leagueType === 'groups' && tournament.groups && tournament.groups.length > 0) {
                   return tournament.groups.map((g, i) => {
                     const groupRows = activeStandings.filter(s => g.participantIds.includes(s.id));
@@ -488,6 +483,49 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                 );
               })()}
             </TabsContent>
+
+            {tournament.dualLeagueEnabled && (
+              <TabsContent value="dual-league" className="mt-6 space-y-6">
+                <div className="space-y-2">
+                  <h2 className="text-xl font-black uppercase">Liga dual</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Cada encuentro se juega automáticamente después del partido principal, con los equipos invertidos y alineaciones de reserva.
+                  </p>
+                </div>
+                <div className="flex w-full gap-2 rounded-2xl bg-muted/20 p-2 sm:w-max">
+                  <Button
+                    variant={dualView === 'matches' ? 'default' : 'ghost'}
+                    onClick={() => setDualView('matches')}
+                    className="min-h-10 flex-1 rounded-xl text-xs font-black uppercase sm:flex-none"
+                  >
+                    Calendario dual
+                  </Button>
+                  <Button
+                    variant={dualView === 'standings' ? 'default' : 'ghost'}
+                    onClick={() => setDualView('standings')}
+                    className="min-h-10 flex-1 rounded-xl text-xs font-black uppercase sm:flex-none"
+                  >
+                    Ranking dual
+                  </Button>
+                </div>
+                {dualView === 'matches'
+                  ? renderMatchdayList(tournament.dualLeagueMatches || [], true)
+                  : tournament.leagueType === 'groups' && tournament.groups?.length
+                    ? tournament.groups.map((group, index) => (
+                        <Card key={group.id} className="mb-6 rounded-[2.5rem] border-none p-6 shadow-2xl">
+                          <h3 className="mb-4 font-black uppercase tracking-widest text-primary">
+                            {group.name || `Grupo ${index + 1}`}
+                          </h3>
+                          {renderStandingsTable(dualStandings.filter(row => group.participantIds.includes(row.id)))}
+                        </Card>
+                      ))
+                    : (
+                      <Card className="rounded-[2.5rem] border-none p-6 shadow-2xl">
+                        {renderStandingsTable(dualStandings)}
+                      </Card>
+                    )}
+              </TabsContent>
+            )}
 
             <TabsContent value="news" className="mt-6 space-y-4">
               {tournament.incidents?.length === 0 ? <div className="text-center py-20 bg-muted/10 rounded-[2rem] border-2 border-dashed font-bold text-muted-foreground uppercase text-xs">Sin noticias.</div> : (
