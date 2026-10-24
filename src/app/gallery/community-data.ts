@@ -113,6 +113,114 @@ export function inferCommunityKind(payload: CommunityPackage): CommunityKind {
   throw new Error('El archivo no contiene equipos, jugadores ni torneos para compartir.');
 }
 
+function normalizePackageForCommunity(value: Record<string, unknown>): Record<string, unknown> {
+  const teams = Array.isArray(value.teams) ? value.teams.map((entry) => {
+    if (!isRecord(entry)) return entry;
+    const name = isString(entry.name) ? entry.name : '';
+    return {
+      ...entry,
+      abbreviation: isString(entry.abbreviation) ? entry.abbreviation : name.slice(0, 3).toUpperCase(),
+      emblemShape: isString(entry.emblemShape) ? entry.emblemShape : 'shield',
+      emblemPattern: isString(entry.emblemPattern) ? entry.emblemPattern : 'none',
+      crestPrimary: isString(entry.crestPrimary) ? entry.crestPrimary : '#1f2937',
+      crestSecondary: isString(entry.crestSecondary) ? entry.crestSecondary : '#ffffff',
+      crestBorderWidth: isString(entry.crestBorderWidth) ? entry.crestBorderWidth : 'thin',
+      venueName: isString(entry.venueName) ? entry.venueName : 'Estadio',
+      venueCapacity: isFiniteNumber(entry.venueCapacity) ? entry.venueCapacity : 0,
+      venueSurface: isString(entry.venueSurface) ? entry.venueSurface : 'grass',
+      venueSize: isString(entry.venueSize) ? entry.venueSize : 'medium',
+      players: isStringArray(entry.players) ? entry.players : [],
+    };
+  }) : value.teams;
+  const players = Array.isArray(value.players) ? value.players.map((entry) => {
+    if (!isRecord(entry)) return entry;
+    return {
+      ...entry,
+      position: isString(entry.position) ? entry.position : 'Jugador',
+      monetaryValue: isFiniteNumber(entry.monetaryValue) ? entry.monetaryValue : 1,
+      jerseyNumber: isFiniteNumber(entry.jerseyNumber) ? entry.jerseyNumber : 0,
+      suspensionMatchdays: isFiniteNumber(entry.suspensionMatchdays) ? entry.suspensionMatchdays : 0,
+      attributes: Array.isArray(entry.attributes) ? entry.attributes : [],
+      uniformStyle: isString(entry.uniformStyle) ? entry.uniformStyle : 'solid',
+      kitPrimary: isString(entry.kitPrimary) ? entry.kitPrimary : '#1f2937',
+      kitSecondary: isString(entry.kitSecondary) ? entry.kitSecondary : '#ffffff',
+      crestPlacement: isString(entry.crestPlacement) ? entry.crestPlacement : 'left',
+      sponsorPlacement: isString(entry.sponsorPlacement) ? entry.sponsorPlacement : 'middle',
+      brandPlacement: isString(entry.brandPlacement) ? entry.brandPlacement : 'right',
+    };
+  }) : value.players;
+  const tournaments = Array.isArray(value.tournaments) ? value.tournaments.map((entry) => {
+    if (!isRecord(entry)) return entry;
+    const defaults: Record<string, unknown> = {
+      scoringRuleType: 'bestOfN',
+      scoringValue: 9,
+      groupIsolation: false,
+      participants: [],
+      matches: [],
+      dualLeagueMatches: [],
+      dualLeagueEnabled: false,
+      settingsLocked: false,
+      incidents: [],
+      winReward: 0,
+      lossPenalty: 0,
+      drawReward: 0,
+      variability: 0,
+      winPoints: 3,
+      lossPoints: 0,
+      drawPoints: 1,
+      playoffSpots: 0,
+      relegationSpots: 0,
+      currentSeason: 1,
+      currentMatchday: 1,
+    };
+    const arrayFields = new Set(['participants', 'matches', 'dualLeagueMatches', 'incidents']);
+    const numericFields = new Set([
+      'winReward', 'lossPenalty', 'drawReward', 'variability', 'winPoints', 'lossPoints',
+      'drawPoints', 'playoffSpots', 'relegationSpots', 'currentSeason', 'currentMatchday',
+    ]);
+    return Object.fromEntries(Object.entries({ ...defaults, ...entry }).map(([key, item]) => {
+      if (arrayFields.has(key) && !Array.isArray(item)) return [key, defaults[key]];
+      if (numericFields.has(key) && !isFiniteNumber(item)) return [key, defaults[key]];
+      if (key === 'scoringRuleType' && !['nToNRange', 'bestOfN', 'firstToN'].includes(String(item))) {
+        return [key, defaults[key]];
+      }
+      if (['groupIsolation', 'dualLeagueEnabled', 'settingsLocked'].includes(key) && typeof item !== 'boolean') {
+        return [key, defaults[key]];
+      }
+      return [key, item];
+    }));
+  }) : value.tournaments;
+  return { ...value, teams, players, tournaments };
+}
+
+function coerceCommunityPackage(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return {
+      teams: value.filter(entry => isRecord(entry) && ('budget' in entry || 'rating' in entry)),
+      players: value.filter(entry => isRecord(entry) && ('position' in entry || 'attributes' in entry)),
+      tournaments: value.filter(entry => isRecord(entry) && 'sport' in entry && 'participants' in entry),
+    };
+  }
+  if (!isRecord(value)) return value;
+  if (Array.isArray(value.teams) || Array.isArray(value.players) || Array.isArray(value.tournaments)) {
+    return {
+      ...value,
+      teams: Array.isArray(value.teams) ? value.teams : [],
+      players: Array.isArray(value.players) ? value.players : [],
+      tournaments: Array.isArray(value.tournaments) ? value.tournaments : [],
+    };
+  }
+  if (isRecord(value.team)) return { teams: [value.team], players: [], tournaments: [] };
+  if (isRecord(value.player)) return { teams: [], players: [value.player], tournaments: [] };
+  if (isRecord(value.tournament)) return { teams: [], players: [], tournaments: [value.tournament] };
+  if ('id' in value && 'sport' in value && 'participants' in value) {
+    return { teams: [], players: [], tournaments: [value] };
+  }
+  if ('id' in value && 'position' in value) return { teams: [], players: [value], tournaments: [] };
+  if ('id' in value && ('budget' in value || 'rating' in value)) return { teams: [value], players: [], tournaments: [] };
+  return value;
+}
+
 export function parseCommunityPackage(payloadJson: string): CommunityPackage {
   if (new TextEncoder().encode(payloadJson).length > COMMUNITY_PAYLOAD_MAX_BYTES) {
     throw new Error('Este contenido compartido supera el tamaño permitido.');
@@ -123,19 +231,8 @@ export function parseCommunityPackage(payloadJson: string): CommunityPackage {
   } catch {
     throw new Error('El contenido compartido no contiene un paquete JSON válido.');
   }
-  if (isRecord(parsed) && Array.isArray(parsed.tournaments)) {
-    parsed = {
-      ...parsed,
-      tournaments: parsed.tournaments.map((tournament) => {
-        if (!isRecord(tournament) || 'scoringRuleType' in tournament) return tournament;
-        return {
-          ...tournament,
-          scoringRuleType: 'bestOfN',
-          scoringValue: isFiniteNumber(tournament.scoringValue) ? tournament.scoringValue : 9,
-        };
-      }),
-    };
-  }
+  parsed = coerceCommunityPackage(parsed);
+  if (isRecord(parsed)) parsed = normalizePackageForCommunity(parsed);
   if (!isCommunityPackage(parsed)) {
     throw new Error('El contenido compartido no tiene un formato de exportación válido.');
   }

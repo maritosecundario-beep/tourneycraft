@@ -38,6 +38,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
   const [mUserPlayerId, setMUserPlayerId] = useState<string>('');
   const [mAiPlayerId, setMAiPlayerId] = useState<string>('');
   const [showDualStandings, setShowDualStandings] = useState(false);
+  const [showDualCalendar, setShowDualCalendar] = useState(false);
 
   // Market & Sanction State
   const [transferPlayerId, setTransferPlayerId] = useState('');
@@ -233,10 +234,26 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
     const userTeamId = m.homeId === tournament.managedParticipantId ? m.homeId : m.awayId;
     const aiTeamId = m.homeId === tournament.managedParticipantId ? m.awayId : m.homeId;
     
-    const userPlayers = players.filter(p => p.teamId === userTeamId && p.suspensionMatchdays === 0);
+    const firstLeg = tournament.dualLeagueMatches?.some(dualMatch => dualMatch.id === m.id)
+      ? tournament.matches.find(firstMatch => firstMatch.homeId === m.awayId && firstMatch.awayId === m.homeId)
+      : undefined;
+    const previousUserPlayerId = userTeamId === m.homeId ? firstLeg?.awayPlayerId : firstLeg?.homePlayerId;
+    const previousAiPlayerId = aiTeamId === m.homeId ? firstLeg?.awayPlayerId : firstLeg?.homePlayerId;
+    const availableUserPlayers = players.filter(p =>
+      p.teamId === userTeamId && p.suspensionMatchdays === 0 && p.id !== previousUserPlayerId,
+    );
+    const userPlayers = availableUserPlayers.length > 0
+      ? availableUserPlayers
+      : players.filter(p => p.teamId === userTeamId && p.suspensionMatchdays === 0);
     setMUserPlayerId(userPlayers[0]?.id || '');
     
-    const aiPlayers = players.filter(p => p.teamId === aiTeamId && p.suspensionMatchdays === 0).sort((a,b) => b.monetaryValue - a.monetaryValue);
+    const availableAiPlayers = players.filter(p =>
+      p.teamId === aiTeamId && p.suspensionMatchdays === 0 && p.id !== previousAiPlayerId,
+    );
+    const aiPlayers = (availableAiPlayers.length > 0
+      ? availableAiPlayers
+      : players.filter(p => p.teamId === aiTeamId && p.suspensionMatchdays === 0)
+    ).sort((a,b) => b.monetaryValue - a.monetaryValue);
     let aiChoice = aiPlayers[0]?.id || '';
     if (aiPlayers.length > 0) {
        const r = Math.random();
@@ -294,7 +311,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
     </Table>
   );
 
-  const renderMatchdayList = (matchList: Match[]) => {
+  const renderMatchdayList = (matchList: Match[], isDual = false) => {
     const grouped: Record<number, Match[]> = {};
     matchList.forEach(m => { if (!grouped[m.matchday]) grouped[m.matchday] = []; grouped[m.matchday].push(m); });
     const entries = Object.entries(grouped).sort(([a], [b]) => Number(a) - Number(b));
@@ -307,7 +324,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
               <Badge variant="secondary" className="bg-primary text-white font-black uppercase">JORNADA {day}</Badge>
               {tournament?.mode !== 'challenge' && (
                 <>
-                  <Button size="sm" variant="outline" className="h-8 px-3 text-[10px] font-black uppercase rounded-lg border-primary/30 text-primary hover:bg-primary" onClick={() => simulateMatchday(tournament!.id, Number(day))}>
+                  <Button size="sm" variant="outline" className="h-8 px-3 text-[10px] font-black uppercase rounded-lg border-primary/30 text-primary hover:bg-primary" onClick={() => simulateMatchday(tournament!.id, Number(day), isDual)}>
                     <Play className="w-3 h-3 mr-1 fill-current" /> SIMULAR JORNADA
                   </Button>
                   <Button size="sm" variant="outline" className="h-8 px-3 text-[10px] font-black uppercase rounded-lg border-destructive/30 text-destructive hover:bg-destructive" onClick={() => resetMatchday(tournament!.id, Number(day))}>
@@ -322,6 +339,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                 const away = teams.find(t => t.id === m.awayId) || players.find(p => p.id === m.awayId);
                 if (!home || !away) return null;
                 const sport = tournament?.challengeSports?.find(s => s.id === m.challengeSportId);
+                const isDualMatch = tournament?.dualLeagueMatches?.some(dualMatch => dualMatch.id === m.id) || false;
                 return (
                   <Card key={`m-card-${m.id}`} onClick={() => m.isSimulated && setSelectedMatchDetail(m)} className={cn("border-none shadow-md transition-all rounded-2xl overflow-hidden cursor-pointer", m.isSimulated && "hover:border-primary/30 border-2 border-transparent")}>
                     <CardContent className="p-4 flex items-center justify-between gap-4 bg-card">
@@ -343,7 +361,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                             } else if (isUser) {
                               handleStartManualMatch(m);
                             } else {
-                              resolveMatch(tournament!.id, m.id, 0, 0, false, undefined, undefined, true); 
+                              resolveMatch(tournament!.id, m.id, 0, 0, isDualMatch, undefined, undefined, true);
                             }
                           }} className="w-full h-10 rounded-xl font-black bg-primary">
                             {tournament?.mode === 'challenge' ? 'DUELO' : 'SIM'}
@@ -377,6 +395,9 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => generateSchedule(tournament.id)} className="rounded-xl font-black h-12 border-primary text-primary"><RefreshCw className="w-4 h-4 mr-2" /> REGENERAR CALENDARIO</Button>
+          {tournament.format === 'league' && tournament.mode !== 'challenge' && (
+            <Button variant="outline" onClick={() => generateSchedule(tournament.id, true)} className="rounded-xl font-black h-12 border-accent text-accent"><RefreshCw className="w-4 h-4 mr-2" /> CALENDARIO ALEATORIO</Button>
+          )}
           <Button variant="outline" onClick={() => setIsEditing(true)} className="rounded-xl font-black h-12 border-primary text-primary"><Settings2 className="text-primary w-4 h-4 mr-2" /> AJUSTES PRO</Button>
           <Button variant="outline" onClick={() => resetSchedule(tournament.id)} className="rounded-xl font-black h-12 border-destructive text-destructive"><Trash2 className="w-4 h-4 mr-2" /> REINICIAR</Button>
         </div>
@@ -415,7 +436,28 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
             </TabsList>
 
             <TabsContent value="matches" className="mt-6">
-              {renderMatchdayList(tournament.matches)}
+              {tournament.dualLeagueEnabled && (
+                <div className="mb-5 flex w-full gap-2 rounded-2xl bg-muted/20 p-2 sm:w-max">
+                  <Button
+                    variant={!showDualCalendar ? 'default' : 'ghost'}
+                    onClick={() => setShowDualCalendar(false)}
+                    className="min-h-10 flex-1 rounded-xl text-xs font-black uppercase sm:flex-none"
+                  >
+                    Ida
+                  </Button>
+                  <Button
+                    variant={showDualCalendar ? 'default' : 'ghost'}
+                    onClick={() => setShowDualCalendar(true)}
+                    className="min-h-10 flex-1 rounded-xl text-xs font-black uppercase sm:flex-none"
+                  >
+                    Vuelta · suplentes
+                  </Button>
+                </div>
+              )}
+              {renderMatchdayList(
+                showDualCalendar && tournament.dualLeagueEnabled ? tournament.dualLeagueMatches || [] : tournament.matches,
+                showDualCalendar && tournament.dualLeagueEnabled,
+              )}
             </TabsContent>
 
             <TabsContent value="standings" className="mt-6 space-y-6">
@@ -663,7 +705,21 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
             const surface = (home as Team)?.venueSurface || 'Césped';
             
             const userTeamId = isHomeUser ? manualMatch.homeId : manualMatch.awayId;
-            const userPlayers = players.filter(p => p.teamId === userTeamId && p.suspensionMatchdays === 0);
+            const isDualMatch = tournament?.dualLeagueMatches?.some(dualMatch => dualMatch.id === manualMatch.id) || false;
+            const firstLeg = isDualMatch
+              ? tournament?.matches.find(firstMatch => firstMatch.homeId === manualMatch.awayId && firstMatch.awayId === manualMatch.homeId)
+              : undefined;
+            const previousUserPlayerId = userTeamId === manualMatch.homeId ? firstLeg?.awayPlayerId : firstLeg?.homePlayerId;
+            const aiTeamId = isHomeUser ? manualMatch.awayId : manualMatch.homeId;
+            const previousAiPlayerId = aiTeamId === manualMatch.homeId
+              ? firstLeg?.awayPlayerId
+              : firstLeg?.homePlayerId;
+            const availableUserPlayers = players.filter(p =>
+              p.teamId === userTeamId && p.suspensionMatchdays === 0 && p.id !== previousUserPlayerId,
+            );
+            const userPlayers = availableUserPlayers.length > 0
+              ? availableUserPlayers
+              : players.filter(p => p.teamId === userTeamId && p.suspensionMatchdays === 0);
             const aiPlayerObj = players.find(p => p.id === mAiPlayerId);
             const homeAgent = isHomeUser ? players.find(p => p.id === mUserPlayerId) : aiPlayerObj;
             const awayAgent = isHomeUser ? aiPlayerObj : players.find(p => p.id === mUserPlayerId);
@@ -761,7 +817,7 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                         toast({ title: 'Resultado no válido', description: validationError, variant: 'destructive' });
                         return;
                       }
-                      resolveMatch(tournament!.id, manualMatch.id, mHomeScore, mAwayScore, false, isHomeUser ? mUserPlayerId : mAiPlayerId, isHomeUser ? mAiPlayerId : mUserPlayerId, false);
+                      resolveMatch(tournament!.id, manualMatch.id, mHomeScore, mAwayScore, isDualMatch, isHomeUser ? mUserPlayerId : mAiPlayerId, isHomeUser ? mAiPlayerId : mUserPlayerId, false);
                       setManualMatch(null);
                       toast({ title: "Resultado Confirmado" });
                     }}

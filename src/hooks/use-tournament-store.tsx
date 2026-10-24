@@ -41,11 +41,11 @@ interface TournamentContextType {
   updateSettings: (settings: Partial<GlobalSettings>) => void;
   transferPlayer: (playerId: string, toTeamId: string | undefined) => boolean;
   importData: (data: any, merge: boolean) => void;
-  generateSchedule: (tournamentId: string) => void;
+  generateSchedule: (tournamentId: string, randomize?: boolean) => void;
   resetSchedule: (tournamentId: string) => void;
   resetMatchday: (tournamentId: string, matchdayNumber: number) => void;
   resolveMatch: (tournamentId: string, matchId: string, homeScore: number, awayScore: number, isDual: boolean, homePlayerId?: string, awayPlayerId?: string, autoSim?: boolean) => boolean;
-  simulateMatchday: (tournamentId: string, matchdayNumber?: number) => void;
+  simulateMatchday: (tournamentId: string, matchdayNumber?: number, isDual?: boolean) => void;
   applySanction: (tournamentId: string, type: 'team' | 'player', targetId: string, value: number) => void;
   processIncidentDecision: (tournamentId: string, incidentId: string, accept: boolean) => boolean;
 }
@@ -277,7 +277,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     return { homeScore: score.homeScore + shifted, awayScore: score.awayScore - shifted };
   }, []);
 
-  const createScheduleInternal = useCallback((t: Tournament): Tournament => {
+  const createScheduleInternal = useCallback((t: Tournament, randomize = false): Tournament => {
     const schedule: Match[] = [];
     const dualSchedule: Match[] = [];
     let matchIdCounter = 1;
@@ -300,20 +300,36 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       const n = participants.length;
       if (n < 2) return;
       const tempParticipants = [...participants];
+      if (randomize) {
+        for (let index = tempParticipants.length - 1; index > 0; index--) {
+          const swapIndex = Math.floor(Math.random() * (index + 1));
+          [tempParticipants[index], tempParticipants[swapIndex]] = [tempParticipants[swapIndex], tempParticipants[index]];
+        }
+      }
       if (n % 2 !== 0) tempParticipants.push('BYE');
       const numParticipants = tempParticipants.length;
       const rounds = numParticipants - 1;
       const matchesPerRound = numParticipants / 2;
+      const lastHome = new Map<string, boolean>();
 
       for (let roundIdx = 0; roundIdx < rounds; roundIdx++) {
         const matchday = roundIdx + 1;
         for (let i = 0; i < matchesPerRound; i++) {
-          const home = tempParticipants[i];
-          const away = tempParticipants[numParticipants - 1 - i];
+          let home = tempParticipants[i];
+          let away = tempParticipants[numParticipants - 1 - i];
           if (home !== 'BYE' && away !== 'BYE') {
+            if (randomize) {
+              const normalRepeats = Number(lastHome.get(home) === true) + Number(lastHome.get(away) === false);
+              const invertedRepeats = Number(lastHome.get(away) === true) + Number(lastHome.get(home) === false);
+              if (invertedRepeats < normalRepeats ||
+                  (invertedRepeats === normalRepeats && Math.random() < 0.5)) {
+                [home, away] = [away, home];
+              }
+              lastHome.set(home, true);
+              lastHome.set(away, false);
+            }
             const mId = `${t.id}${groupPrefix}-m-${matchIdCounter++}`;
             schedule.push({ id: mId, homeId: home, awayId: away, matchday, isSimulated: false });
-            if (t.dualLeagueEnabled) dualSchedule.push({ id: `dual-${mId}`, homeId: away, awayId: home, matchday, isSimulated: false });
           }
         }
         tempParticipants.splice(1, 0, tempParticipants.pop()!);
@@ -327,13 +343,25 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         createMatchesForList(t.participants);
       }
     }
+    if (t.dualLeagueEnabled && schedule.length > 0) {
+      const returnLegOffset = Math.max(...schedule.map(match => match.matchday));
+      for (const match of schedule) {
+        dualSchedule.push({
+          id: `dual-${match.id}`,
+          homeId: match.awayId,
+          awayId: match.homeId,
+          matchday: match.matchday + returnLegOffset,
+          isSimulated: false,
+        });
+      }
+    }
     return { ...t, matches: schedule, dualLeagueMatches: dualSchedule, currentMatchday: 1, incidents: t.incidents || [] };
   }, []);
 
-  const generateSchedule = useCallback((tournamentId: string) => {
+  const generateSchedule = useCallback((tournamentId: string, randomize = false) => {
     setTournaments(prev => prev.map(t => {
       if (t.id !== tournamentId) return t;
-      return createScheduleInternal(t);
+      return createScheduleInternal(t, randomize);
     }));
   }, [createScheduleInternal]);
 
@@ -391,29 +419,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         nextT.matches = updateMatchList(t.matches);
       }
 
-      if (t.mode === 'arcade' && t.dualLeagueEnabled && !isDual) {
-        const dualM = (nextT.dualLeagueMatches || []).find(dm => dm.matchday === targetMatch.matchday && ((dm.homeId === targetMatch.homeId && dm.awayId === targetMatch.awayId) || (dm.homeId === targetMatch.awayId && dm.awayId === targetMatch.homeId)));
-        if (dualM && !dualM.isSimulated) {
-           const dualHPlayer = getBestPlayerId(dualM.homeId, dualM.homeId === targetMatch.homeId ? hPlayerId : aPlayerId);
-           const dualAPlayer = getBestPlayerId(dualM.awayId, dualM.awayId === targetMatch.awayId ? aPlayerId : hPlayerId);
-           const dualBaseScore = generateScoreByRules(t, dualHPlayer, dualAPlayer);
-           const dualRes = applyFinancialPressure(t, dualM.homeId, dualM.awayId, dualBaseScore);
-           const dHScore = dualRes.homeScore;
-           const dAScore = dualRes.awayScore;
-           
-           nextT.dualLeagueMatches = nextT.dualLeagueMatches.map(nm => nm.id === dualM.id ? { ...nm, homeScore: dHScore, awayScore: dAScore, isSimulated: true, homePlayerId: dualHPlayer, awayPlayerId: dualAPlayer } : nm);
-           
-           setTimeout(() => {
-             setPlayers(pPrev => pPrev.map(pl => {
-               if (pl.id === dualHPlayer) return applyPlayerMatchDevelopment(pl, dHScore, dAScore);
-               if (pl.id === dualAPlayer) return applyPlayerMatchDevelopment(pl, dAScore, dHScore);
-               return pl;
-             }));
-           }, 0);
-        }
-      }
-
-      if (t.mode !== 'challenge' && !isDual) {
+      if (t.mode !== 'challenge') {
         const isHomeWin = hScore > aScore;
         const isAwayWin = aScore > hScore;
         const hChange = isHomeWin ? t.winReward : isAwayWin ? -t.lossPenalty : t.drawReward;
@@ -445,7 +451,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         nextT.teamBrokeMatchdays = ntBroke;
       }
 
-      if (t.mode === 'challenge' && !isDual) {
+      if (t.mode === 'challenge') {
         setTimeout(() => {
           setPlayers(previous => previous.map(player => {
             if (player.id === hPlayerId) return applyPlayerMatchDevelopment(player, hScore, aScore);
@@ -460,45 +466,32 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     return true;
   }, [generateScoreByRules, applyFinancialPressure, getBestPlayerId, teams, tournaments]);
 
-  const simulateMatchday = useCallback((tournamentId: string, matchdayNumber?: number) => {
+  const simulateMatchday = useCallback((tournamentId: string, matchdayNumber?: number, isDual = false) => {
     setTournaments(prev => prev.map(t => {
       if (t.id !== tournamentId) return t;
       let nextT = { ...t };
-      const dayMatches = t.matches.filter(m => m.matchday === matchdayNumber && !m.isSimulated);
+      const matchList = isDual ? (t.dualLeagueMatches || []) : t.matches;
+      const dayMatches = matchList.filter(m => m.matchday === matchdayNumber && !m.isSimulated);
       let ntBroke = { ...(t.teamBrokeMatchdays || {}) };
       let newIncidents: TournamentIncident[] = [];
       
       dayMatches.forEach(m => {
         const isUserMatch = (t.mode === 'arcade' && (m.homeId === t.managedParticipantId || m.awayId === t.managedParticipantId)) || (t.mode === 'challenge');
         if (!isUserMatch) {
-          const hPlayerId = getBestPlayerId(m.homeId);
-          const aPlayerId = getBestPlayerId(m.awayId);
+          const firstLeg = isDual
+            ? t.matches.find(firstMatch => firstMatch.homeId === m.awayId && firstMatch.awayId === m.homeId)
+            : undefined;
+          const hPlayerId = getBestPlayerId(m.homeId, firstLeg?.awayPlayerId) || getBestPlayerId(m.homeId);
+          const aPlayerId = getBestPlayerId(m.awayId, firstLeg?.homePlayerId) || getBestPlayerId(m.awayId);
           
           const baseScore = generateScoreByRules(t, hPlayerId, aPlayerId);
           const { homeScore: hScore, awayScore: aScore } = applyFinancialPressure(t, m.homeId, m.awayId, baseScore);
           
-          nextT.matches = nextT.matches.map(nm => nm.id === m.id ? { ...nm, homeScore: hScore, awayScore: aScore, isSimulated: true, homePlayerId: hPlayerId, awayPlayerId: aPlayerId } : nm);
-          
-          if (t.mode === 'arcade' && t.dualLeagueEnabled) {
-            const dualM = (nextT.dualLeagueMatches || []).find(dm => dm.matchday === m.matchday && ((dm.homeId === m.homeId && dm.awayId === m.awayId) || (dm.homeId === m.awayId && dm.awayId === m.homeId)));
-            if (dualM && !dualM.isSimulated) {
-               const dualHPlayer = getBestPlayerId(dualM.homeId, dualM.homeId === m.homeId ? hPlayerId : aPlayerId);
-               const dualAPlayer = getBestPlayerId(dualM.awayId, dualM.awayId === m.awayId ? aPlayerId : hPlayerId);
-               const dualBaseScore = generateScoreByRules(t, dualHPlayer, dualAPlayer);
-               const dualRes = applyFinancialPressure(t, dualM.homeId, dualM.awayId, dualBaseScore);
-               const dHScore = dualRes.homeScore;
-               const dAScore = dualRes.awayScore;
-               
-               nextT.dualLeagueMatches = (nextT.dualLeagueMatches || []).map(nm => nm.id === dualM.id ? { ...nm, homeScore: dHScore, awayScore: dAScore, isSimulated: true, homePlayerId: dualHPlayer, awayPlayerId: dualAPlayer } : nm);
-               
-               setTimeout(() => {
-                 setPlayers(pPrev => pPrev.map(pl => {
-                   if (pl.id === dualHPlayer) return applyPlayerMatchDevelopment(pl, dHScore, dAScore);
-                   if (pl.id === dualAPlayer) return applyPlayerMatchDevelopment(pl, dAScore, dHScore);
-                   return pl;
-                 }));
-               }, 0);
-            }
+          const updatedMatch = { ...m, homeScore: hScore, awayScore: aScore, isSimulated: true, homePlayerId: hPlayerId, awayPlayerId: aPlayerId };
+          if (isDual) {
+            nextT.dualLeagueMatches = (nextT.dualLeagueMatches || []).map(nm => nm.id === m.id ? updatedMatch : nm);
+          } else {
+            nextT.matches = nextT.matches.map(nm => nm.id === m.id ? updatedMatch : nm);
           }
 
           if (t.mode !== 'challenge') {

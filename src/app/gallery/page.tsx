@@ -55,7 +55,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function readableError(error: unknown): string {
-  return error instanceof Error ? error.message : 'Ocurrió un error inesperado.';
+  if (error instanceof Error) {
+    const code = 'code' in error ? error.code : undefined;
+    if (code === 'permission-denied') {
+      return 'Firebase ha rechazado la operación. Para publicar debes iniciar sesión con Google y tener desplegadas las reglas de Firestore de este proyecto.';
+    }
+    if (code === 'auth/unauthorized-domain') {
+      return 'Este dominio no está autorizado en Firebase Authentication. Añade tourneycraft.vercel.app a los dominios autorizados del proyecto.';
+    }
+    return error.message;
+  }
+  return 'Ocurrió un error inesperado.';
 }
 
 export default function GalleryPage() {
