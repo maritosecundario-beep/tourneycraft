@@ -25,7 +25,7 @@ interface TournamentDetailViewProps {
 }
 
 export function TournamentDetailView({ id }: TournamentDetailViewProps) {
-  const { tournaments, teams, players, resolveMatch, simulateMatchday, generateSchedule, resetSchedule, resetMatchday, updateTournament, settings, processIncidentDecision, transferPlayer, applySanction } = useTournamentStore();
+  const { tournaments, teams, players, resolveMatch, simulateMatchday, generateSchedule, resetSchedule, resetMatchday, updateTournament, settings, processIncidentDecision, transferPlayer, applySanction, clearPlayerSuspension } = useTournamentStore();
   const { toast } = useToast();
   const [tournament, setTournament] = useState<Tournament | null>(null);
   
@@ -45,6 +45,8 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
   const [sanctionType, setSanctionType] = useState<'team' | 'player'>('team');
   const [sanctionTargetId, setSanctionTargetId] = useState('');
   const [sanctionValue, setSanctionValue] = useState(0);
+  const [calendarViewMode, setCalendarViewMode] = useState<'pending' | 'all' | 'specific'>('pending');
+  const [selectedCalendarMatchday, setSelectedCalendarMatchday] = useState<number | null>(null);
 
   // Challenge Match State
   const [challengeMatch, setChallengeMatch] = useState<{ match: Match; sport: ChallengeSport } | null>(null);
@@ -239,19 +241,19 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
     const previousUserPlayerId = userTeamId === m.homeId ? firstLeg?.awayPlayerId : firstLeg?.homePlayerId;
     const previousAiPlayerId = aiTeamId === m.homeId ? firstLeg?.awayPlayerId : firstLeg?.homePlayerId;
     const availableUserPlayers = players.filter(p =>
-      p.teamId === userTeamId && p.suspensionMatchdays === 0 && p.id !== previousUserPlayerId,
+      p.teamId === userTeamId && (p.suspensionMatchdays || 0) <= 0 && p.id !== previousUserPlayerId,
     );
     const userPlayers = availableUserPlayers.length > 0
       ? availableUserPlayers
-      : players.filter(p => p.teamId === userTeamId && p.suspensionMatchdays === 0);
+      : players.filter(p => p.teamId === userTeamId && (p.suspensionMatchdays || 0) <= 0);
     setMUserPlayerId(userPlayers[0]?.id || '');
     
     const availableAiPlayers = players.filter(p =>
-      p.teamId === aiTeamId && p.suspensionMatchdays === 0 && p.id !== previousAiPlayerId,
+      p.teamId === aiTeamId && (p.suspensionMatchdays || 0) <= 0 && p.id !== previousAiPlayerId,
     );
     const aiPlayers = (availableAiPlayers.length > 0
       ? availableAiPlayers
-      : players.filter(p => p.teamId === aiTeamId && p.suspensionMatchdays === 0)
+      : players.filter(p => p.teamId === aiTeamId && (p.suspensionMatchdays || 0) <= 0)
     ).sort((a,b) => b.monetaryValue - a.monetaryValue);
     let aiChoice = aiPlayers[0]?.id || '';
     if (aiPlayers.length > 0) {
@@ -320,12 +322,46 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
           return principalMatch ? { ...match, matchday: principalMatch.matchday } : match;
         })
       : matchList;
+
     displayMatches.forEach(m => { if (!grouped[m.matchday]) grouped[m.matchday] = []; grouped[m.matchday].push(m); });
     const entries = Object.entries(grouped).sort(([a], [b]) => Number(a) - Number(b));
-    if (entries.length === 0) return <div className="text-center py-20 bg-muted/10 rounded-[2rem] border-2 border-dashed font-bold text-muted-foreground uppercase text-xs">Sin partidos programados.</div>;
+    const visibleEntries = calendarViewMode === 'pending'
+      ? entries.filter(([day]) => {
+          const dayNumber = Number(day);
+          const dayMatches = displayMatches.filter(match => match.matchday === dayNumber);
+          return dayMatches.some(match => !match.isSimulated);
+        })
+      : calendarViewMode === 'specific'
+        ? entries.filter(([day]) => Number(day) === selectedCalendarMatchday)
+        : entries;
+
+    if (visibleEntries.length === 0) return <div className="text-center py-20 bg-muted/10 rounded-[2rem] border-2 border-dashed font-bold text-muted-foreground uppercase text-xs">Sin partidos programados.</div>;
     return (
-      <div className="space-y-12">
-        {entries.map(([day, dayMatches]) => (
+      <div className="space-y-6">
+        <div className="flex flex-col gap-3 rounded-2xl border bg-muted/10 p-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex gap-2 rounded-xl bg-card p-1">
+            <Button variant={calendarViewMode === 'pending' ? 'default' : 'ghost'} size="sm" className="rounded-lg text-[10px] font-black uppercase" onClick={() => setCalendarViewMode('pending')}>Por jugar</Button>
+            <Button variant={calendarViewMode === 'all' ? 'default' : 'ghost'} size="sm" className="rounded-lg text-[10px] font-black uppercase" onClick={() => setCalendarViewMode('all')}>Todas</Button>
+            <Button variant={calendarViewMode === 'specific' ? 'default' : 'ghost'} size="sm" className="rounded-lg text-[10px] font-black uppercase" onClick={() => {
+              setCalendarViewMode('specific');
+              if (selectedCalendarMatchday === null || !entries.some(([day]) => Number(day) === selectedCalendarMatchday)) {
+                const nextDay = entries.find(([, matches]) => matches.some(match => !match.isSimulated))?.[0] || entries[0]?.[0];
+                setSelectedCalendarMatchday(nextDay ? Number(nextDay) : null);
+              }
+            }}>Jornada concreta</Button>
+          </div>
+          {calendarViewMode === 'specific' && (
+            <Select value={selectedCalendarMatchday === null ? undefined : String(selectedCalendarMatchday)} onValueChange={(value) => { setSelectedCalendarMatchday(Number(value)); setCalendarViewMode('specific'); }}>
+              <SelectTrigger className="h-10 w-full rounded-xl bg-card md:w-48"><SelectValue placeholder="Selecciona jornada" /></SelectTrigger>
+              <SelectContent>
+                {entries.map(([day]) => (
+                  <SelectItem key={day} value={day} className="text-xs font-black">Jornada {day}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          </div>
+        {visibleEntries.map(([day, dayMatches]) => (
           <div key={`mday-m-${day}`} className="space-y-4">
             <div className="flex flex-wrap items-center gap-3">
               <Badge variant="secondary" className="bg-primary text-white font-black uppercase">JORNADA {day}</Badge>
@@ -624,6 +660,31 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
                         toast({ title: "Sanción Aplicada" });
                         setSanctionTargetId(''); setSanctionValue(0);
                     }}>APLICAR SANCIÓN</Button>
+                    {sanctionType === 'player' && (
+                      <div className="rounded-2xl border border-border/60 bg-muted/20 p-3">
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Sanciones activas</p>
+                          <Badge variant="outline" className="rounded-full px-2 py-0.5 text-[9px] font-black uppercase">
+                            {players.filter(player => player.suspensionMatchdays > 0 && player.teamId && tournament.participants.includes(player.teamId)).length}
+                          </Badge>
+                        </div>
+                        <div className="space-y-2">
+                          {players.filter(player => player.suspensionMatchdays > 0 && player.teamId && tournament.participants.includes(player.teamId)).length === 0 ? (
+                            <p className="text-[10px] font-bold text-muted-foreground">No hay jugadores sancionados.</p>
+                          ) : players.filter(player => player.suspensionMatchdays > 0 && player.teamId && tournament.participants.includes(player.teamId)).map(player => (
+                            <div key={player.id} className="flex items-center justify-between gap-3 rounded-xl border bg-card p-2">
+                              <div className="min-w-0">
+                                <p className="truncate text-xs font-black uppercase">{player.name}</p>
+                                <p className="text-[10px] font-bold text-muted-foreground">{player.suspensionMatchdays} jornada{player.suspensionMatchdays > 1 ? 's' : ''}</p>
+                              </div>
+                              <Button size="sm" variant="outline" className="h-8 rounded-lg border-primary/30 text-primary text-[10px] font-black uppercase" onClick={() => clearPlayerSuspension(player.id)}>
+                                Indultar
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>
@@ -753,11 +814,11 @@ export function TournamentDetailView({ id }: TournamentDetailViewProps) {
               ? firstLeg?.awayPlayerId
               : firstLeg?.homePlayerId;
             const availableUserPlayers = players.filter(p =>
-              p.teamId === userTeamId && p.suspensionMatchdays === 0 && p.id !== previousUserPlayerId,
+              p.teamId === userTeamId && (p.suspensionMatchdays || 0) <= 0 && p.id !== previousUserPlayerId,
             );
             const userPlayers = availableUserPlayers.length > 0
               ? availableUserPlayers
-              : players.filter(p => p.teamId === userTeamId && p.suspensionMatchdays === 0);
+              : players.filter(p => p.teamId === userTeamId && (p.suspensionMatchdays || 0) <= 0);
             const aiPlayerObj = players.find(p => p.id === mAiPlayerId);
             const homeAgent = isHomeUser ? players.find(p => p.id === mUserPlayerId) : aiPlayerObj;
             const awayAgent = isHomeUser ? aiPlayerObj : players.find(p => p.id === mUserPlayerId);

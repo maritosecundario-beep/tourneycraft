@@ -47,6 +47,7 @@ interface TournamentContextType {
   resolveMatch: (tournamentId: string, matchId: string, homeScore: number, awayScore: number, isDual: boolean, homePlayerId?: string, awayPlayerId?: string, autoSim?: boolean) => boolean;
   simulateMatchday: (tournamentId: string, matchdayNumber?: number) => void;
   applySanction: (tournamentId: string, type: 'team' | 'player', targetId: string, value: number) => void;
+  clearPlayerSuspension: (playerId: string) => void;
   processIncidentDecision: (tournamentId: string, incidentId: string, accept: boolean) => boolean;
 }
 
@@ -70,7 +71,7 @@ function chooseDualLeaguePlayer(
   mainLeaguePlayerId?: string,
 ): string | undefined {
   const available = players
-    .filter(player => player.teamId === teamId && player.suspensionMatchdays === 0 && player.id !== mainLeaguePlayerId)
+    .filter(player => player.teamId === teamId && (player.suspensionMatchdays || 0) <= 0 && player.id !== mainLeaguePlayerId)
     .sort((a, b) => b.monetaryValue - a.monetaryValue);
   if (available.length === 0) return undefined;
   if (available.length === 1 || Math.random() < 0.6) return available[0].id;
@@ -308,7 +309,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   }, [teams, players, tournaments, settings, profiles, activeProfileId, isLoaded, user, firestore, toast]);
 
   const getBestPlayerId = useCallback((teamId: string, excludePlayerId?: string) => {
-    const teamPlayers = players.filter(p => p.teamId === teamId && p.suspensionMatchdays === 0 && p.id !== excludePlayerId);
+    const teamPlayers = players.filter(p => p.teamId === teamId && (p.suspensionMatchdays || 0) <= 0 && p.id !== excludePlayerId);
     if (teamPlayers.length === 0) return undefined;
     const sorted = [...teamPlayers].sort((a, b) => b.monetaryValue - a.monetaryValue);
     const rand = Math.random();
@@ -493,6 +494,21 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       } else {
         nextT.matches = updateMatchList(t.matches);
       }
+      const matchdayJustCompleted = !isDual &&
+        t.matches.some(match => match.matchday === targetMatch.matchday && !match.isSimulated) &&
+        nextT.matches.filter(match => match.matchday === targetMatch.matchday).every(match => match.isSimulated);
+      const previouslySuspendedPlayers = new Set(
+        players
+          .filter(player =>
+            player.teamId &&
+            (player.suspensionMatchdays || 0) > 0 &&
+            t.matches.some(match =>
+              match.matchday === targetMatch.matchday &&
+              (match.homeId === player.teamId || match.awayId === player.teamId),
+            ),
+          )
+          .map(player => player.id),
+      );
 
       let linkedDualResult: { match: Match; homePlayerId?: string; awayPlayerId?: string; homeScore: number; awayScore: number } | undefined;
       if (!isDual && t.dualLeagueEnabled && t.mode !== 'challenge') {
@@ -566,6 +582,9 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
             if (linkedDualResult?.awayPlayerId && pl.id === linkedDualResult.awayPlayerId) {
               nextPlayer = applyPlayerMatchDevelopment(nextPlayer, linkedDualResult.awayScore, linkedDualResult.homeScore);
             }
+            if (matchdayJustCompleted && previouslySuspendedPlayers.has(pl.id)) {
+              nextPlayer = { ...nextPlayer, suspensionMatchdays: Math.max(0, (nextPlayer.suspensionMatchdays || 0) - 1) };
+            }
             return nextPlayer;
           }));
         }, 0);
@@ -638,6 +657,18 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       const dayMatches = t.matches.filter(m => m.matchday === matchdayNumber && !m.isSimulated);
       let ntBroke = { ...(t.teamBrokeMatchdays || {}) };
       let newIncidents: TournamentIncident[] = [];
+      const previouslySuspendedPlayers = new Set(
+        players
+          .filter(player =>
+            player.teamId &&
+            (player.suspensionMatchdays || 0) > 0 &&
+            t.matches.some(match =>
+              match.matchday === matchdayNumber &&
+              (match.homeId === player.teamId || match.awayId === player.teamId),
+            ),
+          )
+          .map(player => player.id),
+      );
       
       dayMatches.forEach(m => {
         const isUserMatch = (t.mode === 'arcade' && (m.homeId === t.managedParticipantId || m.awayId === t.managedParticipantId)) || (t.mode === 'challenge');
@@ -785,6 +816,18 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         nextT.matches
           .filter(match => match.matchday === matchdayNumber)
           .every(match => match.isSimulated);
+      const dayJustCompleted = dayCompleted && t.matches.some(
+        match => match.matchday === matchdayNumber && !match.isSimulated,
+      );
+      if (dayJustCompleted && previouslySuspendedPlayers.size > 0) {
+        setTimeout(() => {
+          setPlayers(previous => previous.map(player =>
+            previouslySuspendedPlayers.has(player.id)
+              ? { ...player, suspensionMatchdays: Math.max(0, (player.suspensionMatchdays || 0) - 1) }
+              : player,
+          ));
+        }, 0);
+      }
       if (t.mode === 'arcade' && dayCompleted && matchdayNumber !== undefined) {
         const offers = createArcadeMarketOffers(
           t,
@@ -945,10 +988,17 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         if (data.settings) setSettings(data.settings);
       }
     },
-    generateSchedule, resetSchedule, resetMatchday, resolveMatch, simulateMatchday, 
+    generateSchedule, resetSchedule, resetMatchday, resolveMatch, simulateMatchday,
     applySanction: (tId: string, type: 'team' | 'player', targetId: string, val: number) => {
-      if (type === 'team') setTeams(p => p.map(t => t.id === targetId ? { ...t, budget: Math.max(0, t.budget - val) } : t));
-      else setPlayers(p => p.map(pl => pl.id === targetId ? { ...pl, suspensionMatchdays: val } : pl));
+      const safeValue = Math.max(1, Math.floor(val || 1));
+      if (type === 'team') {
+        setTeams(p => p.map(t => t.id === targetId ? { ...t, budget: Math.max(0, t.budget - safeValue) } : t));
+      } else {
+        setPlayers(p => p.map(pl => pl.id === targetId ? { ...pl, suspensionMatchdays: Math.max(0, (pl.suspensionMatchdays || 0) + safeValue) } : pl));
+      }
+    },
+    clearPlayerSuspension: (playerId: string) => {
+      setPlayers(p => p.map(player => player.id === playerId ? { ...player, suspensionMatchdays: 0 } : player));
     },
     processIncidentDecision: (tId: string, incidentId: string, accept: boolean) => {
       const incidentKey = `${tId}:${incidentId}`;
